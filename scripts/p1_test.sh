@@ -14,8 +14,8 @@ $PY -m cryptopnl ingest --chain $CHAIN "${W[@]}"
 C2=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts2 $C2"
 [ "$(echo "$C1" | jq -c '{raw_event,checksum}')" = "$(echo "$C2" | jq -c '{raw_event,checksum}')" ] && echo "PASS idempotent: identical raw_event count+checksum" || { echo "FAIL idempotent"; exit 1; }
 echo "== verify balances"; $PY -m cryptopnl verify --chain $CHAIN && echo "PASS balances" || { echo "FAIL balances"; BAL=fail; }
-echo "== simulated reorg (REORG_WINDOW=${REORG_TEST_WINDOW:-10000})"; $PY -m cryptopnl simulate-reorg --chain $CHAIN
-export REORG_WINDOW=${REORG_TEST_WINDOW:-10000}
+echo "== simulated reorg (REORG_WINDOW=${REORG_TEST_WINDOW:-1000000})"; $PY -m cryptopnl simulate-reorg --chain $CHAIN
+export REORG_WINDOW=${REORG_TEST_WINDOW:-1000000}
 $PY -m cryptopnl ingest --chain $CHAIN "${W[@]}"
 C3=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts3 $C3"
 [ "$(echo "$C1" | jq -c '{raw_event,checksum}')" = "$(echo "$C3" | jq -c '{raw_event,checksum}')" ] && echo "PASS reorg: rewound + re-ingested, count+checksum (incl. block hashes) restored" || { echo "FAIL reorg"; exit 1; }

@@ -2,7 +2,8 @@
 import json
 from .db import hx
 from .sources import RPC
-from .config import CHAINS
+from .config import CHAINS, TRACKED
+import os
 
 def ledger(conn, chain, w, block):
     out = {}
@@ -29,7 +30,7 @@ def onchain(rpc, w, asset, block):
     return int(r, 16) if r and r != "0x" else 0
 
 def verify(conn, chain, log=print):
-    rpc = RPC(CHAINS[chain]["rpc"]); total = ok = 0; fails = []
+    rpc = RPC(CHAINS[chain]["rpc"]); total = ok = 0; fails = []; ttotal = 0; tr0 = TRACKED.get(chain, set())
     for wid, addr, last in conn.execute("""SELECT w.id, w.address, c.last_block FROM wallet w JOIN sync_cursor c ON c.wallet_id=w.id
                                            WHERE w.chain_id=%s AND c.source='hypersync'""", (chain,)).fetchall():
         w = hx(addr).lower()
@@ -47,13 +48,20 @@ def verify(conn, chain, log=print):
         for blk in blocks:
             exp = ledger(conn, chain, w, blk)
             for a in sorted(assets, key=str):
-                total += 1
+                total += 1; ttotal += a[0] in tr0
                 try: got = onchain(rpc, w, a, blk)
                 except Exception as e: got = f"ERR {str(e)[:80]}"
                 e_ = exp.get(a, 0)
                 if got == e_: ok += 1
                 else: fails.append({"wallet_id": wid, "block": blk, "asset": a, "raw_event": str(e_), "rpc": str(got)})
         log(json.dumps({"chain": chain, "wallet_id": wid, "blocks": blocks, "head_block": last, "assets": len(assets)}))
+    tr = TRACKED.get(chain)
+    if tr is not None:
+        tfail = [f for f in fails if f["asset"][0] in tr]
+        log(json.dumps({"chain": chain, "tracked_checks": ttotal, "tracked_assets_mismatch": len(tfail), "untracked_mismatch": len(fails) - len(tfail)}))
+        for f in tfail: log("TRACKED_MISMATCH " + json.dumps(f))
+    out = os.environ.get("VERIFY_OUT")
+    if out: json.dump(fails, open(out, "w"), indent=0)
     log(json.dumps({"chain": chain, "balance_checks": total, "match": ok, "mismatch": len(fails)}))
     for f in fails[:40]: log("MISMATCH " + json.dumps(f))
     return total, ok, fails
