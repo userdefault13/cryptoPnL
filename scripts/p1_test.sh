@@ -9,7 +9,7 @@ echo "== migrate"; $PY -m cryptopnl migrate
 echo "== ingest #1"; $PY -m cryptopnl ingest --chain $CHAIN "${W[@]}"
 C1=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts1 $C1"
 echo "== ingest #2 (reset cursors to re-scan full history)"
-psql -q "$CRYPTOPNL_DSN" -c "DELETE FROM sync_cursor c USING wallet w WHERE w.id=c.wallet_id AND w.chain_id=$CHAIN" -c "DELETE FROM sync_cursor_global WHERE chain_id=$CHAIN"
+psql -q "$CRYPTOPNL_DSN" -c "DELETE FROM sync_cursor c USING wallet w WHERE w.id=c.wallet_id AND w.chain_id=$CHAIN" -c "DELETE FROM sync_cursor_global WHERE chain_id=$CHAIN" -c "DELETE FROM parent_scan WHERE chain_id=$CHAIN"
 $PY -m cryptopnl ingest --chain $CHAIN "${W[@]}"
 C2=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts2 $C2"
 [ "$(echo "$C1" | jq -c '{raw_event,checksum}')" = "$(echo "$C2" | jq -c '{raw_event,checksum}')" ] && echo "PASS idempotent: identical raw_event count+checksum" || { echo "FAIL idempotent"; exit 1; }

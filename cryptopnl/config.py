@@ -39,3 +39,13 @@ def _allow():
     return out
 ALLOWLIST = _allow()   # config/allowlist.txt: "<chain_id> <contract>" per line
 def gated(chain): return TRACKED.get(chain, set()) | ALLOWLIST.get(chain, set())
+
+# P1.1 wearables: one asset per chain; ERC1155 events counted only from `emitter`, reported under `canonical`
+# (holds balanceOf/balanceOfToken + emits TransferToParent/FromParent). `aliases` = mirrored contracts.
+WEARABLES = {
+  8453:  {"canonical": "0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "emitter": "0x052e6c114a166b0e91c2340370d72d4c33752b4b",
+          "aliases": ["0x052e6c114a166b0e91c2340370d72d4c33752b4b"], "parent": "0xa99c4b08201f2913db8d28e71d020c4298f29dbf"},
+  # Sepolia: provisional until cryptoPnL Architect confirms emitter/canonical (both contracts emit identical mints)
+  84532: {"canonical": "0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "emitter": "0x4773f06fb66735f1350a2db582660cbf6c0ff64b",
+          "aliases": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1"], "parent": "0x4773f06fb66735f1350a2db582660cbf6c0ff64b"},
+}

@@ -67,3 +67,24 @@ class HyperSyncContractLogs(HyperSyncWalletLogs):
             nb = r["next_block"]
             if nb <= b: break
             b = nb
+
+T_TO_PARENT = "0xe82810099d182b25e23e895715954d6e7b41867a02e2c693cce68a8f250e43d3"
+T_FROM_PARENT = "0x4b287e36a0531da8ccee303de127c778302f48d8fc9569b1fe1dcb9d64465c6d"
+class HyperSyncParentTransfers(HyperSyncWalletLogs):
+    """Aavegotchi TransferToParent/TransferFromParent for given gotchi ids (topic2), from the parent diamond."""
+    name = "hypersync_parent"
+    def fetch_ids(self, contract, gotchi_ids, frm, to):
+        ids = ["0x" + hex(int(i))[2:].rjust(64, "0") for i in gotchi_ids]
+        b = frm
+        while b <= to:
+            q = {"from_block": b, "to_block": to + 1,
+                 "logs": [{"address": [contract], "topics": [[T_TO_PARENT, T_FROM_PARENT], [], ids]}],
+                 "field_selection": {"log": ["block_number", "block_hash", "transaction_hash", "log_index", "address",
+                                             "topic0", "topic1", "topic2", "topic3", "data"],
+                                     "block": ["number", "hash", "timestamp"]}}
+            r = post_json("hypersync", self._lim, self.url, q, self.headers)
+            yield ([l for d in r.get("data", []) for l in (d.get("logs") or [])],
+                   [x for d in r.get("data", []) for x in (d.get("blocks") or [])])
+            nb = r["next_block"]
+            if nb <= b: break
+            b = nb
