@@ -1,6 +1,7 @@
-# cryptoPnL: Envio (HyperIndex) Token Backfill Indexer, Base-first (design v0.7)
+# cryptoPnL: Envio (HyperIndex) Token Backfill Indexer, Base-first (design v0.8)
 
 Owner: user_default · Status: **design only (approved to design). No build, no repo changes, nothing run on the M1.**
+Changelog: v0.8 (2026-10-16): **No Goldsky.** The HyperSync budget is approved at 15/min (M1 8 + omarchywin 7), and §5b option A is confirmed. Free RPC primary = **base.drpc.org** (archive `eth_call`; `getLogs` ≤ 100 blocks), with mainnet.base.org secondary. AarcadeGh$t is used for point lookups only. Marketplace (Baazaar/GBM) events may be added to this stack later (DESIGN §1.4).
 Changelog: v0.7 (2026-10-15): **No paid RPC, no Alchemy, no Etherscan** (user_default; Etherscan v2 deferred). Every Etherscan/`eth_getLogs` history path is replaced by HyperSync, and the free public RPC `mainnet.base.org` handles spot/at-block `eth_call`, `balanceOf` and receipts (tested). Internal ETH is a **known gap**, since traces are a paid HyperSync add-on and the public RPC rejects debug/trace. Public-RPC limits and backoff are added, and the per-address ETA depends on the pending split. §5c supersedes earlier Etherscan/RPC mentions.
 Changelog: v0.6 (2026-10-15): **Builder P0 measured HyperSync at about 15 queries/min for the whole account** (15,000 per 60s at 1,000 per query), not 29. Proposed split: M1 8 + omarchywin 7 = 15, with 429 backoff and coupled caps. ETAs recomputed at 7 RPM. **The traces dependency is removed** (likely unsupported on Base); internal ETH comes from Etherscan v2 `txlistinternal`. Every 29/18/10 RPM figure below is superseded by §5b.
 Changelog: v0.5 (2026-10-15): **No M1 dependency except the proxy entry.** omarchywin gets its own local hypersync-throttle (10 RPM, localhost plus docker bridge only). The M1 throttle bind/ACL change and the forward option are removed. The token comes from omarchywin's own abra. ETA is recomputed at 10 RPM, and the first build steps are updated. Earlier "18 RPM shared / 10–15 RPM ours" figures are superseded by §5a.
@@ -133,7 +134,7 @@ BASE_MAINNET_RPC=<abra:base-rpc-url>                    # fallback + slot0-at-bl
 **Proposed split (sum ≤ 15):**
 | Option | M1 | omarchywin | Notes |
 |---|---|---|---|
-| **A (recommended)** | **8** | **7** | The M1 stacks (monolith, gotchiverse, svg) are caught up and only poll the tip; 8 RPM is ample |
+| **A (approved 2026-10-16)** | **8** | **7** | The M1 stacks (monolith, gotchiverse, svg) are caught up and only poll the tip; 8 RPM is ample |
 | B | 10 | 5 | Safer for the M1, slower cryptoPnL backfill |
 Changing the M1 cap (18 → 8) is **Home Infra CoS's call and needs user_default's approval**. **Both caps change together**, always keeping M1 + omarchywin ≤ 15. Both throttles must also **back off on HTTP 429**: honor `Retry-After`, otherwise exponential backoff with jitter starting at 4s, and lower the effective rate for 5 minutes after a 429.
 
@@ -144,7 +145,7 @@ Changing the M1 cap (18 → 8) is **Home Infra CoS's call and needs user_default
 **Decision (user_default, 2026-10-15):** no paid Base RPC, no Alchemy, no Etherscan (v2 deferred).
 - **History = HyperSync only**, on the existing token (abra `aavegotchi-envio-indexers/ENVIO_API_TOKEN`) through the local throttle. Covers transfers, swaps, WETH deposit/withdrawal and wallet transactions (`from`/`to` = address, incl. `value`, `gasUsed`, `effectiveGasPrice` and L1 fee fields where HyperSync exposes them; otherwise from receipts via RPC).
 - **Per-address "first view":** no longer "seconds via Etherscan". GHST/alchemica/GLTR show **instantly** from the Envio stack. USDC/WETH/cbBTC/ETH stream in **progressively**: the HyperSync job writes each page as it lands, with a "syncing…" banner and a `synced_to_block` progress bar.
-- **Free public RPC** = `https://mainnet.base.org` (and `https://sepolia.base.org` for staging), for spot and at-block `eth_call` (`slot0`, `balanceOf`) and `eth_getTransactionReceipt`. Never used for log history.
+- **Free RPC (v0.8)** = `https://base.drpc.org` primary (archive `eth_call` works, `eth_getLogs` ≤ 100 blocks, last-resort gap fill only) + `https://mainnet.base.org` secondary for spot calls (and `https://sepolia.base.org` for staging), for spot and at-block `eth_call` (`slot0`, `balanceOf`) and `eth_getTransactionReceipt`. Never used for log history.
 
 **Free public RPC test (read-only, 2026-10-15 PT, `https://mainnet.base.org`):** `eth_call` at **old blocks works**. `slot0()` on the WETH/USDC 0.05% pool returned state at blocks 4,000,000 and 30,000,000. GHST `balanceOf(pool)` returned at block 20,000,000. `eth_getCode` at block 1,371,680 worked earlier. So historical state **was served for these sample calls**, but Base docs give **no archive guarantee and no numeric limit** ("rate-limited, not suitable for production"; HTTP only, no WebSocket). `debug_traceTransaction`, `debug_traceBlockByNumber` and `trace_block` were **rejected** ("rejected due to request filter settings"). Earlier, `eth_getLogs` hit "request limit reached". `base-rpc.publicnode.com` refused historical requests ("Archive requests require a personal token"). Other free endpoints (`sepolia.base.org` for testnet) are documented. No others are assumed.
 
