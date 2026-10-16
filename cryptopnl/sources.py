@@ -2,7 +2,7 @@
 The AarcadeGh$t proxy is a point-lookup source only (single-row responses); no Goldsky."""
 import os
 from .net import Limiter, post_json
-from .config import HYPERSYNC_RPM, RPC_RPS
+from .config import HYPERSYNC_RPM, RPC_RPS, RPC_BURST
 TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 T1155S = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
 T1155B = "0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb"
@@ -10,7 +10,7 @@ def topic_addr(a): return "0x" + "0" * 24 + a.lower()[2:]
 def h2i(x): return x if isinstance(x, int) else int(x, 16)
 
 class RPC:
-    def __init__(self, url): self.url = url; self.lim = Limiter(RPC_RPS)
+    def __init__(self, url): self.url = url; self.lim = Limiter(RPC_RPS, RPC_BURST)
     def call(self, method, params):
         r = post_json("rpc", self.lim, self.url, {"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
         if "error" in r: raise RuntimeError(f"rpc {method}: {r['error']}")
