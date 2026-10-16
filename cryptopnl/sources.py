@@ -45,10 +45,11 @@ class HyperSyncWalletLogs:
             r = post_json("hypersync", self._lim, self.url, q, self.headers)
             logs = [l for d in r.get("data", []) for l in (d.get("logs") or [])]
             blocks = [x for d in r.get("data", []) for x in (d.get("blocks") or [])]
-            yield logs, blocks
             nb = r["next_block"]
+            if nb > b: self.covered = min(nb - 1, to)   # set BEFORE yield so per-page checkpoints see this page
+            yield logs, blocks
             if nb <= b: break   # non-advancing: stop; covered stays at last page actually returned
-            self.covered = min(nb - 1, to); b = nb
+            b = nb
 
 class HyperSyncContractLogs(HyperSyncWalletLogs):
     """All logs with the given topic0s from the given contracts (bulk marketplace ingest)."""
@@ -62,11 +63,12 @@ class HyperSyncContractLogs(HyperSyncWalletLogs):
                                              "topic0", "topic1", "topic2", "topic3", "data"],
                                      "block": ["number", "hash", "timestamp"]}}
             r = post_json("hypersync", self._lim, self.url, q, self.headers)
+            nb = r["next_block"]
+            if nb > b: self.covered = min(nb - 1, to)   # set BEFORE yield so per-page checkpoints see this page
             yield ([l for d in r.get("data", []) for l in (d.get("logs") or [])],
                    [x for d in r.get("data", []) for x in (d.get("blocks") or [])])
-            nb = r["next_block"]
             if nb <= b: break   # non-advancing: stop; covered stays at last page actually returned
-            self.covered = min(nb - 1, to); b = nb
+            b = nb
 
 T_TO_PARENT = "0xe82810099d182b25e23e895715954d6e7b41867a02e2c693cce68a8f250e43d3"
 T_FROM_PARENT = "0x4b287e36a0531da8ccee303de127c778302f48d8fc9569b1fe1dcb9d64465c6d"
@@ -83,8 +85,9 @@ class HyperSyncParentTransfers(HyperSyncWalletLogs):
                                              "topic0", "topic1", "topic2", "topic3", "data"],
                                      "block": ["number", "hash", "timestamp"]}}
             r = post_json("hypersync", self._lim, self.url, q, self.headers)
+            nb = r["next_block"]
+            if nb > b: self.covered = min(nb - 1, to)
             yield ([l for d in r.get("data", []) for l in (d.get("logs") or [])],
                    [x for d in r.get("data", []) for x in (d.get("blocks") or [])])
-            nb = r["next_block"]
             if nb <= b: break
-            self.covered = min(nb - 1, to); b = nb
+            b = nb
