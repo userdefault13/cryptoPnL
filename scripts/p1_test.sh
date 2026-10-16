@@ -21,9 +21,11 @@ set +e; $PY -m cryptopnl verify-wearables --chain $CHAIN; WR=$?; set -e
 case $WR in 0) echo "PASS wearables";; 3) echo "N/A wearables";; *) echo "FAIL wearables"; BAL=fail;; esac
 echo "== simulated reorg"
 T=$($PY -m cryptopnl simulate-reorg --chain $CHAIN 2>/dev/null); echo "$T"
-HEAD=$(psql -Atq "$CRYPTOPNL_DSN" -c "SELECT max(c.last_block) FROM sync_cursor c JOIN wallet w ON w.id=c.wallet_id WHERE w.chain_id=$CHAIN")
+# top = newest of ALL cursors (wallet + global); reorg_check measures the window from that. +100k margin because
+# cursors advance to the live head during the re-ingest itself (a paused host made the old derivation miss by 41 blocks).
+HEAD=$(psql -Atq "$CRYPTOPNL_DSN" -c "SELECT greatest((SELECT max(c.last_block) FROM sync_cursor c JOIN wallet w ON w.id=c.wallet_id WHERE w.chain_id=$CHAIN),(SELECT max(last_block) FROM sync_cursor_global WHERE chain_id=$CHAIN))")
 # re-check window must cover the tampered blocks (in production: default 10k-block window + safe tag)
-export REORG_WINDOW=$(( HEAD - $(echo "$T" | jq '.tampered_blocks|min') + 1 )); echo "REORG_WINDOW=$REORG_WINDOW"
+export REORG_WINDOW=$(( HEAD - $(echo "$T" | jq '.tampered_blocks|min') + 1 + 100000 )); echo "REORG_WINDOW=$REORG_WINDOW"
 $PY -m cryptopnl ingest --chain $CHAIN "${W[@]}"
 C3=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts3 $C3"
 [ "$(echo "$C1" | jq -c '{raw_event,checksum}')" = "$(echo "$C3" | jq -c '{raw_event,checksum}')" ] && echo "PASS reorg: rewound + re-ingested, count+checksum (incl. block hashes) restored" || { echo "FAIL reorg"; exit 1; }
