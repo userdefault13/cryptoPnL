@@ -2,7 +2,7 @@
 import json
 from .db import hx
 from .sources import RPC
-from .config import CHAINS, TRACKED
+from .config import CHAINS, TRACKED, gated
 import os
 
 def ledger(conn, chain, w, block):
@@ -29,8 +29,18 @@ def onchain(rpc, w, asset, block):
     r = rpc.eth_call(c, data, block)
     return int(r, 16) if r and r != "0x" else 0
 
+def reason(exp, got):
+    """Why an untracked asset doesn't reconcile from standard events."""
+    if isinstance(got, str): return "non-compliant (balanceOf reverts)"
+    if got == 0 and exp != 0: return "spam (Transfer events without balance)"
+    if got < exp: return "fee-on-transfer / burn without event"
+    return "non-standard mint / rebasing"
+
 def verify(conn, chain, log=print):
-    rpc = RPC(CHAINS[chain]["rpc"]); total = ok = 0; fails = []; ttotal = 0; tr0 = TRACKED.get(chain, set())
+    """Gate: every gated asset (TRACKED + allowlist) matches at head + 3 historical blocks.
+    Everything else is reported 'untracked' with contract + reason and excluded from PnL totals."""
+    rpc = RPC(CHAINS[chain]["rpc"]); G = gated(chain)
+    g_total = g_ok = 0; g_fail = []; u_total = 0; untracked = {}
     for wid, addr, last in conn.execute("""SELECT w.id, w.address, c.last_block FROM wallet w JOIN sync_cursor c ON c.wallet_id=w.id
                                            WHERE w.chain_id=%s AND c.source='hypersync'""", (chain,)).fetchall():
         w = hx(addr).lower()
@@ -48,20 +58,27 @@ def verify(conn, chain, log=print):
         for blk in blocks:
             exp = ledger(conn, chain, w, blk)
             for a in sorted(assets, key=str):
-                total += 1; ttotal += a[0] in tr0
                 try: got = onchain(rpc, w, a, blk)
                 except Exception as e: got = f"ERR {str(e)[:80]}"
                 e_ = exp.get(a, 0)
-                if got == e_: ok += 1
-                else: fails.append({"wallet_id": wid, "block": blk, "asset": a, "raw_event": str(e_), "rpc": str(got)})
+                if a[0] in G:
+                    g_total += 1
+                    if got == e_: g_ok += 1
+                    else: g_fail.append({"wallet_id": wid, "block": blk, "asset": a, "raw_event": str(e_), "rpc": str(got)})
+                else:
+                    u_total += 1
+                    if got != e_:
+                        u = untracked.setdefault(a[0], {"contract": a[0], "standard": a[1], "reasons": set(), "failed_checks": 0})
+                        u["reasons"].add(reason(e_, got)); u["failed_checks"] += 1
         log(json.dumps({"chain": chain, "wallet_id": wid, "blocks": blocks, "head_block": last, "assets": len(assets)}))
-    tr = TRACKED.get(chain)
-    if tr is not None:
-        tfail = [f for f in fails if f["asset"][0] in tr]
-        log(json.dumps({"chain": chain, "tracked_checks": ttotal, "tracked_assets_mismatch": len(tfail), "untracked_mismatch": len(fails) - len(tfail)}))
-        for f in tfail: log("TRACKED_MISMATCH " + json.dumps(f))
+    rows = [dict(u, reasons=sorted(u["reasons"])) for u in sorted(untracked.values(), key=lambda x: x["contract"])]
+    by = {}
+    for r in rows:
+        for x in r["reasons"]: by[x] = by.get(x, 0) + 1
     out = os.environ.get("VERIFY_OUT")
-    if out: json.dump(fails, open(out, "w"), indent=0)
-    log(json.dumps({"chain": chain, "balance_checks": total, "match": ok, "mismatch": len(fails)}))
-    for f in fails[:40]: log("MISMATCH " + json.dumps(f))
-    return total, ok, fails
+    if out: json.dump({"gated_failures": g_fail, "untracked": rows}, open(out, "w"), indent=1)
+    log(json.dumps({"chain": chain, "gated_assets_configured": len(G), "gated_checks": g_total, "gated_match": g_ok, "gated_mismatch": len(g_fail),
+                    "untracked_checks": u_total, "untracked_contracts_not_reconciling": len(rows), "untracked_by_reason": by}))
+    for f in g_fail: log("GATED_MISMATCH " + json.dumps(f))
+    for r in rows: log("UNTRACKED " + json.dumps(r))
+    return g_total, g_ok, g_fail

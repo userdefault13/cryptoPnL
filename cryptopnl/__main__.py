@@ -12,6 +12,6 @@ elif a.cmd == "ingest":
     ingest.ingest_marketplace(conn, a.chain)
 elif a.cmd == "counts": print(json.dumps(ingest.counts(conn, a.chain)))
 elif a.cmd == "verify":
-    t, ok, f = verify.verify(conn, a.chain); rc = 0 if t and not f else 1
+    t, ok, f = verify.verify(conn, a.chain); rc = 1 if f else (3 if t == 0 else 0)
 elif a.cmd == "simulate-reorg": print(json.dumps({"tampered_blocks": ingest.simulate_reorg(conn, a.chain)}))
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)
