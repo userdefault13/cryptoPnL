@@ -49,12 +49,7 @@ class TestCursorStopsAtLastReturnedBlock(Base):
 class TestMarketplaceCheckpointPerPage(Base):
     def test_marketplace_checkpoint_per_page_reaches_head(self):
         seen = []
-        def fake_post(name, lim, url, body, headers=None, **k):
-            f = body["from_block"]; nb = {33315000: 33315400, 33315400: 33315800}.get(f, 1001)
-            return {"data": [], "next_block": nb}
-        self._pj = sources.post_json; sources.post_json = fake_post
-        from cryptopnl.config import MARKETPLACE
-        old = MARKETPLACE[8453]["start_block"]
+        self._pj = sources.post_json
         FakeRPC.safe_head = lambda self: 33316000
         orig = ingest.store_blocks
         def spy(conn, chain, blocks):
@@ -80,5 +75,31 @@ class TestPrunedFinalOnlyOnSepolia(Base):
     def test_pruned_block_treated_final_on_base_sepolia(self):
         self._seed(84532)
         self.assertIsNone(ingest.reorg_check(self.conn, 84532, FakeRPC(""), log=lambda *_: None))
+
+class TestVerifyPrunedRaisesOnMainnet(Base):
+    def _seed(self, chain):
+        wid = ingest.wallet_id(self.conn, chain, W)
+        self.conn.execute("INSERT INTO sync_cursor(source,wallet_id,last_block,last_block_hash) VALUES ('hypersync',%s,1000,%s)", (wid, db.b(h(1000))))
+        self.conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+            VALUES (%s,%s,0,500,%s,'hypersync','erc20_transfer',%s)""", (chain, db.b(h(1)), db.b(h(500)),
+            '{"contract":"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913","from":"0x0000000000000000000000000000000000000000","to":"%s","value":"5"}' % W))
+        self.conn.commit()
+    def _stub(self):
+        from cryptopnl import verify
+        self._v = (verify.RPC, verify.onchain)
+        def pruned(*a, **k): raise RuntimeError("rpc error: Unknown state, block pruned")
+        verify.RPC = FakeRPC; verify.onchain = pruned
+        return verify
+    def tearDown(self):
+        from cryptopnl import verify
+        if hasattr(self, "_v"): verify.RPC, verify.onchain = self._v
+        super().tearDown()
+    def test_verify_pruned_state_raises_on_base_mainnet(self):
+        self._seed(8453); verify = self._stub()
+        with self.assertRaisesRegex(RuntimeError, "pruned fallback is Sepolia-only"):
+            verify.verify(self.conn, 8453, log=lambda *_: None)
+    def test_verify_pruned_state_falls_back_on_sepolia(self):
+        self._seed(84532); verify = self._stub()
+        verify.verify(self.conn, 84532, log=lambda *_: None)   # no raise: Sepolia uses recent-block fallback
 
 if __name__ == "__main__": unittest.main()

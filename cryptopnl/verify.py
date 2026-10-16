@@ -2,7 +2,7 @@
 import json
 from .db import hx
 from .sources import RPC
-from .config import CHAINS, TRACKED, gated, WEARABLES
+from .config import CHAINS, gated, WEARABLES
 import os
 
 def ledger(conn, chain, w, block):
@@ -47,7 +47,6 @@ def verify_wearables(conn, chain, log=print):
     wc = WEARABLES.get(chain)
     if not wc: return 0, 0, []
     rpc = RPC(CHAINS[chain]["rpc"]); K = wc["canonical"]; total = ok = 0; fails = []
-    sel_bot = "0x" + "e6bdef6e"   # placeholder, replaced below
     from Crypto.Hash import keccak
     k = keccak.new(digest_bits=256); k.update(b"balanceOfToken(address,uint256,uint256)"); sel_bot = "0x" + k.hexdigest()[:8]
     for wid, addr, last in conn.execute("""SELECT w.id, w.address, c.last_block FROM wallet w JOIN sync_cursor c ON c.wallet_id=w.id
@@ -97,7 +96,7 @@ def reason(exp, got):
     return "non-standard mint / rebasing"
 
 def verify(conn, chain, log=print):
-    """Gate: every gated asset (TRACKED + allowlist) matches at head + 3 historical blocks.
+    """Gate: every gated asset (config/allowlist.txt) matches at head + 3 historical blocks.
     Everything else is reported 'untracked' with contract + reason and excluded from PnL totals."""
     rpc = RPC(CHAINS[chain]["rpc"]); G = gated(chain)
     g_total = g_ok = 0; g_fail = []; u_total = 0; untracked = {}

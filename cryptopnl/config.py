@@ -21,8 +21,7 @@ MARKET_TOPICS = _topics()
 MARKETPLACE = {8453: {"source": "hypersync_market", "start_block": 33315000,
                       "contracts": ["0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "0x80320a0000c7a6a34086e2acad6915ff57ffda31"]}}
 
-# Gated assets live in config/allowlist.txt (architect review on PR #1). TRACKED kept empty for compatibility.
-TRACKED = {}
+# Gated assets live in config/allowlist.txt (architect review on PR #1).
 
 def _allow():
     import os as _o
@@ -34,7 +33,7 @@ def _allow():
             if len(l) >= 2: out.setdefault(int(l[0]), set()).add(l[1].lower())
     return out
 ALLOWLIST = _allow()   # config/allowlist.txt: "<chain_id> <contract>" per line
-def gated(chain): return TRACKED.get(chain, set()) | ALLOWLIST.get(chain, set())
+def gated(chain): return ALLOWLIST.get(chain, set())
 
 # P1.1 wearables: one asset per chain; ERC1155 events counted only from `emitter`, reported under `canonical`
 # (holds balanceOf/balanceOfToken + emits TransferToParent/FromParent). `aliases` = mirrored contracts.
