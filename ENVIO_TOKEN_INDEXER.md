@@ -110,7 +110,7 @@ Wallets are dynamic: the address connected on the site plus any address the user
 ```bash
 HYPERSYNC_URL_8453=http://host.docker.internal:8797     # Base mainnet via shared throttle
 HYPERSYNC_URL_84532=http://host.docker.internal:8798    # Base Sepolia via shared throttle
-ENVIO_API_TOKEN=<abra:aavegotchi-envio-indexers/ENVIO_API_TOKEN>
+ENVIO_API_TOKEN=<abra:cryptoPnL/ENVIO_API_TOKEN>   # P1 scripts: `abra run cryptoPnL -- ...` (copied from aavegotchi-envio-indexers)
 BASE_MAINNET_RPC=<abra:base-rpc-url>                    # fallback + slot0-at-block (name to confirm)
 ```
 (`hypersync_config.url` in config.yaml is set from `HYPERSYNC_URL_<chain>`.) (v0.6: the 29 req/min figure was wrong. The measured account limit is about 15/min, see §5b.)

@@ -1,1 +1,17 @@
-# Balance-gated assets beyond TRACKED (cryptopnl/config.py). Format: <chain_id> <contract>  # note
+# Balance-gated assets (architect allowlist, PR #1 review). Format: <chain_id> <contract>  # note
+# GBM diamond 0x80320A0000C7A6a34086E2ACAD6915Ff57FfDA31 is a log source only, not an asset.
+8453 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913  # USDC
+8453 0x4200000000000000000000000000000000000006  # WETH
+8453 0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf  # cbBTC
+8453 0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb  # GHST
+8453 0x2028b4043e6722ea164946c82fe806c4a43a0ff4  # FUD
+8453 0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58  # FOMO
+8453 0x15e7cac885e3730ce6389447bc0f7ac032f31947  # ALPHA
+8453 0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5  # KEK
+8453 0x4d140ce792bedc430498c2d219afbc33e2992c9d  # GLTR
+8453 0xa99c4b08201f2913db8d28e71d020c4298f29dbf  # Aavegotchi Diamond
+8453 0x052e6c114a166b0e91c2340370d72d4c33752b4b  # Wearable Diamond
+8453 0x50af2d63b839aa32b4166fd1cb247129b715186c  # Forge
+8453 0x4b0040c3646d3c44b8a28ad7055cfcf536c05372  # REALM
+8453 0xebba5b725a2889f7f089a6cae0246a32cad4e26b  # Installations
+8453 0x617fdb8093b309e4699107f48812b407a7c37938  # Tiles

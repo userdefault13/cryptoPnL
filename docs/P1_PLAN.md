@@ -15,7 +15,7 @@ Sources: **HyperSync** (all log history, per-wallet topic filter) + **free RPC**
 `migrations/001_init.sql`, `cryptopnl/{__init__,__main__,config,db,net,sources,ingest,verify}.py`, `scripts/p1_test.sh`.
 
 ## Test command
-`abra run cryptoPnL -- scripts/p1_test.sh <chain_id>` → migrate, ingest ×2 (counts identical), verify balances, simulated reorg (tamper 3 latest blocks + cursor hash → rewind + re-ingest → counts/hashes restored), request/429 counters.
+`abra run cryptoPnL -- scripts/p1_test.sh <chain_id> <wallet>` (abra project `cryptoPnL`: ENVIO_API_TOKEN, BASE_RPC_URL) → migrate, ingest ×2 (counts identical), verify balances, simulated reorg (tamper 3 latest blocks + cursor hash → rewind + re-ingest → counts/hashes restored), request/429 counters.
 
 ## Rollback
 Local DB only: `dropdb cryptopnl_test` (own DB on Homebrew Postgres 16, not home infra/Envio). Code: delete branch `p1-raw-ingest`. Nothing on chain is written.
@@ -23,4 +23,4 @@ Local DB only: `dropdb cryptopnl_test` (own DB on Homebrew Postgres 16, not home
 ## Scope notes
 - Native ETH and internal ETH not ingested (no traces; ENVIO §5c gap). Gas/receipts → P2.
 - S1 marketplace ingest (Baazaar/GBM) cannot be bulk-ingested: proxy returns single rows, no Goldsky. Deferred; candidate: decode Baazaar/GBM diamond events from HyperSync logs.
-- Test wallet: admin wallet 0x2127AA7265D573Aa467f1D73554D17890b872E76 (DESIGN has no static wallet list; wallets are dynamic §1.3).
+- Test wallet: admin wallet <TEST_WALLET> (DESIGN has no static wallet list; wallets are dynamic §1.3).

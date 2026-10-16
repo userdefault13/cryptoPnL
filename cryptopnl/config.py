@@ -21,12 +21,8 @@ MARKET_TOPICS = _topics()
 MARKETPLACE = {8453: {"source": "hypersync_market", "start_block": 33315000,
                       "contracts": ["0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "0x80320a0000c7a6a34086e2acad6915ff57ffda31"]}}
 
-# Assets in scope for PnL (ENVIO_TOKEN_INDEXER §1.1 + Aavegotchi Diamond NFTs/1155s). Others are reported, not gating.
-TRACKED = {8453: {"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "0x4200000000000000000000000000000000000006",
-                  "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb",
-                  "0x2028b4043e6722ea164946c82fe806c4a43a0ff4", "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58",
-                  "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5",
-                  "0x4d140ce792bedc430498c2d219afbc33e2992c9d", "0xa99c4b08201f2913db8d28e71d020c4298f29dbf"}}
+# Gated assets live in config/allowlist.txt (architect review on PR #1). TRACKED kept empty for compatibility.
+TRACKED = {}
 
 def _allow():
     import os as _o
@@ -45,7 +41,6 @@ def gated(chain): return TRACKED.get(chain, set()) | ALLOWLIST.get(chain, set())
 WEARABLES = {
   8453:  {"canonical": "0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "emitter": "0x052e6c114a166b0e91c2340370d72d4c33752b4b",
           "aliases": ["0x052e6c114a166b0e91c2340370d72d4c33752b4b"], "parent": "0xa99c4b08201f2913db8d28e71d020c4298f29dbf"},
-  # Sepolia: provisional until cryptoPnL Architect confirms emitter/canonical (both contracts emit identical mints)
-  84532: {"canonical": "0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "emitter": "0x4773f06fb66735f1350a2db582660cbf6c0ff64b",
-          "aliases": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1"], "parent": "0x4773f06fb66735f1350a2db582660cbf6c0ff64b"},
+  # Sepolia: none. 0x4773f06f…ff64b / 0xb2d52be3…554a1 are Installation-type diamonds, not wearables (architect,
+  # DESIGN v1.1 §7); excluded from the Sepolia pass criterion.
 }
