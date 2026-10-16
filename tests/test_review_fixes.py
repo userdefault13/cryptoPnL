@@ -46,6 +46,28 @@ class TestCursorStopsAtLastReturnedBlock(Base):
         ingest.ingest_wallet(self.conn, 8453, W, log=lambda *_: None)
         self.assertEqual(self.conn.execute("SELECT last_block FROM sync_cursor").fetchone()[0], 1000)
 
+class TestMarketplaceCheckpointPerPage(Base):
+    def test_marketplace_checkpoint_per_page_reaches_head(self):
+        seen = []
+        def fake_post(name, lim, url, body, headers=None, **k):
+            f = body["from_block"]; nb = {33315000: 33315400, 33315400: 33315800}.get(f, 1001)
+            return {"data": [], "next_block": nb}
+        self._pj = sources.post_json; sources.post_json = fake_post
+        from cryptopnl.config import MARKETPLACE
+        old = MARKETPLACE[8453]["start_block"]
+        FakeRPC.safe_head = lambda self: 33316000
+        orig = ingest.store_blocks
+        def spy(conn, chain, blocks):
+            r = conn.execute("SELECT last_block FROM sync_cursor_global").fetchone(); seen.append(r[0] if r else None)
+        ingest.store_blocks = spy
+        try:
+            sources.post_json = lambda name, lim, url, body, headers=None, **k: {"data": [], "next_block": {33315000: 33315400, 33315400: 33315800}.get(body["from_block"], 33316001)}
+            ingest.ingest_marketplace(self.conn, 8453, log=lambda *_: None)
+        finally:
+            ingest.store_blocks = orig; FakeRPC.safe_head = lambda self: 1000
+        self.assertEqual(seen, [None, 33315399, 33315799], "cursor checkpointed after each page")
+        self.assertEqual(self.conn.execute("SELECT last_block FROM sync_cursor_global").fetchone()[0], 33316000)
+
 class TestPrunedFinalOnlyOnSepolia(Base):
     def _seed(self, chain):
         wid = ingest.wallet_id(self.conn, chain, W)

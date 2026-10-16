@@ -1,9 +1,10 @@
 test_cursor_reaches_head_when_fully_covered (tests.test_review_fixes.TestCursorStopsAtLastReturnedBlock) ... ok
 test_cursor_stops_at_last_returned_block_when_loop_ends_early (tests.test_review_fixes.TestCursorStopsAtLastReturnedBlock) ... ok
+test_marketplace_checkpoint_per_page_reaches_head (tests.test_review_fixes.TestMarketplaceCheckpointPerPage) ... ok
 test_pruned_block_raises_on_base_mainnet (tests.test_review_fixes.TestPrunedFinalOnlyOnSepolia) ... ok
 test_pruned_block_treated_final_on_base_sepolia (tests.test_review_fixes.TestPrunedFinalOnlyOnSepolia) ... ok
 
 ----------------------------------------------------------------------
-Ran 4 tests in 0.037s
+Ran 5 tests in 0.093s
 
 OK
