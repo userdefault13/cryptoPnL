@@ -26,3 +26,18 @@ All 8 topics have hits; none needed re-deriving. (A first partial scan to block 
 
 Untracked mismatch breakdown (Base): 238 checks / 83 contracts events>0 but RPC 0 (spam/fake Transfer events); 64 / 24 RPC < events (fee-on-transfer or burns without events); 31 / 11 balanceOf reverts (non-compliant); 23 / 8 RPC > events (non-standard mints/rebasing).
 Sample blocks: Sepolia 27,215,475 / 27,551,977 / 28,628,275 / head 48,201,486; Base 33,595,641 / 42,419,723 / 49,126,235 / head 52,692,033.
+
+## Architect decisions applied (PR #1 review, 2026-10-16)
+1. **Balance criterion = tracked assets + allowlist.** Gate set = `TRACKED` (cryptopnl/config.py: ENVIO §1.1 tokens + Aavegotchi Diamond) ∪ `config/allowlist.txt`. Every other asset is reported **untracked** with contract + reason (`spam (Transfer events without balance)`, `fee-on-transfer / burn without event`, `non-compliant (balanceOf reverts)`, `non-standard mint / rebasing`) and is **excluded from PnL totals**. Base Sepolia has no tracked list (staging addresses unverified, ENVIO OQ), so its gate is N/A and everything is reported untracked.
+3. **Reorg finality:** treating RPC-pruned blocks as final is accepted for **Base Sepolia staging only**. On mainnet the full reorg check applies: finalize at the `safe` tag (fallback head−64), re-check the cursor hash + the 64 newest stored blocks within the window, delete ≥ fork, rewind, re-ingest. base.drpc.org serves full history, so the pruned branch is never taken on 8453.
+4. **Rate limits:** HyperSync stays at 7 req/min (token bucket); RPC verify at 1 req/s with burst 3. `Retry-After` is honored on 429/5xx (capped at 120 s), else exp. backoff + jitter. STATS now log `ok`, `429`, `retry_after_honored`, `elapsed_s` and `effective_per_min` per source.
+
+## P1.1 prep: wearables (read-only discovery; not implemented — needs CoS release)
+Source: aavegotchi-contracts `contracts/shared/libraries/LibERC1155.sol` declares
+`TransferToParent(address indexed _toContract, uint256 indexed _toTokenId, uint256 indexed _tokenTypeId, uint256 _value)` and
+`TransferFromParent(address indexed _fromContract, uint256 indexed _fromTokenId, uint256 indexed _tokenTypeId, uint256 _value)` (the architect's suspicion is correct).
+topic0 (keccak, checked against the known TransferSingle hash): TransferToParent `0xe82810099d182b25e23e895715954d6e7b41867a02e2c693cce68a8f250e43d3`, TransferFromParent `0x4b287e36a0531da8ccee303de127c778302f48d8fc9569b1fe1dcb9d64465c6d`.
+HyperSync counts (`verify/parent_counts.py`, ≤7/min; raw output in `verify/parent_counts.out.txt`):
+- Base, Aavegotchi Diamond 0xA99c…: **partial scan to block 35,978,260 (14 requests): TransferToParent 113,911 (first block 33,208,149), TransferFromParent 2,926 (first block 33,285,899).** The full range needs many more requests. Budget it in P1.1.
+- Base Sepolia, 0x4773… and 0xb2d5…: **0** for both events (full range). The Sepolia wearable mismatches are not explained by parent events on those two contracts, so P1.1 should check which address emits them on Sepolia (e.g. the Sepolia Aavegotchi diamond) and look into the duplicate mint logs.
+Implication: wearables equipped on a gotchi leave the owner's wallet through parent-transfer events, not standard ERC1155 events, so wallet balances for wearables need these events (or the gotchi→owner mapping) in P1.1.
