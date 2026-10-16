@@ -45,6 +45,9 @@ def verify(conn, chain, log=print):
                                            WHERE w.chain_id=%s AND c.source='hypersync'""", (chain,)).fetchall():
         w = hx(addr).lower()
         evb = [r[0] for r in conn.execute("""SELECT DISTINCT block_number FROM raw_event WHERE chain_id=%s AND (payload->>'to'=%s OR payload->>'from'=%s) ORDER BY 1""", (chain, w, w))]
+        # Sample spacing: quartiles (25/50/75%) of the wallet's own event blocks, so each historical check lands
+        # inside its active history at a point where balances actually differ (evenly spaced blocks would mostly
+        # sample idle stretches with identical balances). Head is added as the 4th block.
         samples = sorted({evb[int(len(evb) * q)] for q in (0.25, 0.5, 0.75)}) if evb else []
         assets = set(ledger(conn, chain, w, last).keys())
         probe = sorted(assets, key=str)[0] if assets else None
@@ -52,7 +55,10 @@ def verify(conn, chain, log=print):
             try: onchain(rpc, w, probe, blk); return True
             except RuntimeError as e: return not any(k in str(e) for k in ("pruned", "Unknown state", "4444"))
         if probe and samples and not all(served(x) for x in samples):
-            pruned = samples; samples = [last - k * 400_000 for k in (3, 2, 1)]
+            if chain != 84532: raise RuntimeError(f"RPC lacks state at sample blocks on chain {chain}; pruned fallback is Sepolia-only")
+            pruned = samples
+            # Sepolia fallback: sepolia.base.org keeps ~1.5M blocks of state; 3 points 400k apart (~9 days at 2s) stay inside it.
+            samples = [last - k * 400_000 for k in (3, 2, 1)]
             log(json.dumps({"note": "RPC has pruned state at event-sampled blocks; using recent historical blocks instead", "pruned_samples": pruned, "samples": samples}))
         blocks = samples + [last]
         for blk in blocks:

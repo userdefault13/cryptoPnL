@@ -48,7 +48,8 @@ def reorg_check(conn, chain, rpc, log=print):
     for n in sorted(checks):
         try: real = rpc.block(n)[1].lower()
         except RuntimeError as e:
-            if "pruned" in str(e) or "4444" in str(e): good.append(n); continue
+            # Sepolia only (DESIGN v1.1 §7): sepolia.base.org prunes old blocks; treated as final. Mainnet must raise.
+            if chain == 84532 and ("pruned" in str(e) or "4444" in str(e)): good.append(n); continue
             raise
         (good if real == checks[n].lower() else bad).append(n)
     if not bad: return None
@@ -89,6 +90,10 @@ def ingest_wallet(conn, chain, address, log=print):
                     (chain, b(l["transaction_hash"]), h2i(l["log_index"]), h2i(l["block_number"]), b(l["block_hash"]),
                      src.name, kind, json.dumps(payload))).rowcount
         conn.commit()
+        if src.covered < to:
+            log(json.dumps({"warn": "hypersync stopped early (non-advancing next_block)", "requested_to": to, "covered_to": src.covered}))
+        to = src.covered
+    if to < 0: return
     n, h, _ = rpc.block(to)
     conn.execute("""INSERT INTO sync_cursor(source,wallet_id,last_block,last_block_hash,updated_at) VALUES (%s,%s,%s,%s,now())
                     ON CONFLICT (source,wallet_id) DO UPDATE SET last_block=EXCLUDED.last_block, last_block_hash=EXCLUDED.last_block_hash, updated_at=now()""",
@@ -121,13 +126,15 @@ def ingest_marketplace(conn, chain, log=print):
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
                 (chain, b(l["transaction_hash"]), h2i(l["log_index"]), h2i(l["block_number"]), b(l["block_hash"]),
                  src.name, "market_" + payload["event"], json.dumps(payload))).rowcount
-        conn.commit()
-        # checkpoint progress so a long backfill can resume
-    n, h, _ = rpc.block(to)
-    conn.execute("""INSERT INTO sync_cursor_global(source,chain_id,last_block,last_block_hash,updated_at) VALUES (%s,%s,%s,%s,now())
+        # checkpoint per page (only up to what HyperSync actually covered) so a long backfill resumes
+        if src.covered >= frm:
+            n, h, _ = rpc.block(src.covered)
+            conn.execute("""INSERT INTO sync_cursor_global(source,chain_id,last_block,last_block_hash,updated_at) VALUES (%s,%s,%s,%s,now())
                     ON CONFLICT (source,chain_id) DO UPDATE SET last_block=EXCLUDED.last_block, last_block_hash=EXCLUDED.last_block_hash, updated_at=now()""",
                  (src.name, chain, n, b(h)))
-    conn.commit()
+        conn.commit()
+    if src.covered < to: log(json.dumps({"warn": "hypersync stopped early", "requested_to": to, "covered_to": src.covered}))
+    to = src.covered
     log(json.dumps({"chain": chain, "source": src.name, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
 
 def counts(conn, chain):
