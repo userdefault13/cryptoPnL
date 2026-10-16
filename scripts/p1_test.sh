@@ -16,6 +16,9 @@ C2=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts2 $C2"
 echo "== verify balances (gate: TRACKED + config/allowlist.txt; others reported untracked)"
 set +e; VERIFY_OUT=${VERIFY_OUT:-/tmp/p1_verify_$CHAIN.json} $PY -m cryptopnl verify --chain $CHAIN; VR=$?; set -e
 case $VR in 0) echo "PASS balances (all gated assets match)";; 3) echo "N/A balances: no gated assets configured for chain $CHAIN";; *) echo "FAIL balances"; BAL=fail;; esac
+echo "== verify wearables (P1.1: owner + gotchi children)"
+set +e; $PY -m cryptopnl verify-wearables --chain $CHAIN; WR=$?; set -e
+case $WR in 0) echo "PASS wearables";; 3) echo "N/A wearables";; *) echo "FAIL wearables"; BAL=fail;; esac
 echo "== simulated reorg"
 T=$($PY -m cryptopnl simulate-reorg --chain $CHAIN 2>/dev/null); echo "$T"
 HEAD=$(psql -Atq "$CRYPTOPNL_DSN" -c "SELECT max(c.last_block) FROM sync_cursor c JOIN wallet w ON w.id=c.wallet_id WHERE w.chain_id=$CHAIN")
