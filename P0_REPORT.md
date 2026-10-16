@@ -83,3 +83,6 @@ Key: `SUBGRAPH_API_KEY` in abra project **`general`** (not `cryptoPnL`), used vi
 **Verdict: P0 NOT DONE** — only the AarcadeGh$t bot key remains blocking (sources.md, entity receipts, S1b parity, proxy rate limits). P1 not started.
 
 </details>
+
+## Addendum (2026-10-16): Goldsky removed; marketplace topic0 counts
+user_default: no Goldsky (S1b dropped). Replacement per DESIGN v1.0: Baazaar + GBM logs via HyperSync. Topic0 hit counts on Base (33,315,000 → 52,691,238): ERC721ExecutedListing 879, ERC1155ExecutedListing 2,017, ERC721BuyOrderExecuted 23, ERC1155BuyOrderExecute 86, Auction_Initialized 6,682, Auction_BidPlaced 17,008, Auction_BoughtNow 19, Auction_ItemClaimed 5,124. All non-zero; none re-derived. The S1b parity row above (Goldsky) is historical only.

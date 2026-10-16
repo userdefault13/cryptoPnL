@@ -1,0 +1,21 @@
+{
+ "gated_failures": [],
+ "untracked": [
+  {
+   "contract": "0x4773f06fb66735f1350a2db582660cbf6c0ff64b",
+   "standard": "erc1155",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 16
+  },
+  {
+   "contract": "0xb2d52be3ab11006685843a59ec7d17bff2c554a1",
+   "standard": "erc1155",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 16
+  }
+ ]
+}

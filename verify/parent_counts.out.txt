@@ -1,0 +1,3 @@
+[2m▸ injecting 1 var(s) from cryptoPnL[0m
+{"chain": 8453, "scanned_to": 35978260, "complete": false, "requests": 14, "counts": {"0xa99c4b08201f2913db8d28e71d020c4298f29dbf:TransferToParent": 113911, "0xa99c4b08201f2913db8d28e71d020c4298f29dbf:TransferFromParent": 2926}, "first_block": {"0xa99c4b08201f2913db8d28e71d020c4298f29dbf:TransferToParent": 33208149, "0xa99c4b08201f2913db8d28e71d020c4298f29dbf:TransferFromParent": 33285899}, "stats": {"hypersync": {"requests": 15, "429": 1, "5xx": 0, "errors": 0}}}
+{"chain": 84532, "scanned_to": 48203356, "complete": true, "requests": 1, "counts": {}, "first_block": {}, "stats": {"hypersync": {"requests": 1, "ok": 1, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 0.6, "effective_per_min": 101.94}}}
