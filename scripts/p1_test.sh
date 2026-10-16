@@ -16,8 +16,11 @@ C2=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts2 $C2"
 echo "== verify balances (gate: TRACKED + config/allowlist.txt; others reported untracked)"
 set +e; VERIFY_OUT=${VERIFY_OUT:-/tmp/p1_verify_$CHAIN.json} $PY -m cryptopnl verify --chain $CHAIN; VR=$?; set -e
 case $VR in 0) echo "PASS balances (all gated assets match)";; 3) echo "N/A balances: no gated assets configured for chain $CHAIN";; *) echo "FAIL balances"; BAL=fail;; esac
-echo "== simulated reorg (REORG_WINDOW=${REORG_TEST_WINDOW:-1000000})"; $PY -m cryptopnl simulate-reorg --chain $CHAIN
-export REORG_WINDOW=${REORG_TEST_WINDOW:-1000000}
+echo "== simulated reorg"
+T=$($PY -m cryptopnl simulate-reorg --chain $CHAIN 2>/dev/null); echo "$T"
+HEAD=$(psql -Atq "$CRYPTOPNL_DSN" -c "SELECT max(c.last_block) FROM sync_cursor c JOIN wallet w ON w.id=c.wallet_id WHERE w.chain_id=$CHAIN")
+# re-check window must cover the tampered blocks (in production: default 10k-block window + safe tag)
+export REORG_WINDOW=$(( HEAD - $(echo "$T" | jq '.tampered_blocks|min') + 1 )); echo "REORG_WINDOW=$REORG_WINDOW"
 $PY -m cryptopnl ingest --chain $CHAIN "${W[@]}"
 C3=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts3 $C3"
 [ "$(echo "$C1" | jq -c '{raw_event,checksum}')" = "$(echo "$C3" | jq -c '{raw_event,checksum}')" ] && echo "PASS reorg: rewound + re-ingested, count+checksum (incl. block hashes) restored" || { echo "FAIL reorg"; exit 1; }
