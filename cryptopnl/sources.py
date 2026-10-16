@@ -49,3 +49,21 @@ class HyperSyncWalletLogs:
             nb = r["next_block"]
             if nb <= b: break
             b = nb
+
+class HyperSyncContractLogs(HyperSyncWalletLogs):
+    """All logs with the given topic0s from the given contracts (bulk marketplace ingest)."""
+    def __init__(self, url, name, contracts, topics):
+        super().__init__(url); self.name = name; self.contracts = contracts; self.topics = topics
+    def fetch_range(self, frm, to):
+        b = frm
+        while b <= to:
+            q = {"from_block": b, "to_block": to + 1, "logs": [{"address": self.contracts, "topics": [self.topics]}],
+                 "field_selection": {"log": ["block_number", "block_hash", "transaction_hash", "log_index", "address",
+                                             "topic0", "topic1", "topic2", "topic3", "data"],
+                                     "block": ["number", "hash", "timestamp"]}}
+            r = post_json("hypersync", self._lim, self.url, q, self.headers)
+            yield ([l for d in r.get("data", []) for l in (d.get("logs") or [])],
+                   [x for d in r.get("data", []) for x in (d.get("blocks") or [])])
+            nb = r["next_block"]
+            if nb <= b: break
+            b = nb

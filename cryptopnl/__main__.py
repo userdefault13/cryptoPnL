@@ -9,6 +9,7 @@ a = p.parse_args(); conn = db.connect(); rc = 0
 if a.cmd == "migrate": print(json.dumps({"applied": db.migrate(conn)}))
 elif a.cmd == "ingest":
     for w in a.wallet: ingest.ingest_wallet(conn, a.chain, w)
+    ingest.ingest_marketplace(conn, a.chain)
 elif a.cmd == "counts": print(json.dumps(ingest.counts(conn, a.chain)))
 elif a.cmd == "verify":
     t, ok, f = verify.verify(conn, a.chain); rc = 0 if t and not f else 1

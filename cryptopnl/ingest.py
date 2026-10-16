@@ -1,7 +1,7 @@
 import json, os, datetime
 from .db import b, hx
-from .sources import RPC, HyperSyncWalletLogs, TRANSFER, T1155S, T1155B, h2i
-from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW
+from .sources import RPC, HyperSyncWalletLogs, HyperSyncContractLogs, TRANSFER, T1155S, T1155B, h2i
+from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS
 
 def addr_of(topic): return "0x" + topic[-40:].lower()
 def words(data):
@@ -37,6 +37,7 @@ def reorg_check(conn, chain, rpc, log=print):
     Blocks the RPC no longer serves (pruned) are treated as final."""
     curs = conn.execute("""SELECT c.last_block, c.last_block_hash FROM sync_cursor c JOIN wallet w ON w.id=c.wallet_id
                            WHERE w.chain_id=%s AND c.source='hypersync' AND c.last_block_hash IS NOT NULL""", (chain,)).fetchall()
+    curs = list(curs) + conn.execute("SELECT last_block, last_block_hash FROM sync_cursor_global WHERE chain_id=%s AND last_block_hash IS NOT NULL", (chain,)).fetchall()
     if not curs: return None
     top = max(n for n, _ in curs)
     rows = dict(conn.execute("SELECT number, hash FROM block WHERE chain_id=%s AND number >= %s ORDER BY number DESC LIMIT %s",
@@ -60,6 +61,7 @@ def reorg_check(conn, chain, rpc, log=print):
     db_ = conn.execute("DELETE FROM block WHERE chain_id=%s AND number >= %s", (chain, fork)).rowcount
     conn.execute("""UPDATE sync_cursor c SET last_block = %s - 1, last_block_hash = NULL, updated_at = now()
                     FROM wallet w WHERE w.id=c.wallet_id AND w.chain_id=%s AND c.last_block >= %s""", (fork, chain, fork))
+    conn.execute("UPDATE sync_cursor_global SET last_block=%s-1, last_block_hash=NULL, updated_at=now() WHERE chain_id=%s AND last_block >= %s", (fork, chain, fork))
     conn.commit()
     log(json.dumps({"reorg": True, "chain": chain, "mismatched_blocks": bad, "fork_block": fork, "deleted_events": de, "deleted_blocks": db_}))
     return fork
@@ -94,6 +96,40 @@ def ingest_wallet(conn, chain, address, log=print):
     conn.commit()
     log(json.dumps({"chain": chain, "wallet_id": wid, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
 
+def store_blocks(conn, chain, blocks):
+    for x in blocks:
+        ts = datetime.datetime.fromtimestamp(h2i(x["timestamp"]), datetime.timezone.utc)
+        conn.execute("INSERT INTO block(chain_id,number,hash,ts) VALUES (%s,%s,%s,%s) ON CONFLICT (chain_id,number) DO UPDATE SET hash=EXCLUDED.hash, ts=EXCLUDED.ts",
+                     (chain, h2i(x["number"]), b(x["hash"]), ts))
+
+def ingest_marketplace(conn, chain, log=print):
+    m = MARKETPLACE.get(chain)
+    if not m: log(json.dumps({"chain": chain, "marketplace": "none configured"})); return
+    cfg = CHAINS[chain]; rpc = RPC(cfg["rpc"])
+    src = HyperSyncContractLogs(cfg["hypersync"], m["source"], m["contracts"], list(MARKET_TOPICS))
+    reorg_check(conn, chain, rpc, log)
+    cur = conn.execute("SELECT last_block FROM sync_cursor_global WHERE source=%s AND chain_id=%s", (src.name, chain)).fetchone()
+    frm = (cur[0] + 1) if cur else m["start_block"]; to = rpc.safe_head(); seen = inserted = 0
+    for logs, blocks in src.fetch_range(frm, to):
+        store_blocks(conn, chain, blocks)
+        for l in logs:
+            if h2i(l["block_number"]) > to: continue
+            seen += 1
+            payload = {"contract": l["address"].lower(), "event": MARKET_TOPICS.get(l["topic0"], "unknown"),
+                       "topics": [l.get(k) for k in ("topic0", "topic1", "topic2", "topic3") if l.get(k)], "data": l.get("data")}
+            inserted += conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                (chain, b(l["transaction_hash"]), h2i(l["log_index"]), h2i(l["block_number"]), b(l["block_hash"]),
+                 src.name, "market_" + payload["event"], json.dumps(payload))).rowcount
+        conn.commit()
+        # checkpoint progress so a long backfill can resume
+    n, h, _ = rpc.block(to)
+    conn.execute("""INSERT INTO sync_cursor_global(source,chain_id,last_block,last_block_hash,updated_at) VALUES (%s,%s,%s,%s,now())
+                    ON CONFLICT (source,chain_id) DO UPDATE SET last_block=EXCLUDED.last_block, last_block_hash=EXCLUDED.last_block_hash, updated_at=now()""",
+                 (src.name, chain, n, b(h)))
+    conn.commit()
+    log(json.dumps({"chain": chain, "source": src.name, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
+
 def counts(conn, chain):
     r = conn.execute("""SELECT count(*), md5(coalesce(string_agg(encode(tx_hash,'hex')||':'||log_index||':'||encode(block_hash,'hex'), ',' ORDER BY tx_hash, log_index),''))
                         FROM raw_event WHERE chain_id=%s""", (chain,)).fetchone()
@@ -109,4 +145,5 @@ def simulate_reorg(conn, chain, n=3):
         conn.execute("UPDATE block SET hash=%s WHERE chain_id=%s AND number=%s", (fake, chain, x))
         conn.execute("UPDATE raw_event SET block_hash=%s WHERE chain_id=%s AND block_number=%s", (fake, chain, x))
     conn.execute("UPDATE sync_cursor c SET last_block_hash=%s FROM wallet w WHERE w.id=c.wallet_id AND w.chain_id=%s", (os.urandom(32), chain))
+    conn.execute("UPDATE sync_cursor_global SET last_block_hash=%s WHERE chain_id=%s", (os.urandom(32), chain))
     conn.commit(); return nums
