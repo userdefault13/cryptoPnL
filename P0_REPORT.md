@@ -33,15 +33,26 @@ abra project `cryptoPnL` holds BASE_RPC_URL (from AarcadeGh-t JUICEBOX_RPC_BASE)
 - **HyperSync (token): PASS.** 5 real queries (GHST Transfer logs, last 200k blocks): all 200, ~1.0–1.4 s each, 5,060 logs over ~40k blocks scanned. Headers: `x-ratelimit-limit: 15000;w=60`, `x-ratelimit-cost: 1000` per query → **≈15 queries/min budget per token** (shared with the existing stacks: remaining was 7000 after our 5, so about 3000 was used elsewhere in the window). This is below the 29 req/min cap. The ENVIO doc's 18 RPM throttle assumption should be revised to ≤15.
 - **HyperSync traces:** a query returned 200 with 0 rows for the last 10 blocks → probably not served on Base (inconclusive).
 
-## §4 P0 pass/fail (updated)
+## Free-RPC decision (2026-10-15 ~21:40 PT; Julius: no paid RPC/Etherscan) — verify/rpcs.py
+| RPC | archive eth_call (blk 3M, 10M) | eth_getLogs (GHST Transfer) |
+|---|---|---|
+| mainnet.base.org | OK (~0.3–0.4 s) | 429 -32011 at every range (1k–100k) |
+| base.llamarpc.com | head fails (HTTP 525) | — |
+| base-rpc.publicnode.com | 403 "Archive requests require a personal token" | OK ≤ 9,000 blocks (recent only); 403 at ≥10k |
+| **base.drpc.org (chosen)** | **OK** (~0.35 s) | OK at ≤100 blocks; 400 ("ranges over 10000 blocks are not supported on free plan", misleading) at ≥500, incl. old blocks |
+
+**Chosen: `BASE_RPC_URL=https://base.drpc.org`** (abra `cryptoPnL`, public URL) for archive `eth_call`/`balanceOf`-at-block and receipts. **getLogs is replaced by HyperSync** (≈15 queries/min budget, 15000/60 s at cost 1000; GHST 200k-block scan in 5 queries). drpc getLogs (≤100 blocks) is only for spot checks; publicnode (≤9k recent blocks, no archive) is an optional backup.
+**Etherscan v2 (Q3): DEFERRED.** No paid plan; HyperSync + RPC cover it.
+
+## §4 P0 pass/fail (final for free-tier)
 | Criterion | Result | Evidence |
 |---|---|---|
-| docs/sources.md with real authenticated queries + samples | FAIL (blocked: bot key) | proxy 401 without key |
-| Every S1 sample event resolves to a receipt | PASS (Goldsky GBM sample, 10/10) / PENDING for AarcadeGh$t entities (bot key) | see keyed rerun |
-| Rate limits measured | PARTIAL | HyperSync ≈15 q/min (15000 per 60 s, cost 1000); public RPC getLogs 429; proxy needs bot key |
-| Q2 RPC archive + getLogs range | PARTIAL | archive state yes (public); getLogs range blocked (Alchemy app inactive) |
-| Q3 Etherscan v2 | ANSWERED: paid plan needed for Base | keyless NOTOK |
-| Q4 HyperSync | PASS (logs) / traces likely unsupported | see above |
+| docs/sources.md with authenticated queries | FAIL (blocked: bot key) | proxy 401 without key |
+| S1 events → receipts | PASS for Goldsky GBM sample (10/10); pending for AarcadeGh$t entities | keyed rerun |
+| Rate limits measured | PARTIAL | HyperSync ≈15 q/min; RPC limits per table above; proxy needs bot key |
+| Q2 RPC archive + getLogs range | **ANSWERED** | drpc archive OK; getLogs ≤100 blocks on drpc → HyperSync for logs |
+| Q3 Etherscan v2 | **DEFERRED** | free tier excludes Base; no paid plan |
+| Q4 HyperSync | PASS (logs); traces likely unsupported | keyed rerun |
 | S1b parity | NOT DONE (blocked: bot key) | Goldsky reachable |
 
-**Verdict: P0 NOT DONE.** Still blocked: AarcadeGh$t bot key; a working Base RPC key (Alchemy app inactive); paid Etherscan v2 key. P1 not started.
+**Verdict: P0 NOT DONE** — only the AarcadeGh$t bot key remains blocking (sources.md, entity receipts, S1b parity, proxy rate limits). P1 not started.
