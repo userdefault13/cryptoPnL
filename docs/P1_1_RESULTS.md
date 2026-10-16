@@ -17,3 +17,15 @@ Caveat: historical sample blocks are quartiles of wearable-related event blocks;
 Sepolia Installation-diamond scan (`verify/sepolia_installations_scan.py`, 2 HyperSync requests;
 `docs/evidence/p1_1_sepolia_installations_scan.json.txt`): 7 TransferSingle to the wallet on each of 0x4773… and 0xb2d5…, same 7 ids
 (10, 25, 26, 31, 65, 74, 145) in distinct txs, 0 TransferBatch, 0 TransferToParent (none on either contract at all).
+
+## PR #2 review follow-up
+
+- **TransferFromParent: synthetic only.** No FromParent exists on chain for the test wallet's gotchis, so the custody-out path is covered
+  by `tests/test_wearables_synthetic.py::test_to_then_from_parent_custody_only` (stubbed HyperSync/RPC). Asserts: child +v then -v;
+  owner + children constant across equip/unequip; re-ingest idempotent (count + checksum); no disposal rows (parent events are only
+  `wearable_to_parent`/`wearable_from_parent`); a foreign `parent_contract` is excluded from the child ledger.
+- **Basis preservation** (equip/unequip never changes FIFO lots) is not testable in P1 (no lots yet); it gets verified in **P4**.
+- Child ledger now filters `parent_contract` = Aavegotchi Diamond `0xa99c…`.
+- Wearable samples are time-spread: one block in each quarter of [33.2M migration, head] (last within 10k of head) plus event quartiles.
+- The 100k reorg margin in `p1_test.sh` is test-only; production default `REORG_WINDOW=10000`.
+- Sepolia allowlist: Installation diamonds 0x4773… and 0xb2d5… as two separate assets (see results below).
