@@ -1,0 +1,31 @@
+[2m▸ injecting 2 var(s) from cryptoPnL[0m
+== migrate
+STATS {}
+{"applied": ["001_init.sql", "002_global_cursor.sql"]}
+== ingest #1
+STATS {"rpc": {"requests": 5, "ok": 5, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 352.4, "effective_per_min": 0.85}, "hypersync": {"requests": 41, "ok": 34, "429": 7, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 351.8, "effective_per_min": 5.8}}
+{"chain": 8453, "wallet_id": 1, "from": 0, "to": 52693147, "logs_seen": 709, "inserted": 709}
+{"chain": 8453, "source": "hypersync_market", "from": 33315000, "to": 52693147, "logs_seen": 31838, "inserted": 31838}
+counts1 {"chain": 8453, "raw_event": 32547, "block": 28674, "by_kind": {"erc1155_single": 72, "erc721_transfer": 115, "erc20_transfer": 522, "market_ERC721BuyOrderExecuted": 23, "market_Auction_ItemClaimed": 5124, "market_ERC721ExecutedListing": 879, "market_ERC1155ExecutedListing": 2017, "market_Auction_BidPlaced": 17008, "market_Auction_Initialized": 6682, "market_ERC1155BuyOrderExecute": 86, "market_Auction_BoughtNow": 19}, "checksum": "7a3d145ee2493ff40f97f0453b3f164e"}
+== ingest #2 (reset cursors to re-scan full history)
+STATS {"rpc": {"requests": 5, "ok": 5, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 336.6, "effective_per_min": 0.89}, "hypersync": {"requests": 39, "ok": 34, "429": 5, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 336.2, "effective_per_min": 6.07}}
+{"chain": 8453, "wallet_id": 1, "from": 0, "to": 52693318, "logs_seen": 709, "inserted": 0}
+{"chain": 8453, "source": "hypersync_market", "from": 33315000, "to": 52693340, "logs_seen": 31838, "inserted": 0}
+counts2 {"chain": 8453, "raw_event": 32547, "block": 28674, "by_kind": {"erc1155_single": 72, "erc721_transfer": 115, "erc20_transfer": 522, "market_ERC721BuyOrderExecuted": 23, "market_Auction_ItemClaimed": 5124, "market_ERC721ExecutedListing": 879, "market_ERC1155ExecutedListing": 2017, "market_Auction_BidPlaced": 17008, "market_Auction_Initialized": 6682, "market_ERC1155BuyOrderExecute": 86, "market_Auction_BoughtNow": 19}, "checksum": "7a3d145ee2493ff40f97f0453b3f164e"}
+PASS idempotent: identical raw_event count+checksum
+== verify balances (gate: TRACKED + config/allowlist.txt; others reported untracked)
+{"chain": 8453, "wallet_id": 1, "blocks": [33595641, 42419723, 49126235, 52693318], "head_block": 52693318, "assets": 304}
+{"chain": 8453, "gated_assets_configured": 10, "gated_checks": 28, "gated_match": 28, "gated_mismatch": 0, "untracked_checks": 1188, "untracked_contracts_not_reconciling": 125, "untracked_by_reason": {"spam (Transfer events without balance)": 83, "non-compliant (balanceOf reverts)": 11, "fee-on-transfer / burn without event": 24, "non-standard mint / rebasing": 8}}
+STATS {"rpc": {"requests": 1221, "ok": 1219, "429": 2, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 1218.2, "effective_per_min": 60.04}}
+PASS balances (all gated assets match)
+== simulated reorg (REORG_WINDOW=1000000)
+STATS {}
+{"tampered_blocks": [52513752, 52441393, 52440523]}
+STATS {"rpc": {"requests": 135, "ok": 135, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 129.4, "effective_per_min": 62.58}, "hypersync": {"requests": 2, "ok": 2, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 64.7, "effective_per_min": 1.85}}
+{"reorg": true, "chain": 8453, "mismatched_blocks": [52440523, 52441393, 52513752, 52693318, 52693340], "fork_block": 52440523, "deleted_events": 14, "deleted_blocks": 3}
+{"chain": 8453, "wallet_id": 1, "from": 52440523, "to": 52694129, "logs_seen": 0, "inserted": 0}
+{"chain": 8453, "source": "hypersync_market", "from": 52440523, "to": 52694170, "logs_seen": 14, "inserted": 14}
+counts3 {"chain": 8453, "raw_event": 32547, "block": 28674, "by_kind": {"erc1155_single": 72, "erc721_transfer": 115, "erc20_transfer": 522, "market_ERC721BuyOrderExecuted": 23, "market_Auction_ItemClaimed": 5124, "market_ERC721ExecutedListing": 879, "market_ERC1155ExecutedListing": 2017, "market_Auction_BidPlaced": 17008, "market_Auction_Initialized": 6682, "market_ERC1155BuyOrderExecute": 86, "market_Auction_BoughtNow": 19}, "checksum": "7a3d145ee2493ff40f97f0453b3f164e"}
+PASS reorg: rewound + re-ingested, count+checksum (incl. block hashes) restored
+ALL PASS
+EXIT=0

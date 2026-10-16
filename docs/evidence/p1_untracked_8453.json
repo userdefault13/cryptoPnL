@@ -1,0 +1,1006 @@
+{
+ "gated_failures": [],
+ "untracked": [
+  {
+   "contract": "0x022b646fcc765dfe09232c569c26e6befd8c938a",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x0449d45078a486a3c1c6c146ea57fdb8d7474574",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x05d166179482f021e1e53e3a4c318a4982d46374",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x081e9f517f701dac1e47f91147c4e429658b4458",
+   "standard": "erc1155",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x0ce1cc52cfed39ca5ecc4a55212ebbfb562211d2",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x0e562ef6c5904f8600611aa1d8d531420b7a97e5",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x0edd22a43e027f9d3c5dafaf75acb948774a5f6f",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x10348fdb70b639740bad9127bb963afa466ff385",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x105b229a684fee2f78caf88f297ae1e1cbeb6740",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x10bcf9c4d1fd798df33ad1c1cb286e24720c0d7f",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x10c91cdfb902130067cba911b72d83e4e9969818",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x13c9c2305965641024069f22350d23dcb837237b",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x14d260622410e72b5bdbed5f5b95c4636daf4fb4",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x1575f7f60a4acd04332987fb741b805af96fdb90",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x1619d964cf6904eac8979464d99d92bedd6e4435",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x16b192d675e71a240e2fd3476aff7fca4ad30d0a",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x1a0194dfaa33b45c59fb60fa0d3ab48f566b610e",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x1e668065a139a995bc1f9bfbb44f379f4675f950",
+   "standard": "erc1155",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x1f15ca150c4e6ebd70766b27ac728a37e05d4eb3",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x213b5f61501c0cdd2c51a3357b1006e209d3eef4",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x239d90ded1578dce220fd69cd014ce730e79951c",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x25e24e738cc21eae42327086ce613f717ee0c6dd",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x26ec3f46658ad33252de09d910bdfede5f8f1815",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x30be92b600a1dee642b71c24c67bfdeee114f663",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x311ed815606776172249531fa9f092012b8b4e58",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x32b84a5836539714a179d282b60650055563c75b",
+   "standard": "erc1155",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x330eea8ec44e91302c318006ef5b8202adca2d4d",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x33758098e9f11cf7e412442dfa9fa571ae881fa8",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x351909788f1d04eba2d2e5f3369520faa61fa25d",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x3542006956cff3fcd1782ffcd0405f18a0b3dc33",
+   "standard": "erc1155",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x372f96f69ea70d2c2946331b5dbb688c50eaec6d",
+   "standard": "erc20",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x3b448e44bfa9b1a6b54d0ebc2c9fc714e2f82b72",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x3b66262eacb826810a369611caa89b97f220e676",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x3edd2cd0ee5b5028268997a07a068675ade73ad5",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x45eccddc5c304223d5ea8db2fbdeb6fbb53ccc39",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x496c064de8a189920219005a7e76bafa1bea5902",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x4c11c919d3ef51067982c7177bc2dfac6708cd4b",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x4f4ded4b99f3c76fa9af75275b545e807e252540",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x50b940f67e8472a4ab680b224ecb371cbc1bac37",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x54b26784700638f80c03eac44aa88977f88d7d75",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x58bdc4310db1b19854ca9066deed7e3df4f2ec9b",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x590a91fd0c417a5011e10c920b37805fa871b9a4",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x5ac94cd6c0dad2192d7b4617fa30d1e612a98dca",
+   "standard": "erc1155",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x5b65d3d008401879c2194c4d0bfd99fec61b2fb4",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x5c00fa09c8b7319caa8b45d3892e0879143a43d4",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x5fac1810e3f782823bd3e33d1ee38096543c6c54",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x632bfaca2e965cf375ec64467a43d07156f06931",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x6537aef3eb037e3da7f7ff6dbf52038dd6d7fc75",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x653ae9c4bbd160d98c354285a7c82a9536bfe728",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x6563acf1131abe6a50c0d846f4b290736835e73d",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x66c1629c87e3b5be3b3ef7d79aa72c2d1b2c5beb",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x676f59416ed43d9f8a7c12d5d1443dbacb65624d",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x6780feceb405bdb87d660662b7e732ca65475753",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x69369aabc6b285ee29eaf601d0dbb433865f025d",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x6a7c6b25b89b2629c99f56b1d04b62b17ad6fec4",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x6ae8531d45126a15708bc8e65acd9f2c44294cc2",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x6c338c5a56f68ca95ffebc08a03e1a4e378b7ce5",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x6c9458b7e1c1742c68d2662ea6a41ac5de43d28c",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x6cd8ee38182d42e65deae25dd383e12f811faa4a",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x6ce9b0b0750f48274d8f59a4bc42bdc22574d686",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x6d88a498c03b705a07df73d86b24b2cf05a769ff",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x6edd782ddd3072d41a82fb500616c5a654e2d558",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x7126b2cbe80e8c1e67c28d3542258365f79588f8",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x734e5a87f4cc553ee80855f30ab09e4b5acdb14d",
+   "standard": "erc20",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x747bb20e73ab93280438b61946827d1f8819e137",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x79624893f8fbd6c6e362fdb60832be71a03ce61f",
+   "standard": "erc20",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x7bbea45b0ee287a5f9ce25eefeb0ffc334da4be8",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x7c307e128efa31f540f2e2d976c995e0b65f51f6",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event",
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x7dee2465f894d682f0fc6798549cd3177b8e6504",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x7dfce1427d1cfa63d5a8e5ba10cfe3b9268a7628",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x7e1943dc031abe9bfb623b325a2c41b4c687b3e8",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x82466795fbdfbcfad6cfca2257540d7c47ba3dc5",
+   "standard": "erc20",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x82ad33fb9be53603a7805e8a87c328f25a19f998",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x84a9b3da5b9ced05dd0a9f833f6a3925410744ae",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x8793b28c9622d3b05ca3821e2efe3bd535e90df4",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x88fc62b40a99690766c8a07a3c301568241e27d8",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x8ad10ce66f23a6de038cf817cd5a406ea45cff70",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x8b29616fad189ac5cbec07bc0c2e9d79dc297b53",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x91494bbab93bc1e10c488b71c4489cee9f9385be",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x91895da0073e12a06aa93aee35099106b26f12e9",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0x94b37d5d659bbf7ece5cfa507bae4fdb0a57a9a2",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0x9965207060bbe003aa769452dde625aa36bd5a19",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0x9aae9368006dcecb73fce4cb34de32a82c2fbe43",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x9c3444899b25346090902a28d9615645273b296f",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0x9fde643a40c3d92d785cf2702361ce0e01924129",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xa0c2d9efe55bc51e9bd2b70d23cbb8cc6daa01a6",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xa3022a431fa65221d45963f9461a3e239d278d98",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xa340faae387bddf282f43fc5663c75f7b5f5fc24",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xa74596eb8d2002f5f41f3e5c089192d6fb78b4c8",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xaafd6c727788d402cea35fdd7f87081a14a17d13",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xac9ce2775b918c4d4fddecb772064637c292c295",
+   "standard": "erc20",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0xb16b5603f45ed13a751f05006d9ecba7d2dd969b",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0xb35afafb03d70ea2f7ee42b16c0ea2e3a799fae0",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xb8d06247f29aee234ee9a000cb545d6eda6930e9",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xbf6cb3e74474bc9fad8958028ece9869312786d4",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xc0eeb85324765b330470c809950594bb3d057e38",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xc18c4e02abe93aa9aa7681ab41a18833d93babee",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xc1d39c5579b9c05909046a37b8ed3007ee4528e7",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xc3456cef80bff928796e68ae5ae31cf2e80d2db4",
+   "standard": "erc1155",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xc38878fd4f6cdd041a85aeca4dafed30112c4e0a",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xc5cce47735326e89e2b293547cc7e2f740bbcb9f",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xca21091ffa0f3af00191686f553aae6848ee75b8",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xcc6e9c691ae9a44aa6f0e9eb88d809d13d13a021",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xcce83b5e7b2ccb822a3d990847ec48e455766585",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xcd56472dcf66d706481cde9a3fd9d71b6f22245c",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xcd6b003fd8b433e79137627267bc1ce177be368d",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xcdbbab0c808b2c2dc642860674a7f4a67548a82c",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xce7903c8b9895d2976dc14c7bbe55d84b7751494",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xd3e114495112ec05c8901fe9711a17a90c21face",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xd86b4239ccb1a040d9fd04a1ae46c11f3c15ec0a",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xdc205bafcdc3bec8a840f0e769b62604434b2c7b",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xdd2e30c43bd10b4546b67e47d2a4473c821ee31d",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xdd7a13b576531d785ee5601546abfd61d817ea9d",
+   "standard": "erc20",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xe132499880311b5d1dbe6c3a45402126eea05597",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xe40cf125ab46ef153ab37c81e22e95987e0410ba",
+   "standard": "erc1155",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xe5bb05e1247023f93c5c023645b478d374625023",
+   "standard": "erc721",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xe7277816169f0035e87d482e3eeffa5b04bfd332",
+   "standard": "erc1155",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 3
+  },
+  {
+   "contract": "0xef8f5608ed3d89dec596607d23d6b356ce204a7f",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xf0adb186f0865c229966d20ad97ad4e6e2570ffa",
+   "standard": "erc20",
+   "reasons": [
+    "non-standard mint / rebasing"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xf5337ac969cba7bf4e5822d4a8edf3417b25eaa9",
+   "standard": "erc1155",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 4
+  },
+  {
+   "contract": "0xf7e12e72486f0e3fb85da3d37099f55a790413e9",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xfc33f8fc0920088fdf7184c263f07ea4f1c0cb72",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xfde4abe894abfb18d849857031b47ac571393f30",
+   "standard": "erc20",
+   "reasons": [
+    "fee-on-transfer / burn without event"
+   ],
+   "failed_checks": 1
+  },
+  {
+   "contract": "0xfe5cc3fed5bc80368b6b3f4357d5f56e572d1ea2",
+   "standard": "erc20",
+   "reasons": [
+    "non-compliant (balanceOf reverts)"
+   ],
+   "failed_checks": 2
+  },
+  {
+   "contract": "0xfe96e67a1b350baedccb1d368097c0efc0acaec6",
+   "standard": "erc20",
+   "reasons": [
+    "spam (Transfer events without balance)"
+   ],
+   "failed_checks": 2
+  }
+ ]
+}

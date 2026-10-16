@@ -41,3 +41,14 @@ HyperSync counts (`verify/parent_counts.py`, ≤7/min; raw output in `verify/par
 - Base, Aavegotchi Diamond 0xA99c…: **partial scan to block 35,978,260 (14 requests): TransferToParent 113,911 (first block 33,208,149), TransferFromParent 2,926 (first block 33,285,899).** The full range needs many more requests. Budget it in P1.1.
 - Base Sepolia, 0x4773… and 0xb2d5…: **0** for both events (full range). The Sepolia wearable mismatches are not explained by parent events on those two contracts, so P1.1 should check which address emits them on Sepolia (e.g. the Sepolia Aavegotchi diamond) and look into the duplicate mint logs.
 Implication: wearables equipped on a gotchi leave the owner's wallet through parent-transfer events, not standard ERC1155 events, so wallet balances for wearables need these events (or the gotchi→owner mapping) in P1.1.
+
+## End-to-end rerun after architect decisions (2026-10-16 ~11:30–12:30 PT, fresh DBs)
+Command: `abra run cryptoPnL -- scripts/p1_test.sh <chain> 0x2127AA7265D573Aa467f1D73554D17890b872E76`. Logs: `docs/evidence/p1_e2e_{8453,84532}.log`; untracked reports: `docs/evidence/p1_untracked_{8453,84532}.json`.
+| Test | Base 8453 (`cryptopnl_e2e_base`) | Base Sepolia 84532 (`cryptopnl_e2e_sepolia`) |
+|---|---|---|
+| Ingest ×2 identical | **PASS** 32,547 = 32,547, checksum 7a3d145e… | **PASS** 745 = 745, checksum e93ddc39… |
+| Balances (gate) | **PASS** gated 28/28 (10 gated contracts configured). Untracked: 1,188 checks, 125 contracts not reconciling (spam 83, fee-on-transfer/burn 24, non-compliant 11, non-standard mint/rebasing 8), excluded from PnL | **N/A**: no gated assets (staging). Untracked: 784 checks, 2 contracts not reconciling (Aavegotchi wearables, non-standard mint) |
+| Rate limits | HyperSync ingest #1 41 req / 7×429, effective 5.8/min; #2 39 / 5×429, 6.07/min. RPC verify 1,221 req / 2×429 at 60.0/min. HyperSync sent no Retry-After (retry_after_honored=0), so exp. backoff was used. No failed requests | RPC verify 787 req / 0×429 at 60.2/min; HyperSync 0–2×429 per run |
+| Simulated reorg | **PASS** fork 52,440,523, 14 events deleted + re-ingested, checksum restored | **PASS** fork 47,171,965, 5 events deleted + re-ingested, checksum restored |
+| Script result | `ALL PASS`, EXIT=0 | `ALL PASS`, EXIT=0 |
+Note: the reorg test now derives the re-check window from the tampered blocks (`REORG_WINDOW = head − min(tampered) + 1`). Production uses the default 10k-block window plus the safe tag.
