@@ -45,6 +45,30 @@ abra project `cryptoPnL` holds BASE_RPC_URL (from AarcadeGh-t JUICEBOX_RPC_BASE)
 Archive check on drpc returns real data: eth_getBalance(0x4200…0016) at block 10,000,000 → non-zero; GHST totalSupply at block 50,000,000 → non-zero (at 10M it returns `0x` because GHST was not deployed yet, so 'OK' at 3M/10M means no error, not data).
 **Etherscan v2 (Q3): DEFERRED.** No paid plan; HyperSync + RPC cover it.
 
+## Authenticated rerun (2026-10-16 ~10:30 PT, MBP) — verify/auth_intro.py, verify/auth_p0.py, docs/sources.md
+Key: `SUBGRAPH_API_KEY` in abra project **`general`** (not `cryptoPnL`), used via `abra run general -k SUBGRAPH_API_KEY`; never printed or committed (grep check: no leak).
+- **Auth:** Bearer → 200 on core / gbm / alchemica (`_meta` block 52690660, envio-self-hosted, no indexing errors). No key → 401.
+- **Introspection:** 11 target entities present; fields match the earlier map. Only `Auction_BidPlaced/_BoughtNow/_ItemClaimed` carry `transaction_id` (= tx hash). Cursor fields: blockCreated / timeLastPurchased / timeCreated / createdAt / executedAt / bidTime / timestamp.
+- **Proxy quirks (P1 risk):** every list query returns only the **first row as a single object** (`limit` ignored; aliases renamed; `offset` is injected — `Auction_by_pk` fails "no argument named 'offset'"); `*_aggregate` not exposed; `order_by desc` puts NULLs first (use `desc_nulls_last`). Bulk paging through the proxy is therefore not workable as-is → backfill via Goldsky (S1b) or HyperSync, proxy for point lookups, or ask for a list-capable bot route.
+- **Receipts:** 3/3 unique Auction_* `transaction_id`s resolve on base.drpc.org to status-1 receipts whose block timestamp equals the event timestamp (blocks 33463209, 33466404, 42210865). Sample is small because of the single-row quirk.
+- **S1b parity:** 20/20 latest Goldsky GBM auctions (>1 h old) found via proxy `where:{id:{_eq}}` with identical highestBid + totalBids.
+- **Rate limit:** sequential `_meta` at ~85/min → 46×200, then **429 on request 47** (~33 s). No rate-limit headers. Plan for ≤ ~40 req / 30 s per key; back off on 429.
+
+## §4 P0 pass/fail (authenticated)
+| Criterion | Result | Evidence |
+|---|---|---|
+| docs/sources.md with real authenticated queries + samples | **PASS** | docs/sources.md (11 entity queries + responses, _meta) |
+| Every S1 sample event resolves to a receipt | **PASS** (3/3 proxy events; 10/10 Goldsky earlier) | tx hash → receipt → block hash, ts match |
+| Rate limits measured | **PASS** | proxy 429 at req 47 (~85/min burst); HyperSync ≈15 q/min (7 omarchywin + 8 M1); RPC table above |
+| Q2 RPC archive + getLogs | ANSWERED | drpc archive; logs via HyperSync |
+| Q3 Etherscan v2 | DEFERRED | no paid plan |
+| Q4 HyperSync | PASS (logs); traces likely unsupported | keyed rerun |
+| S1b parity | **PASS** | 20/20 auctions identical |
+
+**Verdict: P0 DONE (criteria met), with one P1 design risk:** the proxy returns single rows only, so S1 bulk ingest needs Goldsky/HyperSync or a list-capable proxy route. Etherscan deferred. P1 not started.
+
+<details><summary>Superseded free-tier table</summary>
+
 ## §4 P0 pass/fail (final for free-tier)
 | Criterion | Result | Evidence |
 |---|---|---|
@@ -57,3 +81,5 @@ Archive check on drpc returns real data: eth_getBalance(0x4200…0016) at block 
 | S1b parity | NOT DONE (blocked: bot key) | Goldsky reachable |
 
 **Verdict: P0 NOT DONE** — only the AarcadeGh$t bot key remains blocking (sources.md, entity receipts, S1b parity, proxy rate limits). P1 not started.
+
+</details>
