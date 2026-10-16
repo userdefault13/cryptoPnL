@@ -1,6 +1,6 @@
 # P1 Raw ingest — results (2026-10-16 PT, MBP, local Postgres 16 `cryptopnl_test`)
 Sources: HyperSync (logs) + free RPC (base.drpc.org; Sepolia sepolia.base.org). **No Goldsky.** AarcadeGh$t proxy not used by bulk ingest (point lookups only). HyperSync self-capped at 7 req/min (no local throttle on MBP; shared 15/min token).
-Test wallet: admin 0x2127AA7265D573Aa467f1D73554D17890b872E76. Command: `abra run cryptoPnL -- scripts/p1_test.sh <chain> <wallet>`.
+Test wallet: admin <TEST_WALLET>. Command: `abra run cryptoPnL -- scripts/p1_test.sh <chain> <wallet>`.
 
 ## Marketplace topic0 hit counts (Base, HyperSync, Aavegotchi Diamond 0xA99c… / GBM diamond 0x8032…)
 Full range 33,315,000 → 52,691,238 (from ingest #1 by_kind):
@@ -43,7 +43,7 @@ HyperSync counts (`verify/parent_counts.py`, ≤7/min; raw output in `verify/par
 Implication: wearables equipped on a gotchi leave the owner's wallet through parent-transfer events, not standard ERC1155 events, so wallet balances for wearables need these events (or the gotchi→owner mapping) in P1.1.
 
 ## End-to-end rerun after architect decisions (2026-10-16 ~11:30–12:30 PT, fresh DBs)
-Command: `abra run cryptoPnL -- scripts/p1_test.sh <chain> 0x2127AA7265D573Aa467f1D73554D17890b872E76`. Logs: `docs/evidence/p1_e2e_{8453,84532}.log`; untracked reports: `docs/evidence/p1_untracked_{8453,84532}.json`.
+Command: `abra run cryptoPnL -- scripts/p1_test.sh <chain> <TEST_WALLET>`. Logs: `docs/evidence/p1_e2e_{8453,84532}.log`; untracked reports: `docs/evidence/p1_untracked_{8453,84532}.json`.
 | Test | Base 8453 (`cryptopnl_e2e_base`) | Base Sepolia 84532 (`cryptopnl_e2e_sepolia`) |
 |---|---|---|
 | Ingest ×2 identical | **PASS** 32,547 = 32,547, checksum 7a3d145e… | **PASS** 745 = 745, checksum e93ddc39… |

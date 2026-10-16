@@ -3,6 +3,8 @@ and per-source counters incl. effective throughput."""
 import json, random, time, urllib.request, urllib.error
 STATS = {}
 _T0 = {}
+# NOTE: this limiter is PER PROCESS. The HyperSync budget (7/min for the MBP) is per HOST/account: run only one
+# ingest process at a time on a host (p1_test.sh is sequential), or put a shared host throttle in front.
 class Limiter:
     def __init__(self, per_sec, burst=1):
         self.rate = per_sec; self.cap = float(burst); self.tokens = float(burst); self.t = time.monotonic()
