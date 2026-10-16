@@ -42,6 +42,7 @@ abra project `cryptoPnL` holds BASE_RPC_URL (from AarcadeGh-t JUICEBOX_RPC_BASE)
 | **base.drpc.org (chosen)** | **OK** (~0.35 s) | OK at ≤100 blocks; 400 ("ranges over 10000 blocks are not supported on free plan", misleading) at ≥500, incl. old blocks |
 
 **Chosen: `BASE_RPC_URL=https://base.drpc.org`** (abra `cryptoPnL`, public URL) for archive `eth_call`/`balanceOf`-at-block and receipts. **getLogs is replaced by HyperSync** (≈15 queries/min budget, 15000/60 s at cost 1000; GHST 200k-block scan in 5 queries). drpc getLogs (≤100 blocks) is only for spot checks; publicnode (≤9k recent blocks, no archive) is an optional backup.
+Archive check on drpc returns real data: eth_getBalance(0x4200…0016) at block 10,000,000 → non-zero; GHST totalSupply at block 50,000,000 → non-zero (at 10M it returns `0x` because GHST was not deployed yet, so 'OK' at 3M/10M means no error, not data).
 **Etherscan v2 (Q3): DEFERRED.** No paid plan; HyperSync + RPC cover it.
 
 ## §4 P0 pass/fail (final for free-tier)
