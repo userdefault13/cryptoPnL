@@ -38,7 +38,8 @@ def child_ledger(conn, chain, gotchis, block):
     rows = conn.execute("""SELECT payload->>'gotchi_id', payload->>'type_id',
           sum(CASE WHEN kind='wearable_to_parent' THEN (payload->>'value')::numeric ELSE -(payload->>'value')::numeric END)
         FROM raw_event WHERE chain_id=%s AND kind LIKE 'wearable_%%' AND block_number <= %s AND payload->>'gotchi_id' = ANY(%s)
-        GROUP BY 1,2""", (chain, block, [str(g) for g in gotchis])).fetchall()
+          AND payload->>'parent_contract' = %s   -- only children held by the Aavegotchi Diamond
+        GROUP BY 1,2""", (chain, block, [str(g) for g in gotchis], WEARABLES[chain]["parent"])).fetchall()
     return {(int(g), int(t)): int(v) for g, t, v in rows}
 
 def verify_wearables(conn, chain, log=print):
