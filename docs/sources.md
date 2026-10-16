@@ -273,3 +273,6 @@ found in proxy 20/20, exact match on highestBid+totalBids 20/20.
 
 ## Proxy quirks
 Entities returned as a single object instead of a list (limit/offset not honoured as list): ['Auction', 'Auction_BidPlaced', 'Auction_BoughtNow', 'Auction_ItemClaimed', 'Bid', 'ERC1155BuyOrder', 'ERC1155BuyOrderExecution', 'ERC1155Listing', 'ERC1155Purchase', 'ERC721BuyOrder', 'ERC721Listing']. The proxy appears to return only the FIRST row as an object (limit ignored, aliases renamed to the entity name, `*_aggregate` not exposed). `order_by: desc` sorts NULLs first, so use `desc_nulls_last`. Paging by `order_by` cursor + `where: {CURSOR: {_lt: last}}` must be verified against this before P1.
+
+## Marketplace logs via HyperSync (S1b replacement, 2026-10-16)
+Goldsky removed. Aavegotchi Diamond `0xA99c4B08201F2913Db8D28e71d020c4298F29dBF` and GBM diamond `0x80320A0000C7A6a34086E2ACAD6915Ff57FfDA31`; topic0s in `verify/marketplace_topics.txt`. Hit counts on Base to block 52,691,238: see docs/P1_RESULTS.md (all 8 > 0).
