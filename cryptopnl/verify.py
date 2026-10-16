@@ -2,7 +2,7 @@
 import json
 from .db import hx
 from .sources import RPC
-from .config import CHAINS, gated, WEARABLES
+from .config import CHAINS, gated, WEARABLES, MIGRATION_BLOCK
 import os
 
 def ledger(conn, chain, w, block):
@@ -56,8 +56,12 @@ def verify_wearables(conn, chain, log=print):
         evb = [r[0] for r in conn.execute("""SELECT DISTINCT block_number FROM raw_event WHERE chain_id=%s AND
                ((kind LIKE 'erc1155%%' AND payload->>'contract' = ANY(%s) AND (payload->>'to'=%s OR payload->>'from'=%s)) OR kind LIKE 'wearable_%%') ORDER BY 1""",
                (chain, [K] + wc["aliases"], w, w))]
-        samples = sorted({evb[int(len(evb) * q)] for q in (0.25, 0.5, 0.75)}) if evb else []
-        blocks = samples + [last]
+        ev_q = sorted({evb[int(len(evb) * q)] for q in (0.25, 0.5, 0.75)}) if evb else []
+        # Time-spread (architect PR #2): one block in each quarter of [migration, head], the last within 10k of head,
+        # plus the event-quartile blocks above (where balances actually change).
+        m0 = MIGRATION_BLOCK.get(chain, evb[0] if evb else last); span = last - m0
+        spread = [m0 + span * k // 8 for k in (1, 3, 5)] + [last - 5_000]
+        blocks = sorted(set(ev_q) | set(spread)) + [last]
         owner_ids = sorted({a[2] for a in ledger(conn, chain, w, last) if a[0] == K and a[1] == "erc1155"}, key=int)
         allg = sorted({g for blk in blocks for g in owned_gotchis(conn, chain, w, K, blk)})
         pairs = sorted(child_ledger(conn, chain, allg, last).keys())

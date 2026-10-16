@@ -43,3 +43,6 @@ WEARABLES = {
   # Sepolia: none. 0x4773f06f…ff64b / 0xb2d52be3…554a1 are Installation-type diamonds, not wearables (architect,
   # DESIGN v1.1 §7); excluded from the Sepolia pass criterion.
 }
+
+# Base Aavegotchi migration (first gotchi/wearable activity on Base); start of the time-spread verify samples.
+MIGRATION_BLOCK = {8453: 33_200_000}

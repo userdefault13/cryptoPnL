@@ -24,7 +24,8 @@ T=$($PY -m cryptopnl simulate-reorg --chain $CHAIN 2>/dev/null); echo "$T"
 # top = newest of ALL cursors (wallet + global); reorg_check measures the window from that. +100k margin because
 # cursors advance to the live head during the re-ingest itself (a paused host made the old derivation miss by 41 blocks).
 HEAD=$(psql -Atq "$CRYPTOPNL_DSN" -c "SELECT greatest((SELECT max(c.last_block) FROM sync_cursor c JOIN wallet w ON w.id=c.wallet_id WHERE w.chain_id=$CHAIN),(SELECT max(last_block) FROM sync_cursor_global WHERE chain_id=$CHAIN))")
-# re-check window must cover the tampered blocks (in production: default 10k-block window + safe tag)
+# TEST-ONLY: the +100k margin exists only so this harness survives host pauses. Production uses the default
+# REORG_WINDOW=10000 (config.py) with the safe-head tag; do not copy this margin into deployment config.
 export REORG_WINDOW=$(( HEAD - $(echo "$T" | jq '.tampered_blocks|min') + 1 + 100000 )); echo "REORG_WINDOW=$REORG_WINDOW"
 $PY -m cryptopnl ingest --chain $CHAIN "${W[@]}"
 C3=$($PY -m cryptopnl counts --chain $CHAIN 2>/dev/null); echo "counts3 $C3"
