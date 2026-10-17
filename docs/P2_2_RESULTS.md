@@ -3,7 +3,7 @@
 Branch `p2.2-gotchiverse` (from main bed74e9). Spec: DESIGN.md **v1.3 §9** (box copy; the repo copy stays v1.0). Plan: docs/P2_2_PLAN.md.
 Times are PDT (America/Los_Angeles). Test wallet redacted as `<TEST_WALLET>`.
 
-## Runs (before the PR #5 review fixes; superseded once `scripts/p2_2_rerun.sh` runs, see the review section below)
+## Runs (before the PR #5 review fixes; superseded by the final rerun in the review section below)
 - `scripts/p2_2_test.sh` on DB copies `cryptopnl_p22_base` / `cryptopnl_p22_sep` (made with `createdb -T` from the P2.1 evidence DBs, which are not written).
   The runs were one chain at a time under nohup, with every HyperSync request going through the host lock. Code at 35e3dbf.
 - Base 8453 (final run, 01:07–01:14): **99.517 % classified (825 / 829 wallet txs), 4 in review.** classify ×2: identical ledger
@@ -73,6 +73,25 @@ DESIGN.md in the repo is now the architect's v1.3, copied verbatim (e2abb9e, sha
 - **#27 mixed instant + queued craft:** the split rule uses on-chain type costs (KNOWN_GAPS #27), with review as the fallback. Tests cover an exact split, a mismatch and a missing cost going to review,
   a free type getting 0, and reduceCraftTime GLTR staying with its queue.
 - **Unit tests (before #27):** 64 OK (1 skipped), with 22 in tests/test_gotchiverse.py. Run on the box with a local Postgres 17 and Python 3.13.
-- **Base / Sepolia rerun: PENDING.** The DB copies, abra token and host HyperSync lock are on the builder Mac, which went offline at about 01:30 PDT.
-  The commands are `git pull` then `abra run cryptoPnL -k ENVIO_API_TOKEN -- nohup scripts/p2_2_rerun.sh > logs/p2_2_rerun.log 2>&1 &`.
-  Expected on Base: 828/829, with only the internal-ETH gap left in review.
+- **Base / Sepolia rerun (final, code at 34478e6, builder Mac, `scripts/p2_2_rerun.sh` under nohup, 02:10–02:28 PDT).** Each chain ran on a fresh copy
+  (`cryptopnl_p22_{base,sep}` re-made from the P2.1 DBs) through `p2_2_test.sh` and then `p2_test.sh`. Every HyperSync request went through the host lock. 0 × HyperSync 429.
+  | chain / pass | classified | review | ledger md5 (classify #1 = #2) | HyperSync busiest 60 s window |
+  |---|---|---|---|---|
+  | Base P2.2 (02:10) | **99.397 % (824 / 829)** | 5 | 96bab9e4… = 96bab9e4… (script md5 over every column fc6c3503… = fc6c3503…), 1,308 rows | 5 (ending 02:11:27), limit 5 |
+  | Base P2 (02:16) | 99.397 % (824 / 829) | 5 | 96bab9e4… = 96bab9e4… | 5 (ending 02:18:21) |
+  | Sepolia P2.2 (02:21) | **100 % (126 / 126)** | 0 | f4a81e5d… = f4a81e5d… (script md5 9f9beb2d… = 9f9beb2d…), 802 rows | 2 (ending 02:22:22) |
+  | Sepolia P2 (02:24) | 100 % (126 / 126) | 0 | f4a81e5d… = f4a81e5d… | 2 (ending 02:26:16) |
+  The Base P2.2 pass logged 1 RPC 429, absorbed by the backoff (not a storm), and 1 HyperSync connection error retried once (conn_retries 1, not a 429).
+  Base review (5):
+  - 4 × the Aerodrome FUD/GHST pool 0xeae2fb93…, which per KNOWN_GAPS #25 goes to review unless it is a plain add-liquidity. All 4 were classified in P2.1. **Architect decision needed:**
+    - 0x374fdd859265e769db2f88c13a7b7557975eb4c1f47817192cb11db10191778e and 0x88f750fc5e81c3cf4b18f2e69c2f956253c4b6c5c861a40e13639d73aaf87a00 each swap 3 GHST → ~39,000 FUD against the pool (P2.1: swap).
+    - 0xa51f0359ee945a1c7a004cb02f360a31be5d2528a2183bfd4b8c96071badc31a sends 3 USDC to 0x4e392fbf… and receives ~1.24 M (18-decimal units) of a token from the pool, a multi-hop swap (P2.1: swap).
+    - 0x061ba2330f9e5b904c243f2be68fbec255c42932b52da1399854375b083196c8 is a deposit of 100 pool LP tokens to 0xab449dca…, selector 0xe2bbb158, likely a gauge/staking deposit (P2.1: untracked).
+  - 1 × 0xccbfe04a6920793f7000b61d74e0da342e65252efe3e73170ec2f751c5bc58c0: DEX router, native leg not indexed (internal-ETH gap, as in P2.1).
+  Resolved vs earlier runs: 0x3a46… (FUD depositERC20 → gotchi 3033's escrow) is now `transfer_internal` → `pocket:3033`. The R8b borrower pair is classified.
+- **Regression found by the first rerun and fixed (34478e6):** the first rerun at eb5b88f (01:45–02:04, log kept on the Mac as `logs/p2_2_rerun_1.log`) gave Base 99.276 % (823 / 829, 6 in review), with identical md5s (cfaaa724…) and busiest windows 5/5/2/2.
+  The 6th review row was 0x9248c703c1a5552360034fea42f2ca748883acf3c4f6a985c47afd1fccb1ded4, the refund of a cancelled GBM auction (0.5 GHST bid + 0.025 incentive).
+  88498fc had added the AuctionCancelled topic, which switched off the P2.1 no-event fallback. The refund now matches the escrow of the auction cancelled in the tx (5613 = topic 1),
+  which gives back the P2.1 result (escrow_return + income, `gbm:auction:5613`). There is a new test.
+- **Unit tests:** 69 OK (1 skipped) at 34478e6 on the box (Postgres 17, Python 3.13). On the builder Mac (Python 3.9), 68 OK (1 skipped) at eb5b88f, before the regression test existed.
+- Evidence: `docs/evidence/p2_2_{classify,gv_events,hypersync}_<chain>.*` (P2.2 pass) and `docs/evidence/p2_2_p2pass_{classify,hypersync}_<chain>.*` (P2 pass).
