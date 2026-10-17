@@ -107,11 +107,20 @@ GV = {8453: {
     "ghst": "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb", "gltr": "0x4d140ce792bedc430498c2d219afbc33e2992c9d",
     "alchemica": {"0x2028b4043e6722ea164946c82fe806c4a43a0ff4", "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58",
                   "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"},
+    # Aerodrome FUD/GHST volatile pool (PoolFactory.getPool(FUD, GHST, false)); the pool is its own LP token. NOT a router (§9 R10 correction)
+    "aero_fud_ghst_pool": "0xeae2fb93e291c2eb69195851813de24f97f1ce71",
     "start_block": 33_200_000}}
 # Selectors (openchain signature DB, verified-contract flag; ABIs of the Installation/Tile/REALM diamonds)
-GV_SEL = {"craft": {"0x9ff2a527", "0x976a1afe"},          # craftInstallations(uint16[],uint40[]), craftTiles(uint16[])
+# craft/claim/reduce selectors verified live on Base 2026-10-17 via DiamondLoupe facetAddress(bytes4) (eth_call, latest) + openchain names
+GV_SEL = {"craft": {"0x9ff2a527", "0x976a1afe",           # craftInstallations(uint16[],uint40[]), craftTiles(uint16[])
+                    "0xe9332638", "0xfdc6d919"},          # batchCraftInstallations((uint16,uint16,uint40)[]) [Installation], batchCraftTiles(...) [Tile]
+          "craft_claim": {"0x763b948a", "0xa185cc01"},    # claimInstallations(uint256[]) [Installation], claimTiles(uint256[]) [Tile]
+          "craft_reduce": {"0xe0d20147"},                 # reduceCraftTime(uint256[],uint40[]) [both]; GLTR burnFrom -> 0x0 is craft cost
           "claim_alchemica": {"0x9fefe547", "0x8027870e"},   # claimAvailableAlchemica(uint256,uint256,bytes), channelAlchemica(uint256,uint256,uint256,bytes)
-          "pocket_deposit": {"0xb0facab3"}}                 # depositERC20(uint256,address,uint256) on the Aavegotchi diamond (R10 -> review)
+          # gotchi pocket (escrow) custody on the Aavegotchi diamond: depositERC20(uint256,address,uint256), transferEscrow(uint256,address,address,uint256),
+          # batchTransferEscrow(uint256[],address[],address[],uint256[]) (all live, facetAddress check)
+          "pocket": {"0xb0facab3", "0xab0fcabf", "0x2a206f11"}}
+GOTCHI_ESCROW_SEL = "0xa8e39da0"   # gotchiEscrow(uint256) -> address; RPC-verified: gotchiEscrow(3033) = 0x728f0baf79ebdfa336978c90f244324a0ba7bcff
 # topic0 -> event name (keccak of the ABI signatures; DESIGN §9 prefixes match: 0x0f52fde6…, 0x6d10597e…)
 GV_TOPICS = {
     "0x0f52fde6171d45c02579364597406652690bf2264e564ba1a5b88ffa98d8815b": "ERC721ExecutedToRecipient",   # (listingId*, buyer*, recipient*)
@@ -126,14 +135,17 @@ GV_TOPICS = {
     "0x07d6dfde038acc4db278bc4333a59375b806deec664e469c6b09f17a73bafade": "MintInstallations",          # (owner*, installationId*, uint16 amount)
     "0xf2bd7a0a4587b4c000ee36ad5681c67c7fcad9d00a80bf975ac2e315f8577c4d": "MintInstallation",
     "0xcf4ec29a21df4a833e09008384c100f3bde71017c3868dd3b89e2d4b86dc5ffc": "MintTiles",                  # (owner*, tileId*, uint16 amount)
+    "0x51657e5528e26561636ff2e150a205acc5869437fe7f681f906a95887e3f0eac": "MintTile",                   # (owner*, tileType*, tileId) [claim: data = queue id]
     "0xf1e7ab6f403ab027329be55c1aa82c8c92c513aae2a27fc0bbaaa03b0dd8f12a": "UpgradeQueued",              # (owner*, realmId*, queueIndex*)
     "0xff977a48e6ed060e1323f331b58d75fed1eadb4dac3e3bdb86664ea6a9f4354e": "UpgradeInitiated",           # (realmId*, x, y, blockInitiated, readyBlock, installationId)
+    "0xb68ab7bf9a62eca632e4af52e2ab71db327c9abb6b5cee91ee23afb32cf40e27": "UpgradeQueueFinalized",     # 0xb68ab7bf (owner, realmId, queueIndex); indexing assumed like UpgradeQueued (unverified)
     "0xe2e4b3bcba1b8d227ae00a114468153a60fad154306154b2ff1e67325cc48315": "UpgradeFinalized",           # (realmId*, x, y, newInstallationId)
     "0x395d9a08b897acfa143a6e0de3173b720402b3f2829112ef5deadbaf1f212e25": "UpgradeTimeReduced",         # (queueId*, realmId*, x, y, blocks)
     "0x74b654614ea2444b876a14dec11c709807cda89060906c4b7e443e4f8ff9ed53": "InstallationUpgraded",       # REALM: (realmId, prevId, nextId, x, y)
     "0xe82810099d182b25e23e895715954d6e7b41867a02e2c693cce68a8f250e43d3": "TransferToParent",           # (toContract*, toTokenId*, typeId*, value)
     "0x4b287e36a0531da8ccee303de127c778302f48d8fc9569b1fe1dcb9d64465c6d": "TransferFromParent",
     "0x1eba211322935090f825dc2d5b300150db5078adc958f33161f7ea7a1d3026f0": "EventStarted",               # REALM bounce gate (eventId*)
+    "0x84f9e476fba70c0e0d8226ab52049ddac7b38ea188e785c45831b91832877af8": "EventPriorityAndDurationUpdated",   # REALM bounce gate update (eventId*, priority, endTime)
     "0xdb9cc99dc874f9afbae71151f737e51547d3d412b52922793437d86607050c3c": "AuctionCancelled",           # GBM (auctionId*, tokenId)
     "0x67725b3b5836354867e57ef59784870b52a0b07f53c7f0b41fefc726225f5bfb": "GotchiLendingExecuted",      # (listingId*, lender*, borrower*, ...)
     "0x2240d94f92369c7722021a9f6158fa5577eedeae5191c5ce9fbcc9c66fe4a7ce": "GotchiLendingEnded",
