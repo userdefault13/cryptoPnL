@@ -1,27 +1,31 @@
-# P2 results: ledger & classification (PR #3 second review: architect decisions A, blockers B1/B2, fixes C)
+# P2 results: ledger & classification (PR #3 final re-review at 3c8b056: B2 blocker, FAKE Gotchis, CCTP, null lookup, EIP-7702)
 
 Pass test (DESIGN v1.1 §4 / docs/P2_PLAN.md): >98% of wallet txs classified, the rest in `review_queue`, 10 hand-checked txs match the explorer.
 
 | chain | DB | wallet txs | classified | review | % | gate | ledger rows / md5 | evidence |
 |-------|----|-----------:|-----------:|-------:|--:|------|-------------------|----------|
-| Base 8453 | cryptopnl_p11s_base | 829 | 827 | 2 | 99.759 | PASS | 1245 / 4ed2a85be9002ecffe8331198034442d | docs/evidence/p2_classify_8453.json |
+| Base 8453 | cryptopnl_p11s_base | 829 | 827 | 2 | 99.759 | PASS | 1249 / 9e6bf4c8e5068ba7c0ad43b9020c4d7a | docs/evidence/p2_classify_8453.json |
 | Base Sepolia 84532 | cryptopnl_p11s_sep | 126 | 126 | 0 | 100.0 | PASS | 802 / f4a81e5d4948f29677aa7db4de84d43f | docs/evidence/p2_classify_84532.json |
 
-(Previous round, aed10d9: Base 99.879% with 1 in review, Sepolia 100%. Before the first review: Base 98.914%.)
+(Sepolia not rerun: its config is unchanged. Earlier rounds: 3c8b056 Base 827/829 (eb12a1 + DEX in review); aed10d9 99.879%; before the first review 98.914%.)
+Base 827/829, not the expected 828/829. eb12a1 (FAKE Gotchis) moved from review to migration_in, but the new EIP-7702 rule moved **0x4a5a7c6c…f697** from swap
+to review. That tx is a wallet self-call with ERC-7821 `execute` 0xe9ae5c53 that mints non-allowlisted token 0x7c307e128efa31f540f2e2d976c995e0b65f51f6 from 0x0
+(5024135863 units), sends 9478318086722626 of the same token out, and receives 25.856803 USDC. Per the rule (mint from 0x0 inside execute → review) it is in review.
 
-- Runs (2026-10-16, PDT): Base `scripts/p2_test.sh` 23:07–23:11, then Sepolia 23:12–23:16. One chain at a time under nohup, with ≥75 s sleep before and between ingest passes.
+- Runs (2026-10-16, PDT): Base `scripts/p2_test.sh` 23:26–23:31 (earlier round: Base 23:07–23:11, Sepolia 23:12–23:16). One chain at a time under nohup, with ≥75 s sleep before and between ingest passes.
   `classify` was run twice per chain and gave identical ledger/review md5.
 - **HyperSync** (host-wide request log `NET_REQLOG`, one line per HTTP attempt, retries included; `scripts/reqlog_summary.py`):
-  Base 23:09=4, 23:10=1, 23:11=3. Sepolia 23:13=2, 23:15=1, 23:16=2. **Busiest 60 s window = 4** (≤7). Files: docs/evidence/p2_hypersync_<chain>.txt.
+  This run: Base 23:27=3, 23:28=2, 23:29=4, 23:30=1 (10 requests). **Busiest 60 s window = 5** (≤7). **Base got two HTTP 429s, one per ingest pass**
+  (5 requests each, effective ≤6.9/min), both retried OK. Reported to the CoS. Earlier round: Base 23:09=4, 23:10=1, 23:11=3; Sepolia 23:13=2, 23:15=1, 23:16=2 (busiest 4). Files: docs/evidence/p2_hypersync_<chain>.txt.
   Sepolia pass 2 got **one HTTP 429** (no Retry-After header). Exponential backoff retried it and it succeeded. The budget was ≤3/min at that moment, so either
-  the host-side limit is shared with another consumer or it is lower than 7/min. Not verified.
+  the host-side limit is shared with another consumer or it is lower than 7/min (**possible shared or lower limit, unverified**; KNOWN_GAPS #10).
 - RPC (1/s, burst 3): Base tx_meta 24 lookups, Sepolia 69, no 429. `ingest_tx_meta` is new. It calls RPC `eth_getTransactionByHash` for wallet-received mints from 0x0 whose
-  tx the wallet neither sent nor received, and stores `raw_event` kind `tx_meta` (log_index -3) with {from, to, selector, value}. It is idempotent: the second pass had 0 candidates.
-- Review queue. Base (2): 0xccbfe04a…58c0, the DEX swap into ETH (internal ETH gap). 0xeb12a130cdc297ede7d906ac0e31b12097e246d92fb5fdffab39944dc87fc2e8, see *Migration*. Sepolia: 0.
-- Unit tests: `CRYPTOPNL_DSN=postgresql:///cryptopnl_unit11 ENVIO_API_TOKEN=x .venv/bin/python -m unittest discover tests` gives 30 OK (15 classify).
+  tx the wallet neither sent nor received, and stores `raw_event` kind `tx_meta` (log_index -3) with {from, to, selector, value}. It is idempotent: the second pass had 0 candidates. A null lookup is stored with `lookup_null`, and an allowlisted mint with a null or missing lookup goes to review.
+- Review queue. Base (2): 0xccbfe04a…58c0, the DEX swap into ETH (internal ETH gap). 0x4a5a7c6c3fde6b40c32fbe2540d34803e3f3f52d9d40af2ba100d208ed0ef697, the EIP-7702 execute wrapper with a mint (see above). Sepolia: 0.
+- Unit tests: `CRYPTOPNL_DSN=postgresql:///cryptopnl_unit11 ENVIO_API_TOKEN=x .venv/bin/python -m unittest discover tests` gives 36 OK (21 classify).
 
 ## Base tx categories (per tx)
-spam 337 · fee 280 · withdrawal 61 · swap 36 · untracked 29 · deposit 25 · escrow_out 15 · nft_buy 12 · escrow_return 10 · income 9 · migration_in 8 · auction 4 · bridge_in 1 · review 2.
+spam 337 · fee 280 · withdrawal 61 · swap 35 · untracked 29 · deposit 25 · escrow_out 15 · nft_buy 12 · escrow_return 10 · income 9 · migration_in 9 · auction 4 · bridge_in 1 · review 2.
 Sepolia: spam 71 · fee 39 · deposit 5 · withdrawal 5 · nft_buy 4 · swap 1 · untracked 1.
 
 ## Escrow (blocker 1 + B1/B2)
@@ -33,22 +37,28 @@ A fill or winning claim pays from escrow (`escrow:` -X, same trade_group as the 
   One of them (0x3a46db382e373e96997018dd9b1c996ff6e187667a48a71aa1d5cc1aed0b8442) *calls* the Baazaar diamond (selector 0xb0facab3), but its
   only leg is token 0x2028b404… 50000000000000000 to 0x728f0baf79ebdfa336978c90f244324a0ba7bcff, not to the diamond. It stays a withdrawal.
 - **B2:** buy-order fills are matched by order id. First, an entry already linked to that id. Otherwise exactly one unlinked open entry with amount = price×qty.
-  Otherwise (first partial fill of an unlinked order) exactly one unlinked entry that is a multiple of price and larger than the payment. None or several candidates goes to review.
-  Tests: A=100 / B=50 (fill 50 links B, A stays open and unlinked), linked id wins over an exact amount, two unlinked 100s go to review.
+  Otherwise (first partial fill of an unlinked order) exactly one unlinked open entry, placed before the fill, whose amount is an exact integer multiple of the unit price with
+  remaining ≥ 0. Zero or several candidates go to review.
+  **Blocker fix (3c8b056):** "linked" covers EVERY entry with that order id, including used-up ones (not only open ones). If any exist, the fill takes only from them and a shortfall
+  goes to review, so an exhausted order never claims a new placement.
+  Tests: A=100 / B=50; linked id wins over an exact amount; two unlinked 100s go to review; place 300, fill ord3 3×100, place 200, fill ord3 1×100 goes to review and the 200 stays open;
+  two equal-multiple 300s with a 1×100 fill go to review; a non-multiple 250 and an over-sized fill go to review; GHST sent to GBM with no bid goes to review.
 
 ## Migration basis: carry-over, pending until P6
 Rule (architect): **all** of the following must hold.
 - tx.from is the bridge sender 0xf52398257a254d541f392667600901f710a006ed or the wallet itself.
 - Every leg is an NFT mint from 0x0 to the wallet of an allowlisted Aavegotchi contract.
-- The (selector, tx.to) pair is on the per-asset list: Diamond 0xf55b061c, wearables 0xfd7499bd (tx.to 0xa99c…), Forge 0x506ccb27, REALM 0x0d51a188, Installations 0x9110d148, Tiles 0x91b06c6e.
+- The (selector, tx.to) pair is on the per-asset list: Diamond 0xf55b061c, wearables 0xfd7499bd (tx.to 0xa99c…), Forge 0x506ccb27, REALM 0x0d51a188, Installations 0x9110d148, Tiles 0x91b06c6e,
+  **FAKE Gotchis mintBatch 0x5e41ee65 → 0xab59ca4a… only** (mintBatch on any other contract goes to review).
 
 Any other bridge-sender mint goes to **review** (never spam or income). The block window 33,200,000–34,000,138 only produces a warning (none fired on Base).
-- Base: **8 txs / 74 legs are migration_in** (1f6395, fd0dde, 8e218b, ea87f9, 5b6e21, 199b45, 14f28e, de48be). That gives 74 `fifo_lot` rows: `basis_status=pending`,
+- Base: **9 txs / 81 legs are migration_in** (1f6395, fd0dde, 8e218b, ea87f9, 5b6e21, 199b45, 14f28e, de48be, eb12a1). That gives 81 `fifo_lot` rows: `basis_status=pending`,
   `basis_usdc` NULL, **`basis_price_source` NULL**, `basis_confidence_label` NULL, `chain_origin=137`. Lots are per (contract, id) for ERC1155.
 - **The architect's "9 re-mint txs": the 9th is 0xeb12a130…c2e8.** The bridge sender calls `mintBatch` (selector 0x5e41ee65) on **FakeGotchisNFTDiamond
   0xab59ca4a16925b0a4bac5026c94beb20a29df479** (FAKE Gotchis, ERC-721; Blockscout lists its creator as the bridge sender) and mints 7 FAKE Gotchis to `<TEST_WALLET>` at block 33,222,797.
-  That contract and selector are not on the architect's list, so the rule sends it to review. Before this fix it was wrongly spam. **Decision needed:** add
-  `0x5e41ee65 → 0xab59…` and the contract to the list to make it migration_in.
+  Architect decision (3c8b056): RPC check (getCode 4619 B; name "FAKE Gotchis", symbol FG; ERC165 ERC721), then added to the Base allowlist and selector map.
+  It is now **migration_in, carry-over basis pending** (7 lots).
+  The bridge sender's other token contracts (from a full Blockscout contract-creation enumeration, read-only) are **not** added. See KNOWN_GAPS #13 and the PR comment.
 - Manual entry: `cryptopnl set-basis --lot <id> --basis-usdc <x> [--acquired-at <ts>]`. --lot and --basis-usdc are required, and the value must be a finite decimal ≥ 0 (otherwise exit 1).
   It sets price_source manual, confidence 0.2, label low, status manual. It is re-applied on every rebuild.
 
@@ -56,8 +66,8 @@ Any other bridge-sender mint goes to **review** (never spam or income). The bloc
 0x40a3c4… is **bridge_in at par**: USDC 99961238 (99.961238 USDC) minted from 0x0 to the wallet. tx.to is CCTP V1 MessageTransmitter 0xAD09780d193884d503182aD4588450C416D6F9D4
 (selector 0x57ecfd28), and the wallet did not send the tx. It opens a lot with basis 99.961238 USD, source `par`, confidence 1.0, label high, status resolved.
 Addresses come from Circle's official docs: V1 https://developers.circle.com/cctp/v1/evm-smart-contracts (TokenMessenger 0x1682Ae63…8962,
-MessageTransmitter 0xAD09780d…F9D4) and V2 https://developers.circle.com/cctp/references/contract-addresses (TokenMessengerV2 0x28b5a0e9…cf5d,
-MessageTransmitterV2 0x81D40F21…4B64). Any other USDC mint goes to review. The emitter can't be verified from wallet-scoped logs (docs/KNOWN_GAPS.md #6).
+MessageTransmitter 0xAD09780d…F9D4) and V2 https://developers.circle.com/cctp/references/contract-addresses (MessageTransmitterV2 0x81D40F21…4B64).
+Only the two MessageTransmitters are accepted as tx.to. Both TokenMessengers were dropped (architect, 3c8b056). Any other USDC mint goes to review. The emitter can't be verified from wallet-scoped logs (docs/KNOWN_GAPS.md #6).
 
 ## Spam and untracked
 - `spam` covers unsolicited (not wallet-sent) non-allowlisted token legs, zero-value poisoning and the pass-through. Rows are `pnl_excluded`. Base: 337 txs / 346 rows (eb12a1 moved to review). Sepolia: 71 / 735.

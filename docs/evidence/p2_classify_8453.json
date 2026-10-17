@@ -12,10 +12,10 @@
   "auction": 4,
   "fee": 280,
   "deposit": 25,
-  "migration_in": 8,
+  "migration_in": 9,
   "nft_buy": 12,
   "escrow_out": 15,
-  "swap": 36,
+  "swap": 35,
   "income": 9,
   "escrow_return": 10,
   "withdrawal": 61
@@ -26,32 +26,32 @@
   "fee": 445,
   "auction": 8,
   "escrow_return": 20,
-  "untracked": 53,
+  "untracked": 51,
   "deposit": 82,
   "withdrawal": 63,
   "income": 34,
-  "migration_in": 74,
+  "migration_in": 81,
   "nft_buy": 34,
   "spam": 339,
-  "swap": 62
+  "swap": 61
  },
  "review_reasons": {
-  "DEX router, fungible out only: native leg not indexed (internal ETH gap)": 1,
-  "bridge sender mint with unlisted selector/target": 1
+  "EIP-7702 execute wrapper with mint from 0x0: inner call not decoded": 1,
+  "DEX router, fungible out only: native leg not indexed (internal ETH gap)": 1
  },
  "spam_rows_pnl_excluded": 339,
- "untracked_rows_pnl_excluded": 53,
- "untracked_txs": 46,
+ "untracked_rows_pnl_excluded": 51,
+ "untracked_txs": 45,
  "open_escrow": [],
  "lots": {
-  "lots": 75,
-  "pending_lots": 74,
+  "lots": 82,
+  "pending_lots": 81,
   "manual_lots": 0,
   "basis_usdc_total_excl_pending": "99.961238"
  },
  "wallet_sent_txs_with_non_allowlisted_token_legs": 0,
- "ledger_rows": 1245,
- "ledger_md5": "4ed2a85be9002ecffe8331198034442d",
+ "ledger_rows": 1249,
+ "ledger_md5": "9e6bf4c8e5068ba7c0ad43b9020c4d7a",
  "review_rows": 2,
- "review_md5": "7ae3edcccb151f77e0e4e78574206417"
+ "review_md5": "e3b34a2965239b38a571fec0b3070e8f"
 }
