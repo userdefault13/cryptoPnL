@@ -1,7 +1,7 @@
 import json, os, datetime
 from .db import b, hx
 from .sources import RPC, HyperSyncWalletGV, HyperSyncWalletTxs, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
-from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES, GV, GV_TOPICS
+from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES, GV, GV_TOPICS, GOTCHI_ESCROW_SEL
 
 def addr_of(topic): return "0x" + topic[-40:].lower()
 def words(data):
@@ -284,3 +284,19 @@ def ingest_gv(conn, chain, address, log=print):
             conn.commit()
         if src.covered < to: log(json.dumps({"warn": "hypersync gv scan stopped early", "requested_to": to, "covered_to": src.covered}))
     log(json.dumps({"chain": chain, "wallet_id": wid, "source": src.name, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
+    ingest_gotchi_escrows(conn, chain, address, rpc, gv, log)
+
+def ingest_gotchi_escrows(conn, chain, address, rpc, gv, log=print):
+    """Gotchi pocket cache (DESIGN v1.3 §9): gotchiEscrow(id) for every gotchi the wallet has held, resolved once (RPC eth_call, read-only)
+    and stored in gotchi_escrow; classify reads the cache and never calls RPC. A zero address (no escrow yet) is not cached."""
+    ids = gotchis_ever(conn, chain, address.lower(), gv["aavegotchi"])
+    have = {r[0] for r in conn.execute("SELECT gotchi_id FROM gotchi_escrow WHERE chain_id=%s", (chain,))}
+    head = rpc.safe_head(); added = 0
+    for i in ids:
+        if i in have: continue
+        a = "0x" + rpc.eth_call(gv["aavegotchi"], GOTCHI_ESCROW_SEL + format(i, "064x"), head)[-40:]
+        if int(a, 16) == 0: continue
+        added += conn.execute("INSERT INTO gotchi_escrow(chain_id,gotchi_id,escrow,resolved_block) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                              (chain, i, b(a), head)).rowcount
+    conn.commit()
+    log(json.dumps({"chain": chain, "source": "rpc_gotchi_escrow", "gotchis": len(ids), "cached_before": len(have), "added": added}))

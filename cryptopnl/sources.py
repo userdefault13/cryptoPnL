@@ -124,7 +124,10 @@ class HyperSyncWalletGV(HyperSyncWalletLogs):
         logs_sel = [{"topics": [rcpt, [], [], [t]]},
                     {"address": [gv["aavegotchi"]], "topics": [lend, [], [t]]}, {"address": [gv["aavegotchi"]], "topics": [lend, [], [], [t]]},
                     {"address": nft, "topics": [[T1155S, T1155B], [], [], [t]]}, {"address": nft, "topics": [[T1155S, T1155B], [], [t]]},
-                    {"address": nft, "topics": [[TRANSFER], [t]]}, {"address": nft, "topics": [[TRANSFER], [], [t]]}]
+                    {"address": nft, "topics": [[TRANSFER], [t]]}, {"address": nft, "topics": [[TRANSFER], [], [t]]},
+                    # alchemica/GLTR/GHST received: pulls lending revenue claims sent by the borrower/operator (their tuple GotchiLending* events
+                    # carry no wallet topic on Base) and claims/refunds paid by the diamonds
+                    {"address": sorted(gv["alchemica"]) + [gv["gltr"], gv["ghst"]], "topics": [[TRANSFER], [], [t]]}]
         while b <= to:
             q = {"from_block": b, "to_block": to + 1, "join_mode": "JoinAll", "transactions": [{"from": [wallet.lower()]}], "logs": logs_sel,
                  "field_selection": {"log": ["block_number", "block_hash", "transaction_hash", "log_index", "address",
