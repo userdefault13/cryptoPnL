@@ -96,6 +96,13 @@ class GV(unittest.TestCase):
         self.assertEqual(self.cats(ca), ["escrow_return"])
         self.assertEqual(self.c.execute("SELECT sum(qty) FROM ledger_entry WHERE location=%s", (f"escrow:{GBM}",)).fetchone()[0], 0)
 
+    def test_gbm_seller_paid_by_buy_now(self):
+        cr = self.add(tx(W, GBM), e1155(INST, W, GBM, 4, 64), gv(GBM, "Auction_Initialized", (90, 4, 64), (int(INST, 16), 1, 0), market=True))
+        bn = self.add(tx(X, GBM), gv(GBM, "Auction_BoughtNow", (90, X), market=True), e20(GHST, GBM, W, 51 * E18))   # shape of 0x271109cf…
+        s = self.run_(); self.assertEqual(s["review"], 0)
+        self.assertEqual(self.rows(bn), [("auction", f"escrow:{GBM}", f"{INST}#4", -64, "gbm:auction:90"),
+                                         ("auction", "wallet", GHST, 51 * E18, "gbm:auction:90")])
+
     def test_gbm_buy_now(self):
         h = self.add(tx(W, GBM), e20(GHST, W, GBM, 10 * E18), e721(REALM, GBM, W, 8), gv(GBM, "Auction_BoughtNow", (88, W), market=True))
         self.run_(); self.assertEqual(self.cats(h), ["nft_buy"])

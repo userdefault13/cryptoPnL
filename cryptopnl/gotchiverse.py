@@ -74,13 +74,15 @@ def r2_gbm_seller(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items,
             esc.take(gbm, nft_key(l), l["qty"], refs[0])
             out += [L(l, "escrow_return", ref=refs[0]), L(l, "escrow_return", loc=loc, qty=-l["qty"], ref=refs[0])]
         return "escrow_return", out, []
-    claims = [_ti(m, 1) for m in _ev(market, "Auction_ItemClaimed", gbm)]
+    # proceeds arrive on Auction_ItemClaimed, or in the buyer's tx on Auction_BoughtNow (real: 0x271109cf…85fd pays the seller from GBM)
+    ends = _ev(market, "Auction_ItemClaimed", gbm) + _ev(market, "Auction_BoughtNow", gbm)
+    claims = [_ti(m, 1) for m in ends]
     mine = [(a, k) for a in claims for (d, k) in list(esc.open) if d == gbm and "#" in k and esc.avail(gbm, k, f"gbm:auction:{a}")]
     if mine:
         g_in = [l for l in fung if l["cp"] == gbm and l["qty"] > 0]
         if len(mine) != 1 or len(g_in) != 1 or len(g_in) != len(legs): raise Review("GBM seller claim: proceeds/escrow do not match one auction")
         a, k = mine[0]; ref = f"gbm:auction:{a}"; q = sum(e["qty"] for e in esc.avail(gbm, k, ref)); esc.take(gbm, k, q, ref)
-        c, tid = k.split("#"); li = next(m["li"] for m in _ev(market, "Auction_ItemClaimed", gbm) if _ti(m, 1) == a)
+        c, tid = k.split("#"); li = next(m["li"] for m in ends if _ti(m, 1) == a)
         nft_leg = dict(li=li, std=esc.std.get(k, "erc721"), contract=c, token_id=tid, qty=-q, cat="auction", loc=loc, ref=ref, spam=False)
         return "auction", [nft_leg, L(g_in[0], "auction", ref=ref)], []
     return None
