@@ -30,5 +30,8 @@ elif a.cmd == "lots":   # migration lots + basis status (pending = unknown basis
         JOIN asset s ON s.id=f.asset_id WHERE l.chain_id=%s ORDER BY f.id""", (a.chain,)):
         print(json.dumps([str(x) if x is not None else None for x in r]))
 elif a.cmd == "set-basis":   # user_default's manual basis: price_source=manual, confidence low (DESIGN §8)
-    classify.set_manual_basis(conn, a.lot, a.basis_usdc, a.acquired_at); print(json.dumps({"lot": a.lot, "basis_status": "manual"}))
+    if a.lot is None or a.basis_usdc is None: sys.exit("set-basis: --lot and --basis-usdc are required")
+    try: classify.set_manual_basis(conn, a.lot, a.basis_usdc, a.acquired_at)
+    except ValueError as e: sys.exit(f"set-basis: {e}")
+    print(json.dumps({"lot": a.lot, "basis_status": "manual"}))
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)

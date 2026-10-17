@@ -5,7 +5,8 @@ Escrow is a pseudo-location ('escrow:<diamond>'): escrow_out = wallet -X & escro
 (escrow -X, same trade_group as the NFT leg); escrow_return = escrow -X & wallet +X. No FIFO disposal happens in P2.
 Wearable TransferToParent/FromParent rows are custody (P1.1) and never produce ledger legs."""
 import hashlib, json, uuid
-from .config import gated, DEX_ROUTERS, ESCROW, BUYORDER_PLACE_SELECTORS, MIGRATION_REMINT, MANUAL_CONFIDENCE
+from decimal import Decimal, InvalidOperation
+from .config import gated, DEX_ROUTERS, ESCROW, BUYORDER_PLACE_SELECTORS, MIGRATION_REMINT, MANUAL_CONFIDENCE, CCTP, CCTP_TOKENS, CONFIDENCE
 from .db import b, hx
 
 ZERO = "0x" + "0" * 40
@@ -19,10 +20,12 @@ GBM_INCENTIVE_MAX = 1.10   # heuristic refund match without an event: escrow <= 
 class Review(Exception): pass
 
 def legs_of(w, rows):
-    """rows: [(log_index, kind, payload)] of one tx. Returns (tx, legs, market) where leg = dict(li, std, contract, token_id, qty, cp)."""
-    tx, legs, market = None, [], []
+    """rows: [(log_index, kind, payload)] of one tx. Returns (tx, legs, market, meta) where leg = dict(li, std, contract, token_id, qty, cp).
+    meta = {from,to,selector,value} of a tx the wallet neither sent nor received (RPC tx_meta), else None."""
+    tx, legs, market, meta = None, [], [], None
     for li, kind, p in rows:
         if kind == "tx": tx = p; continue
+        if kind == "tx_meta": meta = p; continue
         if kind.startswith("market_"): market.append({**p, "li": li}); continue
         if kind not in TRANSFER_KINDS: continue
         f, t = p["from"], p["to"]
@@ -35,7 +38,7 @@ def legs_of(w, rows):
         else:
             for i, v in zip(p["ids"], p["values"]):
                 legs.append(dict(li=li, std="erc1155", contract=p["contract"], token_id=i, qty=sign * int(v), cp=cp))
-    return tx, legs, market
+    return tx, legs, market, meta
 
 def native_legs(w, tx):
     out = []
@@ -48,7 +51,7 @@ def native_legs(w, tx):
 
 def L(l, cat, loc="wallet", ref=None, qty=None, spam=False):
     d = {k: l[k] for k in ("li", "std", "contract", "token_id", "qty")}
-    d.update(cat=cat, loc=loc, ref=ref, spam=spam)
+    d.update(cat=cat, loc=loc, ref=ref, spam=spam or cat in ("spam", "untracked"))
     if qty is not None: d["qty"] = qty
     return d
 
@@ -137,13 +140,23 @@ def escrow_rule(chain, w, tx, legs, market, esc):
         out, upd = [L(l, "nft_buy") for l in legs], []
         for m in fills:
             if m["event"] != "ERC1155BuyOrderExecute": raise Review("erc721 buy-order fill: event layout not verified")
-            wd = words(m["data"]); pay = wd[3] * wd[4]       # (seller, token, id, priceInWei, quantity, time)
-            toks = sorted({k[1] for k in esc.open if k[0] == bz and esc.avail(bz, k[1])})
-            if len(toks) != 1: raise Review("buy-order fill without matching escrow")
+            wd = words(m["data"]); price, pay = wd[3], wd[3] * wd[4]   # (seller, token, id, priceInWei, quantity, time)
             ref = f"baazaar:buyorder:{t_int(m, 1)}"
-            for e, q in esc.take(bz, toks[0], pay):
-                if e["ref"] is None: upd.append((e, ref))
-            out.append(dict(li=m["li"], std="erc20", contract=toks[0], token_id=None, qty=-pay, cat="nft_buy",
+            toks = sorted({k[1] for k in esc.open if k[0] == bz})
+            # B2 (architect): match by order id. 1) entries already linked to this order id; 2) else exactly one unlinked open
+            # entry with amount == price*qty; else (first partial fill) exactly one unlinked entry that is a multiple of price
+            # and larger than the payment. Anything else (none or several candidates) -> review.
+            linked = [(t, e) for t in toks for e in esc.avail(bz, t, ref)]
+            if linked:
+                tok = linked[0][0]
+                if len({t for t, _ in linked}) != 1: raise Review("buy-order fill: order id linked in several tokens")
+                esc.take(bz, tok, pay, ref)
+            else:
+                un = [(t, e) for t in toks for e in esc.avail(bz, t) if e["ref"] is None]
+                cand = [x for x in un if x[1]["qty"] == pay] or [x for x in un if price and x[1]["qty"] > pay and x[1]["qty"] % price == 0]
+                if len(cand) != 1: raise Review(f"buy-order fill: {'no' if not cand else 'ambiguous'} matching escrow for the order id")
+                tok, e = cand[0]; e["qty"] -= pay; e["ref"] = ref; upd.append((e, ref))
+            out.append(dict(li=m["li"], std="erc20", contract=tok, token_id=None, qty=-pay, cat="nft_buy",
                             loc=f"escrow:{bz}", ref=ref, spam=False))
         return "nft_buy", out, upd
     if any(m["contract"] == bz for m in market): return None
@@ -164,15 +177,36 @@ def escrow_rule(chain, w, tx, legs, market, esc):
             ref = next((e["ref"] for e, _ in taken if e["ref"]), None)
             out += [L(l, "escrow_return", ref=ref), L(l, "escrow_return", loc=f"escrow:{bz}", qty=-l["qty"], ref=ref)]
         return "escrow_return", out, upd
+    # B1 (architect): any token to/from the Baazaar or GBM diamond not claimed by an escrow or market rule is never a
+    # plain deposit/withdrawal -> review. (GBM legs are fully handled above; market-claimed Baazaar txs returned None earlier.)
+    if b_out or b_in: raise Review("token to/from Baazaar diamond not claimed by an escrow/market rule")
     return None
 
-def migration_rule(chain, w, tx, legs, bn):
+def migration_rule(chain, w, info, legs, bn, warn=None):
+    """migration_in (architect, PR #3): ALL of tx.from in {bridge sender, wallet}; every leg a mint from 0x0 to the wallet of
+    an allowlisted Aavegotchi contract; tx.to/selector on the per-asset list. Bridge sender + unlisted selector -> review.
+    The block window is only a warning. info = the tx row, or RPC tx_meta when the wallet neither sent nor received the tx."""
     M = MIGRATION_REMINT.get(chain)
-    if not M or not legs or (tx and tx["from"] == w): return None
+    if not M or not legs or not all(l["std"] in NFT and l["qty"] > 0 and l["cp"] == ZERO and l["contract"] in M["contracts"] for l in legs):
+        return None
+    if not info: return None
+    frm, sel = info.get("from"), info.get("selector")
+    if frm not in (M["bridge_sender"], w): return None
+    if M["selectors"].get(sel) != info.get("to"):
+        if frm == M["bridge_sender"]: raise Review("bridge sender mint with unlisted selector/target")
+        return None
     lo, hi = M["window"]
-    if lo <= bn <= hi and all(l["std"] in NFT and l["qty"] > 0 and l["cp"] == ZERO and l["contract"] in M["contracts"] for l in legs):
-        return "migration_in", [L(l, "migration_in") for l in legs], []
-    return None
+    if warn is not None and not lo <= bn <= hi: warn.append(f"migration_in outside block window {lo}-{hi}: block {bn}")
+    return "migration_in", [L(l, "migration_in") for l in legs], []
+
+def bridge_rule(chain, w, info, legs, sent):
+    """bridge_in (architect): a Circle-minted USDC mint (from 0x0) to the wallet, not wallet-sent, with tx.to = a Circle CCTP
+    contract on this chain (official docs). Emitter not verifiable from wallet-scoped logs (KNOWN_GAPS). Else review."""
+    toks = CCTP_TOKENS.get(chain, {})
+    if sent or not legs or not all(l["std"] == "erc20" and l["contract"] in toks and l["cp"] == ZERO and l["qty"] > 0 for l in legs):
+        return None
+    if not info or info.get("to") not in CCTP.get(chain, set()): raise Review("USDC mint not via Circle CCTP (tx.to unverified)")
+    return "bridge_in", [L(l, "bridge_in") for l in legs], []
 
 def decide(chain, w, tx, legs, market, group):
     """Generic rules (unchanged order from v1). Returns (category, None) or (None, review_reason). legs exclude gas, qty != 0."""
@@ -202,9 +236,10 @@ def decide(chain, w, tx, legs, market, group):
         return "withdrawal", None
     return None, "mixed in/out legs"
 
-def plan(chain, w, tx, legs, market, group, bn, esc):
+def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
     """Returns (category, out_legs, ref_updates) or raises Review."""
     sent = bool(tx) and tx["from"] == w
+    info = tx or meta
     if tx and str(tx.get("status")) == "0":
         if legs: raise Review("failed tx with transfers")
         return "fee", [], []
@@ -213,11 +248,21 @@ def plan(chain, w, tx, legs, market, group, bn, esc):
         if sent: return "fee", [], []
         if zero: return "spam", [L(l, "spam", spam=True) for l in zero], []   # address poisoning: kept, flagged, qty 0
         raise Review("no wallet legs")
-    r = escrow_rule(chain, w, tx, legs, market, esc) or migration_rule(chain, w, tx, legs, bn)
+    r = escrow_rule(chain, w, tx, legs, market, esc) or migration_rule(chain, w, info, legs, bn, warn) or bridge_rule(chain, w, info, legs, sent)
     if r: return r
     cat, why = decide(chain, w, tx, legs, market, group)
     allow = gated(chain)
     junk = lambda l: l["std"] != "native" and l["contract"] not in allow
+    # untracked (architect): non-allowlisted legs in wallet-sent txs -> 'untracked', no lot, pnl_excluded. The tracked legs keep
+    # their own category and are valued at their own price in P3 (never at the untracked leg's price; untracked legs carry no
+    # trade_group). A self-sent tx whose only non-fee legs are untracked is category 'untracked'.
+    if sent and any(junk(l) for l in legs):
+        tracked = [l for l in legs if not junk(l)]
+        if tracked and why:   # e.g. mixed legs: decide on the tracked legs alone (a resolved swap stays a swap disposal)
+            cat, why = decide(chain, w, tx, tracked, market, group)
+        if tracked and why: raise Review(why)
+        out = [L(l, "untracked") if junk(l) else L(l, cat) for l in legs]
+        return (cat if tracked else "untracked"), out, []
     # spam (DESIGN §8): unsolicited (tx not sent by the wallet) non-allowlisted token legs in one-directional or mixed txs
     if not sent and (cat in ("deposit", "withdrawal", "income") or why == "mixed in/out legs") and any(junk(l) for l in legs):
         if why and not all(junk(l) for l in legs): raise Review(why)
@@ -240,11 +285,17 @@ def apply_manual(conn, lot_id):
         JOIN manual_basis m ON m.chain_id=l.chain_id AND m.tx_hash=l.tx_hash AND m.log_index=l.log_index AND m.asset_id=l.asset_id
          AND m.wallet_id=l.wallet_id AND m.superseded_at IS NULL WHERE f.id=%s ORDER BY m.entered_at DESC, m.id DESC LIMIT 1""", (lot_id,)).fetchone()
     if r:
-        conn.execute("""UPDATE fifo_lot SET basis_usdc=%s, basis_price_source='manual', basis_confidence=%s, basis_status='manual',
-            opened_at=coalesce(%s, opened_at) WHERE id=%s""", (r[0], MANUAL_CONFIDENCE, r[1], lot_id))
+        conn.execute("""UPDATE fifo_lot SET basis_usdc=%s, basis_price_source='manual', basis_confidence=%s, basis_confidence_label='low',
+            basis_status='manual', opened_at=coalesce(%s, opened_at) WHERE id=%s""", (r[0], MANUAL_CONFIDENCE, r[1], lot_id))
 
 def set_manual_basis(conn, lot_id, basis_usdc, acquired_at=None, entered_by="user_default"):
-    """user_default's manual basis (DESIGN §8 step 2): price_source=manual, confidence low. Earlier entries are superseded, not deleted."""
+    """user_default's manual basis (DESIGN §8 step 2): price_source=manual, confidence low. Earlier entries are superseded, not deleted.
+    basis_usdc must be a finite, non-negative decimal (else ValueError)."""
+    if lot_id is None: raise ValueError("--lot is required")
+    try: v = Decimal(str(basis_usdc))
+    except (InvalidOperation, ValueError): raise ValueError(f"basis_usdc {basis_usdc!r} is not a number")
+    if not v.is_finite() or v < 0: raise ValueError(f"basis_usdc {basis_usdc!r} must be a finite number >= 0")
+    basis_usdc = v
     l = conn.execute("""SELECT l.chain_id, l.wallet_id, l.tx_hash, l.log_index, l.asset_id FROM fifo_lot f JOIN ledger_entry l ON l.id=f.open_entry_id
         WHERE f.id=%s""", (lot_id,)).fetchone()
     if not l: raise ValueError(f"lot {lot_id} not found")
@@ -260,7 +311,7 @@ def classify(conn, chain, log=print):
     conn.execute("DELETE FROM ledger_entry WHERE chain_id=%s", (chain,))   # cascades to fifo_lot / lot_disposal
     conn.execute("DELETE FROM review_queue WHERE chain_id=%s", (chain,))
     wallets = conn.execute("SELECT id, '0x'||encode(address,'hex'), wallet_group FROM wallet WHERE chain_id=%s ORDER BY id", (chain,)).fetchall()
-    cache, stats = {}, {"txs": 0, "classified": 0, "review": 0, "by_category": {}, "review_reasons": {}, "entries": 0}
+    cache, stats = {}, {"txs": 0, "classified": 0, "review": 0, "by_category": {}, "review_reasons": {}, "entries": 0, "warnings": []}
     origin = MIGRATION_REMINT.get(chain, {}).get("chain_origin")
     for wid, w, grp in wallets:
         group = {a for _, a, g in wallets if g == grp and a != w}
@@ -279,18 +330,20 @@ def classify(conn, chain, log=print):
         order = lambda h: (rows[h]["bn"], min([li for li, _, _ in rows[h]["rows"] if li >= 0] or [10**9]), h)
         for th in sorted(rows, key=order):           # chain order: escrow placement precedes fill/refund
             d = rows[th]; stats["txs"] += 1
-            tx, legs, market = legs_of(w, d["rows"])
+            tx, legs, market, meta = legs_of(w, d["rows"])
             legs += native_legs(w, tx)
             esc.begin()
             try:
-                cat, out, upd = plan(chain, w, tx, legs, market, group, d["bn"], esc); why = None
+                warn = []
+                cat, out, upd = plan(chain, w, tx, legs, market, group, d["bn"], esc, meta, warn); why = None
+                for m in warn: stats["warnings"].append(f"{hx(th)}: {m}"); log(json.dumps({"warning": m, "tx": hx(th)}))
             except Review as e:
                 esc.rollback(); why, cat, out, upd = str(e), None, [], []
                 ls = [l for l in legs if l["qty"] != 0]
                 stats["review"] += 1; stats["review_reasons"][why] = stats["review_reasons"].get(why, 0) + 1
                 conn.execute("INSERT INTO review_queue(chain_id,wallet_id,tx_hash,reason,detail) VALUES (%s,%s,%s,%s,%s)",
                     (chain, wid, th, why, json.dumps({"legs": [{k: (str(v) if k == "qty" else v) for k, v in l.items()} for l in ls],
-                                                      "market": [m["event"] for m in market], "selector": (tx or {}).get("selector"),
+                                                      "market": [m["event"] for m in market], "selector": (tx or meta or {}).get("selector"),
                                                       "block_number": d["bn"]})))
             if not why:
                 stats["classified"] += 1; stats["by_category"][cat] = stats["by_category"].get(cat, 0) + 1
@@ -306,9 +359,15 @@ def classify(conn, chain, log=print):
                 ids.append(eid); stats["entries"] += 1
                 if l["cat"] == "migration_in":
                     lot = conn.execute("""INSERT INTO fifo_lot(wallet_group,asset_id,open_entry_id,opened_at,open_block,qty_open,qty_remaining,
-                        basis_usdc,basis_price_source,basis_status,chain_origin) VALUES (%s,%s,%s,NULL,%s,%s,%s,NULL,'polygon_carryover','pending',%s)
+                        basis_usdc,basis_price_source,basis_status,chain_origin) VALUES (%s,%s,%s,NULL,%s,%s,%s,NULL,NULL,'pending',%s)
                         RETURNING id""", (grp, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), eid, d["bn"], l["qty"], l["qty"], origin)).fetchone()[0]
-                    apply_manual(conn, lot)
+                    apply_manual(conn, lot)   # pending: basis and source unknown (NULL) until P6 or a manual entry
+                elif l["cat"] == "bridge_in":   # Circle-minted USDC: basis at par (1 USDC = 1 USD), high confidence
+                    dec = CCTP_TOKENS[chain][l["contract"]]
+                    conn.execute("""INSERT INTO fifo_lot(wallet_group,asset_id,open_entry_id,opened_at,open_block,qty_open,qty_remaining,
+                        basis_usdc,basis_price_source,basis_confidence,basis_confidence_label,basis_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'par',%s,'high','resolved')""",
+                        (grp, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), eid, d["ts"], d["bn"], l["qty"], l["qty"],
+                         Decimal(l["qty"]) / (10 ** dec), CONFIDENCE["high"]))
             # remember placement rows so a later fill/cancel can stamp the order id on them
             for e in [e for k in esc.open for e in esc.open[k] if e["ref"] is None and not e["ids"]]:
                 e["ids"] = [i for i, l in zip(ids, out) if l["cat"] == "escrow_out"]
@@ -346,7 +405,7 @@ def report(conn, chain):
     nrev = sum(rev.values())
     # per-tx category: priority order (a trade/custody category wins over its incidental legs), else fee
     cats = dict(conn.execute("""SELECT c, count(*) FROM (SELECT tx_hash, wallet_id, (array_agg(category ORDER BY array_position(
-        ARRAY['nft_buy','nft_sale','auction','swap','migration_in','escrow_out','escrow_return','transfer_internal','income','deposit','withdrawal','spam','fee'], category)))[1] c
+        ARRAY['nft_buy','nft_sale','auction','swap','migration_in','bridge_in','escrow_out','escrow_return','transfer_internal','income','deposit','withdrawal','untracked','spam','fee'], category)))[1] c
         FROM ledger_entry WHERE chain_id=%s AND (wallet_id, tx_hash) NOT IN (SELECT wallet_id, tx_hash FROM review_queue WHERE chain_id=%s)
         GROUP BY 1,2) t GROUP BY 1""", (chain, chain)).fetchall())
     rows = dict(conn.execute("SELECT category, count(*) FROM ledger_entry WHERE chain_id=%s GROUP BY 1", (chain,)).fetchall())
@@ -360,6 +419,8 @@ def report(conn, chain):
     pct = round(100.0 * (txs - nrev) / txs, 3) if txs else None
     return {"chain": chain, "wallet_txs": txs, "classified": txs - nrev, "review": nrev, "classified_pct": pct,
             "pass_98": bool(txs) and pct > 98, "txs_by_category": cats, "ledger_rows_by_category": rows, "review_reasons": rev,
-            "spam_rows_pnl_excluded": conn.execute("SELECT count(*) FROM ledger_entry WHERE chain_id=%s AND pnl_excluded", (chain,)).fetchone()[0],
+            "spam_rows_pnl_excluded": conn.execute("SELECT count(*) FROM ledger_entry WHERE chain_id=%s AND pnl_excluded AND category='spam'", (chain,)).fetchone()[0],
+            "untracked_rows_pnl_excluded": conn.execute("SELECT count(*) FROM ledger_entry WHERE chain_id=%s AND pnl_excluded AND category='untracked'", (chain,)).fetchone()[0],
+            "untracked_txs": conn.execute("SELECT count(DISTINCT tx_hash) FROM ledger_entry WHERE chain_id=%s AND category='untracked'", (chain,)).fetchone()[0],
             "open_escrow": esc, "lots": basis_totals(conn, chain),
             "wallet_sent_txs_with_non_allowlisted_token_legs": own_junk, **checksum(conn, chain)}

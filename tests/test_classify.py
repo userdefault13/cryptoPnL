@@ -28,6 +28,9 @@ PLACE = "0x4cc4a386"
 def e20(c, f, t, v): return ("erc20_transfer", {"contract": c, "from": f, "to": t, "value": str(v)})
 def e721(c, f, t, i): return ("erc721_transfer", {"contract": c, "from": f, "to": t, "token_id": str(i), "value": "1"})
 def mkt(c, ev): return ("market_" + ev, {"contract": c, "event": ev})
+BRIDGE = "0xf52398257a254d541f392667600901f710a006ed"; GOTCHI_SEL = "0xf55b061c"; TILE_SEL = "0x91b06c6e"
+CCTP_MT = "0xad09780d193884d503182ad4588450c416d6f9d4"
+def meta(frm, to, sel): return ("tx_meta", {"from": frm, "to": to, "selector": sel, "value": "0"})   # RPC tx_meta (log_index -3)
 
 class T(unittest.TestCase):
     def setUp(self):
@@ -43,7 +46,7 @@ class T(unittest.TestCase):
         self.n += 1; h = th(self.n); bn = bn or self.n
         self.c.execute("INSERT INTO block VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING", (C, bn, b(th(10**6 + bn)), datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)))
         for i, (k, p) in enumerate(evs):
-            self.c.execute("INSERT INTO raw_event VALUES (%s,%s,%s,%s,%s,'t',%s,%s)", (C, b(h), -1 if k == "tx" else i, bn, b(th(10**6 + bn)), k, json.dumps(p)))
+            self.c.execute("INSERT INTO raw_event VALUES (%s,%s,%s,%s,%s,'t',%s,%s)", (C, b(h), {"tx": -1, "tx_meta": -3}.get(k, i), bn, b(th(10**6 + bn)), k, json.dumps(p)))
         self.c.commit(); return b(h)
     def cats(self, h, wallet=W):
         return sorted((r[0], int(r[1])) for r in self.c.execute(
@@ -125,7 +128,66 @@ class T(unittest.TestCase):
 
     def test_fill_without_escrow_goes_to_review(self):
         fill = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(401, W, X, TILE, 28, 100, 1))
-        self.run_(); self.assertEqual(self.review(fill), "buy-order fill without matching escrow")
+        self.run_(); self.assertEqual(self.review(fill), "buy-order fill: no matching escrow for the order id")
+
+    def test_b2_fill_matches_order_amount(self):
+        esc = "escrow:" + BZ
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 100))                    # order A = 100
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 50))                     # order B = 50
+        fb = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(502, W, X, TILE, 28, 50, 1))   # fills B, not FIFO A
+        self.run_()
+        self.assertEqual(self.rows(fb), [("nft_buy", esc, -50, "baazaar:buyorder:502"), ("nft_buy", "wallet", 1, None)])
+        refs = {r[0]: int(r[1]) for r in self.c.execute("SELECT coalesce(escrow_ref,'-'), sum(qty) FROM ledger_entry WHERE location=%s GROUP BY 1", (esc,))}
+        self.assertEqual(refs, {"-": 100, "baazaar:buyorder:502": 0})                 # A still open and unlinked
+        fa = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(501, W, X, TILE, 28, 100, 1)); self.run_()
+        self.assertEqual(self.rows(fa), [("nft_buy", esc, -100, "baazaar:buyorder:501"), ("nft_buy", "wallet", 1, None)])
+        self.assertEqual(self.open_escrow(), {esc: 0})
+
+    def test_b2_linked_order_first_and_ambiguous_review(self):
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 300))                    # order 600: 3 @ 100
+        self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(600, W, X, TILE, 28, 100, 1))   # links 600 (partial)
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 100))                    # order 601: 1 @ 100
+        f2 = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(600, W, X, TILE, 28, 100, 1))  # linked entry wins over the exact 100
+        self.run_(); self.assertEqual(self.rows(f2)[0], ("nft_buy", "escrow:" + BZ, -100, "baazaar:buyorder:600"))
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 100))                    # second unlinked 100: ambiguous
+        amb = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(602, W, X, TILE, 28, 100, 1)); self.run_()
+        self.assertEqual(self.review(amb), "buy-order fill: ambiguous matching escrow for the order id")
+
+    def test_b1_unclaimed_diamond_ghst_goes_to_review(self):
+        out_ = self.add(tx(W, BZ, selector="0x12345678"), e20(GHST, W, BZ, 10))         # not a placement selector
+        in_ = self.add(tx(X, BZ), e20(GHST, BZ, W, 10))                                 # no open escrow
+        gin = self.add(tx(X, GBM), e20(GHST, GBM, W, 10))                               # GBM: no escrow, no claim
+        self.run_()
+        self.assertEqual(self.review(out_), "token to/from Baazaar diamond not claimed by an escrow/market rule")
+        self.assertEqual(self.review(in_), "token to/from Baazaar diamond not claimed by an escrow/market rule")
+        self.assertTrue(self.review(gin).startswith("gbm"))
+        self.assertFalse(self.c.execute("SELECT 1 FROM ledger_entry WHERE category IN ('withdrawal','deposit')").fetchone())
+
+    def test_untracked_legs_in_self_sent_txs(self):
+        swap = self.add(tx(W, X), e20(USDC, W, X, 10), e20(SPAM, X, W, 5))             # self-sent swap USDC -> LINK-like
+        mint = self.add(tx(W, X), e721(SPAM, ZERO, W, 9))                               # self-sent non-allowlisted mint
+        send = self.add(tx(W, X), e20(SPAM, W, X, 3))
+        s = self.run_()
+        self.assertEqual(self.cats(swap), [("fee", -100), ("swap", -10), ("untracked", 5)])
+        self.assertEqual(self.cats(mint), [("fee", -100), ("untracked", 1)])
+        self.assertEqual(self.cats(send), [("fee", -100), ("untracked", -3)])
+        r = dict(self.c.execute("SELECT category, bool_and(pnl_excluded) FROM ledger_entry WHERE category IN ('swap','untracked') GROUP BY 1").fetchall())
+        self.assertEqual(r, {"swap": False, "untracked": True})
+        self.assertIsNone(self.c.execute("SELECT trade_group FROM ledger_entry WHERE category='untracked' AND tx_hash=%s", (swap,)).fetchone()[0])
+        self.assertEqual(s["review"], 0)
+        self.assertEqual(self.c.execute("SELECT count(*) FROM fifo_lot").fetchone()[0], 0)    # no lot for untracked
+        self.assertEqual(classify.report(self.c, C)["txs_by_category"].get("untracked"), 2)
+
+    def test_bridge_in_cctp_par_else_review(self):
+        ok = self.add(e20(USDC, ZERO, W, 5_000_000), meta(X, CCTP_MT, "0x57ecfd28"))
+        bad = self.add(e20(USDC, ZERO, W, 1_000_000), meta(X, X, "0x57ecfd28"))
+        nometa = self.add(e20(USDC, ZERO, W, 2_000_000))
+        self.run_()
+        self.assertEqual(self.cats(ok), [("bridge_in", 5_000_000)])
+        lot = self.c.execute("SELECT basis_usdc, basis_price_source, basis_confidence, basis_confidence_label, basis_status FROM fifo_lot").fetchall()
+        self.assertEqual([(float(a), b_, round(c, 2), d, e) for a, b_, c, d, e in lot], [(5.0, "par", 1.0, "high", "resolved")])
+        self.assertEqual(self.review(bad), "USDC mint not via Circle CCTP (tx.to unverified)")
+        self.assertEqual(self.review(nometa), "USDC mint not via Circle CCTP (tx.to unverified)")
 
     def test_gbm_bid_outbid_refund_and_win(self):
         esc = "escrow:" + GBM
@@ -141,16 +203,19 @@ class T(unittest.TestCase):
 
     def test_bridged_mint_pending_then_manual(self):
         GOTCHI = BZ
-        mint = self.add(e721(GOTCHI, ZERO, W, 954), bn=33_205_609)                     # not sent by W, inside the window
+        mint = self.add(e721(GOTCHI, ZERO, W, 954), meta(BRIDGE, BZ, GOTCHI_SEL), bn=33_205_609)   # bridge sender, listed selector
         self.run_()
         self.assertEqual(self.cats(mint), [("migration_in", 1)])                       # custody, never income
-        lot = self.c.execute("SELECT id, basis_usdc, basis_status, chain_origin, basis_price_source FROM fifo_lot").fetchall()
+        lot = self.c.execute("SELECT id, basis_usdc, basis_status, chain_origin, basis_price_source, basis_confidence_label FROM fifo_lot").fetchall()
         self.assertEqual(len(lot), 1); lid = lot[0][0]
-        self.assertEqual(lot[0][1:], (None, "pending", 137, "polygon_carryover"))      # unknown, NOT zero
+        self.assertEqual(lot[0][1:], (None, "pending", 137, None, None))               # unknown, NOT zero; no source yet
         self.assertEqual(classify.basis_totals(self.c, C), {"lots": 1, "pending_lots": 1, "manual_lots": 0, "basis_usdc_total_excl_pending": None})
         classify.set_manual_basis(self.c, lid, 123.45)
-        r = self.c.execute("SELECT basis_usdc, basis_status, basis_price_source, basis_confidence FROM fifo_lot WHERE id=%s", (lid,)).fetchone()
-        self.assertEqual((float(r[0]), r[1], r[2], round(r[3], 2)), (123.45, "manual", "manual", 0.2))
+        r = self.c.execute("SELECT basis_usdc, basis_status, basis_price_source, basis_confidence, basis_confidence_label FROM fifo_lot WHERE id=%s", (lid,)).fetchone()
+        self.assertEqual((float(r[0]), r[1], r[2], round(r[3], 2), r[4]), (123.45, "manual", "manual", 0.2, "low"))
+        for bad in (-1, "abc", "nan", "inf", None):
+            with self.assertRaises(ValueError): classify.set_manual_basis(self.c, lid, bad)
+        with self.assertRaises(ValueError): classify.set_manual_basis(self.c, None, 1)
         self.run_()                                                                    # rebuild keeps the manual entry
         r = self.c.execute("SELECT id, basis_usdc, basis_status FROM fifo_lot").fetchone()
         self.assertEqual((float(r[1]), r[2]), (123.45, "manual"))
@@ -162,12 +227,24 @@ class T(unittest.TestCase):
         did = self.c.execute("INSERT INTO lot_disposal(lot_id, qty, proceeds_usdc, cost_usdc) SELECT id, 1, 50, basis_usdc FROM fifo_lot RETURNING realized_pnl_usdc").fetchone()
         self.assertIsNone(did[0]); self.c.rollback()
 
-    def test_mint_outside_window_or_sent_is_not_migration(self):
-        own = self.add(tx(W, BZ), e721(BZ, ZERO, W, 1), bn=33_300_000)                  # wallet-sent mint
-        late = self.add(e721(BZ, ZERO, W, 2), bn=40_000_000)
-        self.run_()
-        self.assertEqual(self.cats(own), [("fee", -100), ("income", 1)])
-        self.assertEqual(self.cats(late), [("income", 1)])
+    def test_migration_selector_rule(self):
+        own = self.add(tx(W, BZ, selector=GOTCHI_SEL), e721(BZ, ZERO, W, 1), bn=33_300_000)        # re-mint sent by the wallet itself
+        late = self.add(e721(BZ, ZERO, W, 2), meta(BRIDGE, BZ, GOTCHI_SEL), bn=40_000_000)        # outside window: warning only
+        tile = self.add(e1155(TILE, ZERO, W, 28, 3), meta(BRIDGE, TILE, TILE_SEL), bn=33_300_001)
+        unlisted = self.add(e721(BZ, ZERO, W, 3), meta(BRIDGE, BZ, "0xdeadbeef"), bn=33_300_002)  # bridge sender, unlisted selector
+        wrong_to = self.add(e721(BZ, ZERO, W, 4), meta(BRIDGE, TILE, GOTCHI_SEL), bn=33_300_003)  # listed selector, wrong target
+        own_other = self.add(tx(W, BZ, selector="0x11111111"), e721(BZ, ZERO, W, 5), bn=33_300_004)  # own mint, unlisted: normal rules
+        other = self.add(e721(BZ, ZERO, W, 6), meta(X, BZ, GOTCHI_SEL), bn=33_300_005)            # not the bridge sender
+        s = self.run_()
+        self.assertEqual(self.cats(own), [("fee", -100), ("migration_in", 1)])
+        self.assertEqual(self.cats(late), [("migration_in", 1)])
+        self.assertEqual(self.cats(tile), [("migration_in", 3)])
+        self.assertEqual(self.review(unlisted), "bridge sender mint with unlisted selector/target")
+        self.assertEqual(self.review(wrong_to), "bridge sender mint with unlisted selector/target")
+        self.assertEqual(self.cats(own_other), [("fee", -100), ("income", 1)])
+        self.assertEqual(self.cats(other), [("income", 1)])
+        self.assertEqual(len(s["warnings"]), 1); self.assertIn("outside block window", s["warnings"][0])
+        self.assertEqual(self.c.execute("SELECT count(*) FROM fifo_lot WHERE basis_status='pending'").fetchone()[0], 3)
 
     def test_spam_excluded_from_totals(self):
         self.add(e20(SPAM, X, W, 10**24))                                               # fake-token airdrop
@@ -184,7 +261,8 @@ class T(unittest.TestCase):
     def test_idempotent(self):
         self.add(tx(W, X), e20(USDC, W, X, 10), e20(GHST, X, W, 20)); self.add(e20(USDC, X, W, 0))
         self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 240)); self.add(tx(X, BZ), e1155(TILE, X, W, 28, 2), bo_exec(327, W, X, TILE, 28, 120, 2))
-        self.add(e721(BZ, ZERO, W, 954), bn=33_205_609)
+        self.add(e721(BZ, ZERO, W, 954), meta(BRIDGE, BZ, GOTCHI_SEL), bn=33_205_609); self.add(tx(W, X), e20(USDC, W, X, 10), e20(SPAM, X, W, 5))
+        self.add(e20(USDC, ZERO, W, 5_000_000), meta(X, CCTP_MT, "0x57ecfd28"))
         self.run_(); a = classify.checksum(self.c, C); self.run_(); self.assertEqual(a, classify.checksum(self.c, C))
 
 if __name__ == "__main__": unittest.main()
