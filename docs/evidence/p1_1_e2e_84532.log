@@ -3,63 +3,34 @@
 STATS {}
 {"applied": ["001_init.sql", "002_global_cursor.sql", "003_parent_scan.sql"]}
 == ingest #1
-STATS {"rpc": {"requests": 2, "ok": 2, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 4.3, "effective_per_min": 27.67}, "hypersync": {"requests": 1, "ok": 1, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 3.5, "effective_per_min": 16.93}}
-{"chain": 84532, "wallet_id": 1, "from": 0, "to": 48210460, "logs_seen": 745, "inserted": 745}
+STATS {"rpc": {"requests": 2, "ok": 2, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 3.7, "effective_per_min": 32.38}, "hypersync": {"requests": 1, "ok": 1, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 3.0, "effective_per_min": 19.86}}
+{"chain": 84532, "wallet_id": 1, "from": 0, "to": 48219979, "logs_seen": 745, "inserted": 745}
 {"chain": 84532, "marketplace": "none configured"}
 counts1 {"chain": 84532, "raw_event": 745, "block": 77, "by_kind": {"erc1155_single": 161, "erc20_transfer": 11, "erc721_transfer": 573}, "checksum": "e93ddc39d14091c6bd3a5f838f62940e"}
 == ingest #2 (reset cursors to re-scan full history)
-STATS {"rpc": {"requests": 2, "ok": 2, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 3.5, "effective_per_min": 33.83}, "hypersync": {"requests": 1, "ok": 1, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 3.0, "effective_per_min": 19.92}}
-{"chain": 84532, "wallet_id": 1, "from": 0, "to": 48210460, "logs_seen": 745, "inserted": 0}
+STATS {"rpc": {"requests": 2, "ok": 2, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 3.7, "effective_per_min": 32.7}, "hypersync": {"requests": 1, "ok": 1, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 2.8, "effective_per_min": 21.12}}
+{"chain": 84532, "wallet_id": 1, "from": 0, "to": 48219979, "logs_seen": 745, "inserted": 0}
 {"chain": 84532, "marketplace": "none configured"}
 counts2 {"chain": 84532, "raw_event": 745, "block": 77, "by_kind": {"erc1155_single": 161, "erc20_transfer": 11, "erc721_transfer": 573}, "checksum": "e93ddc39d14091c6bd3a5f838f62940e"}
 PASS idempotent: identical raw_event count+checksum
 == verify balances (gate: config/allowlist.txt; others reported untracked)
-STATS {"rpc": {"requests": 787, "ok": 787, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 784.3, "effective_per_min": 60.21}}
-{"chain": 84532, "wallet_id": 1, "blocks": [27215475, 27551977, 28628275, 48210460], "head_block": 48210460, "assets": 196}
-{"chain": 84532, "gated_assets_configured": 2, "gated_checks": 56, "gated_match": 24, "gated_mismatch": 32, "untracked_checks": 728, "untracked_contracts_not_reconciling": 0, "untracked_by_reason": {}}
-GATED_MISMATCH {"wallet_id": 1, "block": 27215475, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "10"], "raw_event": "1", "rpc": "5"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27215475, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "145"], "raw_event": "1", "rpc": "29"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27215475, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "65"], "raw_event": "1", "rpc": "2"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27215475, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "74"], "raw_event": "1", "rpc": "4"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27215475, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "10"], "raw_event": "1", "rpc": "5"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27215475, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "145"], "raw_event": "1", "rpc": "29"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27215475, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "65"], "raw_event": "1", "rpc": "2"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27215475, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "74"], "raw_event": "1", "rpc": "4"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27551977, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "10"], "raw_event": "1", "rpc": "5"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27551977, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "145"], "raw_event": "1", "rpc": "29"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27551977, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "65"], "raw_event": "1", "rpc": "2"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27551977, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "74"], "raw_event": "1", "rpc": "4"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27551977, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "10"], "raw_event": "1", "rpc": "5"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27551977, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "145"], "raw_event": "1", "rpc": "29"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27551977, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "65"], "raw_event": "1", "rpc": "2"}
-GATED_MISMATCH {"wallet_id": 1, "block": 27551977, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "74"], "raw_event": "1", "rpc": "4"}
-GATED_MISMATCH {"wallet_id": 1, "block": 28628275, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "10"], "raw_event": "1", "rpc": "5"}
-GATED_MISMATCH {"wallet_id": 1, "block": 28628275, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "145"], "raw_event": "1", "rpc": "29"}
-GATED_MISMATCH {"wallet_id": 1, "block": 28628275, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "65"], "raw_event": "1", "rpc": "2"}
-GATED_MISMATCH {"wallet_id": 1, "block": 28628275, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "74"], "raw_event": "1", "rpc": "4"}
-GATED_MISMATCH {"wallet_id": 1, "block": 28628275, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "10"], "raw_event": "1", "rpc": "5"}
-GATED_MISMATCH {"wallet_id": 1, "block": 28628275, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "145"], "raw_event": "1", "rpc": "29"}
-GATED_MISMATCH {"wallet_id": 1, "block": 28628275, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "65"], "raw_event": "1", "rpc": "2"}
-GATED_MISMATCH {"wallet_id": 1, "block": 28628275, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "74"], "raw_event": "1", "rpc": "4"}
-GATED_MISMATCH {"wallet_id": 1, "block": 48210460, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "10"], "raw_event": "1", "rpc": "5"}
-GATED_MISMATCH {"wallet_id": 1, "block": 48210460, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "145"], "raw_event": "1", "rpc": "29"}
-GATED_MISMATCH {"wallet_id": 1, "block": 48210460, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "65"], "raw_event": "1", "rpc": "2"}
-GATED_MISMATCH {"wallet_id": 1, "block": 48210460, "asset": ["0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "erc1155", "74"], "raw_event": "1", "rpc": "4"}
-GATED_MISMATCH {"wallet_id": 1, "block": 48210460, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "10"], "raw_event": "1", "rpc": "5"}
-GATED_MISMATCH {"wallet_id": 1, "block": 48210460, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "145"], "raw_event": "1", "rpc": "29"}
-GATED_MISMATCH {"wallet_id": 1, "block": 48210460, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "65"], "raw_event": "1", "rpc": "2"}
-GATED_MISMATCH {"wallet_id": 1, "block": 48210460, "asset": ["0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "erc1155", "74"], "raw_event": "1", "rpc": "4"}
-FAIL balances
+STATS {"rpc": {"requests": 787, "ok": 787, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 785.0, "effective_per_min": 60.16}}
+{"chain": 84532, "wallet_id": 1, "blocks": [27215475, 27551977, 28628275, 48219979], "head_block": 48219979, "assets": 196}
+{"chain": 84532, "gated_assets_configured": 0, "gated_checks": 0, "gated_match": 0, "gated_mismatch": 0, "untracked_checks": 784, "untracked_contracts_not_reconciling": 2, "untracked_by_reason": {"non-event balance changes (testnet)": 2}}
+UNTRACKED {"contract": "0x4773f06fb66735f1350a2db582660cbf6c0ff64b", "standard": "erc1155", "reasons": ["non-event balance changes (testnet)"], "failed_checks": 16}
+UNTRACKED {"contract": "0xb2d52be3ab11006685843a59ec7d17bff2c554a1", "standard": "erc1155", "reasons": ["non-event balance changes (testnet)"], "failed_checks": 16}
+N/A balances: no gated assets configured for chain 84532
 == verify wearables (P1.1: owner + gotchi children)
 STATS {}
 N/A wearables
 == simulated reorg
 {"tampered_blocks": [47173060, 47171999, 47171965]}
-REORG_WINDOW=1138496
-STATS {"rpc": {"requests": 6, "ok": 6, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 3.2, "effective_per_min": 111.48}, "hypersync": {"requests": 1, "ok": 1, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 0.6, "effective_per_min": 101.35}}
-{"reorg": true, "chain": 84532, "mismatched_blocks": [47171965, 47171999, 47173060, 48210460], "fork_block": 47171965, "deleted_events": 5, "deleted_blocks": 3}
-{"chain": 84532, "wallet_id": 1, "from": 47171965, "to": 48210896, "logs_seen": 5, "inserted": 5}
+REORG_WINDOW=1148015
+STATS {"rpc": {"requests": 6, "ok": 6, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 3.2, "effective_per_min": 111.55}, "hypersync": {"requests": 1, "ok": 1, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 0.8, "effective_per_min": 76.79}}
+{"reorg": true, "chain": 84532, "mismatched_blocks": [47171965, 47171999, 47173060, 48219979], "fork_block": 47171965, "deleted_events": 5, "deleted_blocks": 3}
+{"chain": 84532, "wallet_id": 1, "from": 47171965, "to": 48220380, "logs_seen": 5, "inserted": 5}
 {"chain": 84532, "marketplace": "none configured"}
 counts3 {"chain": 84532, "raw_event": 745, "block": 77, "by_kind": {"erc1155_single": 161, "erc721_transfer": 573, "erc20_transfer": 11}, "checksum": "e93ddc39d14091c6bd3a5f838f62940e"}
 PASS reorg: rewound + re-ingested, count+checksum (incl. block hashes) restored
-EXIT 2
+ALL PASS
+EXIT 0
