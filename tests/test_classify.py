@@ -38,7 +38,7 @@ def meta(frm, to, sel): return ("tx_meta", {"from": frm, "to": to, "selector": s
 class T(unittest.TestCase):
     def setUp(self):
         self.c = db.connect(); db.migrate(self.c)
-        for t in ("manual_basis", "ledger_entry", "review_queue", "raw_event", "block", "sync_cursor", "sync_cursor_global", "asset", "wallet"):
+        for t in ("manual_basis", "ledger_entry", "review_queue", "raw_event", "block", "sync_cursor", "sync_cursor_global", "asset", "wallet", "gotchi_escrow"):
             self.c.execute(f"DELETE FROM {t}")
         for a in (W, W2): self.c.execute("INSERT INTO wallet(chain_id,address,wallet_group) VALUES (%s,%s,'g')", (C, b(a)))
         self.c.commit(); self.n = 0
