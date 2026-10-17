@@ -3,20 +3,20 @@
 STATS {}
 {"applied": ["001_init.sql", "002_global_cursor.sql", "003_parent_scan.sql"]}
 == ingest #1
-STATS {"rpc": {"requests": 37, "ok": 37, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 373.5, "effective_per_min": 5.94}, "hypersync": {"requests": 42, "ok": 41, "429": 1, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 372.8, "effective_per_min": 6.6}}
-{"chain": 8453, "wallet_id": 1, "from": 0, "to": 52698139, "logs_seen": 709, "inserted": 709}
-{"chain": 8453, "source": "hypersync_parent", "gotchis": 24, "to": 52698165, "logs_seen": 92, "inserted": 92}
-{"chain": 8453, "source": "hypersync_market", "from": 33315000, "to": 52698189, "logs_seen": 31838, "inserted": 31838}
+STATS {"rpc": {"requests": 37, "ok": 37, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 431.8, "effective_per_min": 5.14}, "hypersync": {"requests": 49, "ok": 40, "429": 9, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 431.3, "effective_per_min": 5.57}}
+{"chain": 8453, "wallet_id": 1, "from": 0, "to": 52707864, "logs_seen": 709, "inserted": 709}
+{"chain": 8453, "source": "hypersync_parent", "gotchis": 24, "to": 52707864, "logs_seen": 92, "inserted": 92}
+{"chain": 8453, "source": "hypersync_market", "from": 33315000, "to": 52707938, "logs_seen": 31838, "inserted": 31838}
 counts1 {"chain": 8453, "raw_event": 32639, "block": 28694, "by_kind": {"erc1155_single": 72, "erc721_transfer": 115, "erc20_transfer": 522, "market_ERC721BuyOrderExecuted": 23, "market_Auction_ItemClaimed": 5124, "market_ERC721ExecutedListing": 879, "market_ERC1155ExecutedListing": 2017, "market_Auction_BidPlaced": 17008, "market_Auction_Initialized": 6682, "market_ERC1155BuyOrderExecute": 86, "market_Auction_BoughtNow": 19, "wearable_to_parent": 92}, "checksum": "21d03b61b2d3997dd6b07a22ca6ec33b"}
 == ingest #2 (reset cursors to re-scan full history)
-STATS {"rpc": {"requests": 37, "ok": 37, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 374.7, "effective_per_min": 5.93}, "hypersync": {"requests": 42, "ok": 42, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 374.3, "effective_per_min": 6.73}}
-{"chain": 8453, "wallet_id": 1, "from": 0, "to": 52698329, "logs_seen": 709, "inserted": 0}
-{"chain": 8453, "source": "hypersync_parent", "gotchis": 24, "to": 52698364, "logs_seen": 92, "inserted": 0}
-{"chain": 8453, "source": "hypersync_market", "from": 33315000, "to": 52698397, "logs_seen": 31838, "inserted": 0}
+STATS {"rpc": {"requests": 37, "ok": 37, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 418.4, "effective_per_min": 5.31}, "hypersync": {"requests": 47, "ok": 40, "429": 7, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 417.9, "effective_per_min": 5.74}}
+{"chain": 8453, "wallet_id": 1, "from": 0, "to": 52708083, "logs_seen": 709, "inserted": 0}
+{"chain": 8453, "source": "hypersync_parent", "gotchis": 24, "to": 52708115, "logs_seen": 92, "inserted": 0}
+{"chain": 8453, "source": "hypersync_market", "from": 33315000, "to": 52708151, "logs_seen": 31838, "inserted": 0}
 counts2 {"chain": 8453, "raw_event": 32639, "block": 28694, "by_kind": {"erc1155_single": 72, "erc721_transfer": 115, "erc20_transfer": 522, "market_ERC721BuyOrderExecuted": 23, "market_Auction_ItemClaimed": 5124, "market_ERC721ExecutedListing": 879, "market_ERC1155ExecutedListing": 2017, "market_Auction_BidPlaced": 17008, "market_Auction_Initialized": 6682, "market_ERC1155BuyOrderExecute": 86, "market_Auction_BoughtNow": 19, "wearable_to_parent": 92}, "checksum": "21d03b61b2d3997dd6b07a22ca6ec33b"}
 PASS idempotent: identical raw_event count+checksum
 == verify balances (gate: config/allowlist.txt; others reported untracked)
-{"chain": 8453, "wallet_id": 1, "blocks": [33595641, 42419723, 49126235, 52698329], "head_block": 52698329, "assets": 304}
+{"chain": 8453, "wallet_id": 1, "blocks": [33595641, 42419723, 49126235, 52708083], "head_block": 52708083, "assets": 304}
 {"chain": 8453, "gated_assets_configured": 15, "gated_checks": 128, "gated_match": 128, "gated_mismatch": 0, "untracked_checks": 1088, "untracked_contracts_not_reconciling": 125, "untracked_by_reason": {"spam (Transfer events without balance)": 83, "non-compliant (balanceOf reverts)": 11, "fee-on-transfer / burn without event": 24, "non-standard mint / rebasing": 8}}
 UNTRACKED {"contract": "0x022b646fcc765dfe09232c569c26e6befd8c938a", "standard": "erc20", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 3}
 UNTRACKED {"contract": "0x0449d45078a486a3c1c6c146ea57fdb8d7474574", "standard": "erc721", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 4}
@@ -113,7 +113,7 @@ UNTRACKED {"contract": "0xb16b5603f45ed13a751f05006d9ecba7d2dd969b", "standard":
 UNTRACKED {"contract": "0xb35afafb03d70ea2f7ee42b16c0ea2e3a799fae0", "standard": "erc20", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 4}
 UNTRACKED {"contract": "0xb8d06247f29aee234ee9a000cb545d6eda6930e9", "standard": "erc721", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 4}
 UNTRACKED {"contract": "0xbf6cb3e74474bc9fad8958028ece9869312786d4", "standard": "erc20", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 4}
-STATS {"rpc": {"requests": 1219, "ok": 1219, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 1216.2, "effective_per_min": 60.14}}
+STATS {"rpc": {"requests": 1221, "ok": 1219, "429": 2, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 1218.2, "effective_per_min": 60.04}}
 UNTRACKED {"contract": "0xc0eeb85324765b330470c809950594bb3d057e38", "standard": "erc20", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 2}
 UNTRACKED {"contract": "0xc18c4e02abe93aa9aa7681ab41a18833d93babee", "standard": "erc20", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 4}
 UNTRACKED {"contract": "0xc1d39c5579b9c05909046a37b8ed3007ee4528e7", "standard": "erc721", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 3}
@@ -146,18 +146,18 @@ UNTRACKED {"contract": "0xfe5cc3fed5bc80368b6b3f4357d5f56e572d1ea2", "standard":
 UNTRACKED {"contract": "0xfe96e67a1b350baedccb1d368097c0efc0acaec6", "standard": "erc20", "reasons": ["spam (Transfer events without balance)"], "failed_checks": 2}
 PASS balances (all gated assets match)
 == verify wearables (P1.1: owner + gotchi children)
-STATS {"rpc": {"requests": 396, "ok": 396, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 393.1, "effective_per_min": 60.44}}
-{"chain": 8453, "wallet_id": 1, "wearables_blocks": [33208455, 33208693, 33208825, 52698329], "owner_type_ids": 7, "gotchis_checked": 23, "child_pairs": 92}
-{"chain": 8453, "wearable_checks": 396, "match": 396, "mismatch": 0}
+STATS {"rpc": {"requests": 792, "ok": 792, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 789.4, "effective_per_min": 60.2}}
+{"chain": 8453, "wallet_id": 1, "wearables_blocks": [33208455, 33208693, 33208825, 35638510, 40515531, 45392551, 52703083, 52708083], "owner_type_ids": 7, "gotchis_checked": 23, "child_pairs": 92}
+{"chain": 8453, "wearable_checks": 792, "match": 792, "mismatch": 0}
 PASS wearables
 == simulated reorg
 {"tampered_blocks": [52513752, 52441393, 52440523]}
-REORG_WINDOW=357875
-STATS {"rpc": {"requests": 87, "ok": 87, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 92.6, "effective_per_min": 56.39}, "hypersync": {"requests": 3, "ok": 3, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 48.0, "effective_per_min": 3.75}}
-{"reorg": true, "chain": 8453, "mismatched_blocks": [52440523, 52441393, 52513752, 52698329, 52698397], "fork_block": 52440523, "deleted_events": 14, "deleted_blocks": 3}
-{"chain": 8453, "wallet_id": 1, "from": 52440523, "to": 52699372, "logs_seen": 0, "inserted": 0}
-{"chain": 8453, "source": "hypersync_parent", "gotchis": 24, "to": 52699372, "logs_seen": 0, "inserted": 0}
-{"chain": 8453, "source": "hypersync_market", "from": 52440523, "to": 52699392, "logs_seen": 14, "inserted": 14}
+REORG_WINDOW=367629
+STATS {"rpc": {"requests": 87, "ok": 87, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 98.5, "effective_per_min": 53.02}, "hypersync": {"requests": 4, "ok": 3, "429": 1, "5xx": 0, "errors": 0, "retry_after_honored": 0, "elapsed_s": 56.8, "effective_per_min": 3.17}}
+{"reorg": true, "chain": 8453, "mismatched_blocks": [52440523, 52441393, 52513752, 52708083, 52708151], "fork_block": 52440523, "deleted_events": 14, "deleted_blocks": 3}
+{"chain": 8453, "wallet_id": 1, "from": 52440523, "to": 52709349, "logs_seen": 0, "inserted": 0}
+{"chain": 8453, "source": "hypersync_parent", "gotchis": 24, "to": 52709349, "logs_seen": 0, "inserted": 0}
+{"chain": 8453, "source": "hypersync_market", "from": 52440523, "to": 52709349, "logs_seen": 14, "inserted": 14}
 counts3 {"chain": 8453, "raw_event": 32639, "block": 28694, "by_kind": {"erc1155_single": 72, "erc721_transfer": 115, "erc20_transfer": 522, "market_ERC721BuyOrderExecuted": 23, "market_Auction_ItemClaimed": 5124, "market_ERC721ExecutedListing": 879, "market_ERC1155ExecutedListing": 2017, "market_Auction_BidPlaced": 17008, "market_Auction_Initialized": 6682, "market_ERC1155BuyOrderExecute": 86, "market_Auction_BoughtNow": 19, "wearable_to_parent": 92}, "checksum": "21d03b61b2d3997dd6b07a22ca6ec33b"}
 PASS reorg: rewound + re-ingested, count+checksum (incl. block hashes) restored
 ALL PASS
