@@ -92,9 +92,13 @@ In P2 the labels set are bridge_in lots (high) and manual basis (low).
 - `manual_basis` was added.
 
 ## P2.1: FAKE Gotchi Cards (branch p2.1-fake-gotchi-cards, stacked on PR #3)
-- RPC check of FakeGotchisCardDiamond `0xe46b8902dad841476d9fee081f1d62ae317206a9`: getCode 4619 B, ERC165 ERC1155 = true, ERC721 = false, no `name()`/`symbol()`. Creator: the bridge sender.
+- RPC check of FakeGotchisCardDiamond `0xe46b8902dad841476d9fee081f1d62ae317206a9`: getCode 4619 B, ERC165 ERC1155 = true, ERC721 = false, no `name()`/`symbol()`, `uri(0)` = `"0"` (RPC `eth_call` 0x0e89341c, base.drpc.org, 2026-10-16). Creator: the bridge sender.
 - Mint selector (read-only: Blockscout advanced filters + RPC `eth_getTransactionByHash`): the bridge sender's mints from 0x0 are **`massMint` 0x88f351bb**,
-  tx.from 0xf523…06ed → tx.to the card diamond (sampled 0x788c885d… block 33,222,087; 0x7ac8afa8… 33,222,090; 0x3f25297e… 33,223,310). `startNewSeries` 0x51b4b0c3 emits no transfers.
+  tx.from 0xf52398257a254d541f392667600901f710a006ed → tx.to the card diamond. Range starts at block **33,222,078**
+  (0x8b077509ef7b691d9dc53c320a2618b13210bc1627206d92db5b51a6bcab5392), next 33,222,083 (0x06acd651fb60bd90a80f8ee6c78c5954825d2bfe5a78d8252bc1c0470298be96);
+  also sampled 33,222,087 (0x788c885dcc55c702556c21302ee4375b1dfd7f1743425f0172694c9d60bb9e3b), 33,222,090 (0x7ac8afa8830163bb1cfccf8fd15d497da408e940158f20b1d02676214a229406)
+  and 33,223,310 (0x3f25297e575385d1ba8fcb7a5076c1c75be4b037a571fe70a2d84655662240de). All five confirmed read-only (RPC eth_getBlockByNumber + eth_getTransactionReceipt,
+  base.drpc.org): selector 0x88f351bb, status 1, ERC1155 mints from 0x0 emitted by the card diamond. Block 33,222,077 has no massMint; earlier blocks were not scanned (start block per architect). `startNewSeries` 0x51b4b0c3 emits no transfers.
 - Allowlisted on Base. `0x88f351bb → 0xe46b…` maps to migration_in for that contract only (carry-over basis pending, ERC1155 lots per (contract, id), chain_origin 137).
   massMint on any other contract, or another selector on the cards, goes to review. Facet-like `0x04d1…40fc` / `0x3aa4…0655` are excluded (KNOWN_GAPS #13).
 - Base rerun at e264682 (23:43–23:48 PDT, 5/min): **828/829 (99.879%)**, ledger 1252 / md5 34b5a786b2acdb922a07f41a7206d57a, identical to PR #3. The test wallet holds no FAKE Gotchi Cards

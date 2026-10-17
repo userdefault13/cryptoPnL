@@ -2,7 +2,8 @@
 The AarcadeGh$t proxy is a point-lookup source only (single-row responses); no Goldsky."""
 import os
 from .net import Limiter, post_json
-from .config import HYPERSYNC_RPM, RPC_RPS, RPC_BURST
+from .config import RPC_RPS, RPC_BURST
+from .hostlimit import hypersync_limiter
 TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 T1155S = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
 T1155B = "0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb"
@@ -29,7 +30,7 @@ class HyperSyncWalletLogs:
     _lim = None
     def __init__(self, url):
         self.url = url.rstrip("/") + "/query"
-        if HyperSyncWalletLogs._lim is None: HyperSyncWalletLogs._lim = Limiter(HYPERSYNC_RPM / 60.0)
+        if HyperSyncWalletLogs._lim is None: HyperSyncWalletLogs._lim = hypersync_limiter()   # host-wide flock budget (P3 step 1)
         self.headers = {"Authorization": "Bearer " + os.environ["ENVIO_API_TOKEN"]}
     def fetch(self, wallet, frm, to):
         """Yield (logs, blocks) pages for [frm, to] (inclusive) touching wallet."""
@@ -106,6 +107,36 @@ class HyperSyncWalletTxs(HyperSyncWalletLogs):
             nb = r["next_block"]
             if nb > b: self.covered = min(nb - 1, to)
             yield ([t for d in r.get("data", []) for t in (d.get("transactions") or [])],
+                   [x for d in r.get("data", []) for x in (d.get("blocks") or [])])
+            if nb <= b: break
+            b = nb
+
+class HyperSyncWalletGV(HyperSyncWalletLogs):
+    """P2.2 (DESIGN v1.3 §9): every log of wallet-sent txs (join_mode "JoinAll") plus logs of txs that carry a wallet-topic
+    Gotchiverse/marketplace/lending event or an Installation/Tile/Aavegotchi token move to/from the wallet (JoinAll pulls the whole tx,
+    e.g. a finalize or claim sent by someone else). Shares the host HyperSync lock (<= 5/min)."""
+    name = "hypersync_gv"
+    def fetch(self, wallet, frm, to, gv, topics):
+        t = topic_addr(wallet); b = frm; self.covered = frm - 1
+        lend = [k for k, v in topics.items() if v in ("GotchiLendingExecuted", "GotchiLendingEnded", "GotchiLendingClaimed")]
+        rcpt = [k for k, v in topics.items() if v.endswith("ExecutedToRecipient")]
+        nft = [gv["installation"], gv["tile"], gv["aavegotchi"], gv["realm"]]
+        logs_sel = [{"topics": [rcpt, [], [], [t]]},
+                    {"address": [gv["aavegotchi"]], "topics": [lend, [], [t]]}, {"address": [gv["aavegotchi"]], "topics": [lend, [], [], [t]]},
+                    {"address": nft, "topics": [[T1155S, T1155B], [], [], [t]]}, {"address": nft, "topics": [[T1155S, T1155B], [], [t]]},
+                    {"address": nft, "topics": [[TRANSFER], [t]]}, {"address": nft, "topics": [[TRANSFER], [], [t]]},
+                    # alchemica/GLTR/GHST received: pulls lending revenue claims sent by the borrower/operator (their tuple GotchiLending* events
+                    # carry no wallet topic on Base) and claims/refunds paid by the diamonds
+                    {"address": sorted(gv["alchemica"]) + [gv["gltr"], gv["ghst"]], "topics": [[TRANSFER], [], [t]]}]
+        while b <= to:
+            q = {"from_block": b, "to_block": to + 1, "join_mode": "JoinAll", "transactions": [{"from": [wallet.lower()]}], "logs": logs_sel,
+                 "field_selection": {"log": ["block_number", "block_hash", "transaction_hash", "log_index", "address",
+                                             "topic0", "topic1", "topic2", "topic3", "data"],
+                                     "block": ["number", "hash", "timestamp"]}}
+            r = post_json("hypersync", self._lim, self.url, q, self.headers)
+            nb = r["next_block"]
+            if nb > b: self.covered = min(nb - 1, to)
+            yield ([l for d in r.get("data", []) for l in (d.get("logs") or [])],
                    [x for d in r.get("data", []) for x in (d.get("blocks") or [])])
             if nb <= b: break
             b = nb

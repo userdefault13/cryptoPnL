@@ -3,8 +3,7 @@ and per-source counters incl. effective throughput."""
 import http.client, json, os, random, ssl, time, urllib.request, urllib.error
 STATS = {}
 _T0 = {}
-# NOTE: this limiter is PER PROCESS. The HyperSync budget (5/min for all runs, architect PR #3) is per HOST/account: run only one
-# ingest process at a time on a host (p1_test.sh is sequential), or put a shared host throttle in front.
+# NOTE: this limiter is PER PROCESS (used for RPC). HyperSync uses hostlimit.HostLimiter: one flock-guarded 5/min budget per host.
 class Limiter:
     def __init__(self, per_sec, burst=1):
         self.rate = per_sec; self.cap = float(burst); self.tokens = float(burst); self.t = time.monotonic()
