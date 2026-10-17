@@ -1,9 +1,9 @@
 """HTTP JSON with token-bucket rate limiting (rate + burst), Retry-After / exp. backoff + jitter on 429/5xx,
 and per-source counters incl. effective throughput."""
-import json, random, time, urllib.request, urllib.error
+import http.client, json, os, random, ssl, time, urllib.request, urllib.error
 STATS = {}
 _T0 = {}
-# NOTE: this limiter is PER PROCESS. The HyperSync budget (7/min for the MBP) is per HOST/account: run only one
+# NOTE: this limiter is PER PROCESS. The HyperSync budget (5/min for all runs, architect PR #3) is per HOST/account: run only one
 # ingest process at a time on a host (p1_test.sh is sequential), or put a shared host throttle in front.
 class Limiter:
     def __init__(self, per_sec, burst=1):
@@ -17,11 +17,24 @@ def _retry_after(e):
     v = e.headers.get("Retry-After") if e.headers else None
     try: return min(120.0, float(v)) if v else None
     except ValueError: return None
-def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90):
+def permanent(e):
+    """Errors that retrying cannot fix: TLS certificate/handshake failures (except a mid-stream EOF), bad URLs.
+    URLError wraps the real cause in .reason."""
+    r = getattr(e, "reason", None) if isinstance(e, urllib.error.URLError) else e
+    if isinstance(r, ssl.SSLError) and not isinstance(r, (ssl.SSLEOFError, ssl.SSLZeroReturnError)): return True
+    if isinstance(r, json.JSONDecodeError): return False   # HTML challenge/error page instead of JSON: transient
+    return isinstance(r, (ssl.CertificateError, http.client.InvalidURL, ValueError))
+def _reqlog(name, outcome):
+    """Host-wide request log (NET_REQLOG=path): one line per HTTP attempt, '<unix_ts> <source> <outcome>'. Used to cite
+    HyperSync per-minute counts across processes (scripts/reqlog_summary.py)."""
+    f = os.environ.get("NET_REQLOG")
+    if f:
+        with open(f, "a") as fh: fh.write(f"{time.time():.3f} {name} {outcome}\n")
+def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sleep=time.sleep):
     st = STATS.setdefault(name, {"requests": 0, "ok": 0, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0})
     _T0.setdefault(name, time.monotonic())
     for attempt in range(retries):
-        limiter.wait(); st["requests"] += 1
+        limiter.wait(); st["requests"] += 1; _reqlog(name, "attempt")
         req = urllib.request.Request(url, json.dumps(body).encode(),
               {"content-type": "application/json", "user-agent": "cryptoPnL/p1", **(headers or {})})
         delay = None
@@ -34,9 +47,14 @@ def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90):
             else: st["errors"] += 1; raise RuntimeError(f"{name} HTTP {e.code}: {e.read()[:200]!r}")
             delay = _retry_after(e)
             if delay is not None: st["retry_after_honored"] += 1
-        except (urllib.error.URLError, TimeoutError):
-            st["errors"] += 1
-        time.sleep(delay if delay is not None else min(60, 2 ** attempt) + random.random())
+        except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException, OSError, ValueError) as e:
+            if permanent(e):   # e.g. SSLCertVerificationError: fail fast, never retry (architect, PR #3)
+                st["errors"] += 1; st["permanent"] = st.get("permanent", 0) + 1
+                raise RuntimeError(f"{name}: permanent error, not retried: {type(getattr(e, 'reason', e)).__name__}: {e}") from e
+            # dropped/reset connections (ConnectionResetError, RemoteDisconnected, IncompleteRead, socket errors):
+            # retry with exponential backoff + jitter, same as 5xx
+            st["errors"] += 1; st["conn_retries"] = st.get("conn_retries", 0) + 1
+        _sleep(delay if delay is not None else min(60, 2 ** attempt) + random.random())
     raise RuntimeError(f"{name}: retries exhausted")
 def _rate(name):
     el = max(1e-6, time.monotonic() - _T0[name]); st = STATS[name]

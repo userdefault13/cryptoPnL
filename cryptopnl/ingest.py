@@ -1,6 +1,6 @@
 import json, os, datetime
 from .db import b, hx
-from .sources import RPC, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
+from .sources import RPC, HyperSyncWalletTxs, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
 from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES
 
 def addr_of(topic): return "0x" + topic[-40:].lower()
@@ -101,6 +101,65 @@ def ingest_wallet(conn, chain, address, log=print):
                  (src.name, wid, n, b(h)))
     conn.commit()
     log(json.dumps({"chain": chain, "wallet_id": wid, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
+
+def tx_payload(t):
+    """Tx-level row (DESIGN §3: log_index -1): native value + gas. Fee = gas_used*effective_gas_price + l1_fee (wei)."""
+    hx_ = lambda k: int(t[k], 16) if t.get(k) not in (None, "", "0x") else 0
+    fee = hx_("gas_used") * hx_("effective_gas_price") + hx_("l1_fee")
+    return {"from": (t.get("from") or "").lower(), "to": (t.get("to") or "").lower() or None, "value": str(hx_("value")),
+            "gas_used": str(hx_("gas_used")), "effective_gas_price": str(hx_("effective_gas_price")), "l1_fee": str(hx_("l1_fee")),
+            "fee": str(fee), "status": t.get("status"), "selector": (t.get("input") or "0x")[:10]}
+
+def ingest_wallet_txs(conn, chain, address, log=print):
+    """P2: transactions from/to the wallet -> raw_event kind 'tx', log_index -1. Cursor = sync_cursor(source hypersync_tx)."""
+    cfg = CHAINS[chain]; rpc = RPC(cfg["rpc"]); src = HyperSyncWalletTxs(cfg["hypersync"])
+    wid = wallet_id(conn, chain, address)
+    reorg_check(conn, chain, rpc, log)
+    cur = conn.execute("SELECT last_block FROM sync_cursor WHERE source=%s AND wallet_id=%s", (src.name, wid)).fetchone()
+    frm = (cur[0] + 1) if cur else 0; to = rpc.safe_head(); seen = inserted = 0
+    if frm <= to:
+        for txs, blocks in src.fetch(address, frm, to):
+            store_blocks(conn, chain, blocks)
+            for t in txs:
+                if h2i(t["block_number"]) > to: continue
+                seen += 1
+                inserted += conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+                    VALUES (%s,%s,-1,%s,%s,%s,'tx',%s) ON CONFLICT DO NOTHING""",
+                    (chain, b(t["hash"]), h2i(t["block_number"]), b(t["block_hash"]), src.name, json.dumps(tx_payload(t)))).rowcount
+            conn.commit()
+        if src.covered < to: log(json.dumps({"warn": "hypersync tx scan stopped early", "requested_to": to, "covered_to": src.covered}))
+        to = src.covered
+    if to < 0: return
+    n, h, _ = rpc.block(to)
+    conn.execute("""INSERT INTO sync_cursor(source,wallet_id,last_block,last_block_hash,updated_at) VALUES (%s,%s,%s,%s,now())
+                    ON CONFLICT (source,wallet_id) DO UPDATE SET last_block=EXCLUDED.last_block, last_block_hash=EXCLUDED.last_block_hash, updated_at=now()""",
+                 (src.name, wid, n, b(h)))
+    conn.commit()
+    log(json.dumps({"chain": chain, "wallet_id": wid, "source": src.name, "from": frm, "to": to, "txs_seen": seen, "inserted": inserted}))
+
+def ingest_tx_meta(conn, chain, address, log=print):
+    """P2 decisions: tx.from/to/selector for wallet-received mints (from 0x0) whose tx the wallet did not send/receive
+    (no 'tx' row): needed for the migration (bridge sender + selector) and bridge_in (tx.to = CCTP) rules.
+    Read-only RPC eth_getTransactionByHash (RPC limiter 1/s, burst 3); no HyperSync. raw_event kind 'tx_meta', log_index -3.
+    Idempotent: only hashes without a tx/tx_meta row; reorg rewind deletes these rows with their block."""
+    rpc = RPC(CHAINS[chain]["rpc"]); fetched = 0
+    todo = conn.execute("""SELECT DISTINCT ON (r.tx_hash) r.tx_hash, r.block_number, r.block_hash FROM raw_event r
+        WHERE r.chain_id=%s AND r.kind = ANY(%s) AND r.payload->>'from'=%s AND r.payload->>'to'=%s
+        AND NOT EXISTS (SELECT 1 FROM raw_event t WHERE t.chain_id=r.chain_id AND t.tx_hash=r.tx_hash AND t.kind IN ('tx','tx_meta'))
+        ORDER BY r.tx_hash""", (chain, ["erc20_transfer", "erc721_transfer", "erc1155_single", "erc1155_batch"],
+                                "0x" + "0" * 40, address.lower())).fetchall()
+    for th, bn, bh in todo:
+        t = rpc.call("eth_getTransactionByHash", [hx(th)])
+        if t:
+            meta = {"from": t["from"].lower(), "to": (t.get("to") or "").lower() or None, "selector": (t.get("input") or "0x")[:10],
+                    "value": str(h2i(t.get("value") or "0x0"))}
+        else:   # null lookup: recorded so classify sends allowlisted mints to review (architect, 3c8b056)
+            meta = {"from": None, "to": None, "selector": None, "value": None, "lookup_null": True}
+        conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+            VALUES (%s,%s,-3,%s,%s,'rpc_txmeta','tx_meta',%s) ON CONFLICT DO NOTHING""", (chain, th, bn, bh, json.dumps(meta)))
+        fetched += 1
+    conn.commit()
+    log(json.dumps({"chain": chain, "source": "rpc_txmeta", "candidates": len(todo), "fetched": fetched}))
 
 def store_blocks(conn, chain, blocks):
     for x in blocks:

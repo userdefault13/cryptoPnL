@@ -1,5 +1,5 @@
 """Architect P1.1 ask: scan Sepolia Installation-type diamonds for TransferSingle/TransferBatch/TransferToParent
-touching the test wallet. Read-only, HyperSync at <=7/min (shared limiter). Usage: abra run cryptoPnL -- python -m verify.sepolia_installations_scan <wallet>"""
+touching the test wallet. Read-only, HyperSync at <=5/min (shared limiter). Usage: abra run cryptoPnL -- python -m verify.sepolia_installations_scan <wallet>"""
 import json, sys, collections
 from cryptopnl.sources import HyperSyncWalletLogs, T1155S, T1155B, post_json
 from cryptopnl.config import CHAINS

@@ -18,3 +18,4 @@
 # Base Sepolia: none gated. Installation diamonds 0x4773…ff64b (deploy 25,528,247) and 0xb2d5…554a1 (deploy 26,278,719)
 # were gated and failed (RPC > events at every block; ingest starts at 0, before deploy). Architect decision: untracked,
 # reason "non-event balance changes (testnet)" (UNTRACKED_REASONS in cryptopnl/config.py).
+8453 0xab59ca4a16925b0a4bac5026c94beb20a29df479  # FAKE Gotchis (FakeGotchisNFTDiamond, ERC721; architect 3c8b056)
