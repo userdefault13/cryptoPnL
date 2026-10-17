@@ -66,7 +66,13 @@ def words(data):
 class Escrow:
     """Open escrow per (diamond, token): FIFO list of {ref, qty, ids(ledger rows of the placement)}. Mutations are staged
     per tx (begin/commit/rollback) so a tx that ends in review leaves the state untouched."""
-    def __init__(self): self.open = {}; self._snap = None; self.std = {}; self.parcels = {}   # P2.2: NFT std per escrow key; items per parcel
+    def __init__(self, pockets=None):   # P2.2: NFT std per escrow key; items per parcel; gotchi escrow -> id; gotchis owned (wallet + lent)
+        self.open = {}; self._snap = None; self.std = {}; self.parcels = {}; self.pockets = pockets or {}; self.gotchis = {}
+    def track_gotchis(self, out, canonical):
+        """After a classified tx: owned gotchis = wallet + lent:* legs of the canonical ERC721, never untracked (borrowed) ones."""
+        for l in out:
+            if l["contract"] == canonical and l["std"] == "erc721" and not l["spam"] and (l["loc"] == "wallet" or l["loc"].startswith("lent:")):
+                t = int(l["token_id"]); self.gotchis[t] = self.gotchis.get(t, 0) + int(l["qty"])
     def begin(self): self._snap = ({k: [dict(e, ids=list(e["ids"])) for e in v] for k, v in self.open.items()}, dict(self.std), dict(self.parcels))
     def rollback(self): self.open, self.std, self.parcels = self._snap
     def put(self, d, tok, ref, qty):
@@ -299,8 +305,11 @@ def bundle_tag(chain, r, esc):
     g = GV.get(chain)
     if not g: return r
     for l in r[1]:
-        if l["contract"] == g["realm"] and l["qty"] < 0 and l["cat"] in TRADE_CATS and esc.parcels.get(int(l["token_id"]), 0) > 0:
-            tag = f"bundle:parcel:{l['token_id']}"; l["ref"] = f"{l['ref']};{tag}" if l["ref"] else tag
+        if l["contract"] != g["realm"] or l["qty"] >= 0 or l["cat"] == "escrow_out": continue   # into GBM escrow: still a bundle at the claim
+        pid = int(l["token_id"])
+        if l["cat"] in TRADE_CATS and esc.parcels.get(pid, 0) > 0:
+            tag = f"bundle:parcel:{pid}"; l["ref"] = f"{l['ref']};{tag}" if l["ref"] else tag
+        esc.parcels.pop(pid, None)   # the parcel left: its equipped items left with it (PR #5 nit)
     return r
 
 def asset_id(conn, cache, chain, std, contract, token_id):
@@ -345,6 +354,8 @@ def classify(conn, chain, log=print):
     wallets = conn.execute("SELECT id, '0x'||encode(address,'hex'), wallet_group FROM wallet WHERE chain_id=%s ORDER BY id", (chain,)).fetchall()
     cache, stats = {}, {"txs": 0, "classified": 0, "review": 0, "by_category": {}, "review_reasons": {}, "entries": 0, "warnings": []}
     origin = MIGRATION_REMINT.get(chain, {}).get("chain_origin")
+    pockets = {hx(e): int(i) for i, e in conn.execute("SELECT gotchi_id, escrow FROM gotchi_escrow WHERE chain_id=%s", (chain,))}
+    canonical = GV.get(chain, {}).get("aavegotchi")
     for wid, w, grp in wallets:
         group = {a for _, a, g in wallets if g == grp and a != w}
         txh = [r[0] for r in conn.execute("""SELECT DISTINCT tx_hash FROM raw_event WHERE chain_id=%s AND
@@ -358,7 +369,7 @@ def classify(conn, chain, log=print):
             rows.setdefault(bytes(th), {"bn": bn, "ts": ts, "rows": []})["rows"].append((li, kind, p))
         missing = len(txh) - len(rows)
         if missing: raise RuntimeError(f"{missing} wallet txs have no block row (ts unknown); re-run ingest")
-        esc = Escrow()
+        esc = Escrow(pockets)
         order = lambda h: (rows[h]["bn"], min([li for li, _, _ in rows[h]["rows"] if li >= 0] or [10**9]), h)
         for th in sorted(rows, key=order):           # chain order: escrow placement precedes fill/refund
             d = rows[th]; stats["txs"] += 1
@@ -378,6 +389,7 @@ def classify(conn, chain, log=print):
                                                       "market": [m["event"] for m in market], "selector": (tx or meta or {}).get("selector"),
                                                       "block_number": d["bn"]})))
             if not why:
+                esc.track_gotchis(out, canonical)
                 stats["classified"] += 1; stats["by_category"][cat] = stats["by_category"].get(cat, 0) + 1
             tg = str(uuid.UUID(bytes=hashlib.sha256(b"%d:" % chain + th + b":%d" % wid).digest()[:16])) if cat in TRADE_CATS else None
             if tx and tx["from"] == w and int(tx["fee"]):   # gas: a fact, recorded even for txs in review
@@ -421,9 +433,9 @@ def checksum(conn, chain):
     return {"ledger_rows": r[0], "ledger_md5": r[1], "review_rows": q[0], "review_md5": q[1]}
 
 def totals(conn, chain, include_spam=False):
-    """Net wallet-location qty per asset_id from the ledger. Spam rows (pnl_excluded) are excluded unless include_spam;
+    """Net wallet + gotchi-pocket qty per asset_id from the ledger (holdings include pockets, DESIGN v1.3 §9). Spam rows (pnl_excluded) are excluded unless include_spam;
     this is the input set for every PnL total (DESIGN §8)."""
-    return {a: int(q) for a, q in conn.execute("""SELECT asset_id, sum(qty) FROM ledger_entry WHERE chain_id=%s AND location='wallet'
+    return {a: int(q) for a, q in conn.execute("""SELECT asset_id, sum(qty) FROM ledger_entry WHERE chain_id=%s AND (location='wallet' OR location LIKE 'pocket:%%')
         AND (%s OR NOT pnl_excluded) GROUP BY 1 HAVING sum(qty) <> 0""", (chain, include_spam))}
 
 def basis_totals(conn, chain):
