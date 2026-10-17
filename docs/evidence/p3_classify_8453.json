@@ -1,0 +1,56 @@
+{
+ "chain": 8453,
+ "wallet_txs": 829,
+ "classified": 828,
+ "review": 1,
+ "classified_pct": 99.879,
+ "pass_98": true,
+ "txs_by_category": {
+  "untracked": 29,
+  "spam": 337,
+  "bridge_in": 1,
+  "auction": 4,
+  "fee": 280,
+  "deposit": 25,
+  "migration_in": 9,
+  "nft_buy": 12,
+  "escrow_out": 15,
+  "swap": 36,
+  "income": 9,
+  "escrow_return": 10,
+  "withdrawal": 61
+ },
+ "ledger_rows_by_category": {
+  "bridge_in": 1,
+  "escrow_out": 30,
+  "fee": 445,
+  "auction": 8,
+  "escrow_return": 20,
+  "untracked": 53,
+  "deposit": 82,
+  "withdrawal": 63,
+  "income": 34,
+  "migration_in": 81,
+  "nft_buy": 34,
+  "spam": 339,
+  "swap": 62
+ },
+ "review_reasons": {
+  "DEX router, fungible out only: native leg not indexed (internal ETH gap)": 1
+ },
+ "spam_rows_pnl_excluded": 339,
+ "untracked_rows_pnl_excluded": 53,
+ "untracked_txs": 46,
+ "open_escrow": [],
+ "lots": {
+  "lots": 82,
+  "pending_lots": 81,
+  "manual_lots": 0,
+  "basis_usdc_total_excl_pending": "99.961238"
+ },
+ "wallet_sent_txs_with_non_allowlisted_token_legs": 0,
+ "ledger_rows": 1252,
+ "ledger_md5": "34b5a786b2acdb922a07f41a7206d57a",
+ "review_rows": 1,
+ "review_md5": "e7de420e6883071793eb2790cd85b3af"
+}

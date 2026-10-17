@@ -1,0 +1,1 @@
+{"entries": 1252, "priced": 742, "flagged": 510, "neither": 0, "pass": true, "by_source": {"trade": 39, "dex_reserves": 50, "dex_slot0": 608, "numeraire": 45}, "by_flag": {"nft_no_trade": 7, "no_price": 30, "pending_basis": 81, "spam": 339, "untracked": 53}, "by_label": {"medium": 59, "high": 683}}
