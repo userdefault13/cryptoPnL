@@ -1,0 +1,32 @@
+{
+ "wallet": "<TEST_WALLET>",
+ "scanned_to": 48210024,
+ "requests": 2,
+ "counts": {
+  "0x4773f06fb66735f1350a2db582660cbf6c0ff64b:TransferSingle": 7,
+  "0xb2d52be3ab11006685843a59ec7d17bff2c554a1:TransferSingle": 7
+ },
+ "single_ids": {
+  "0x4773f06fb66735f1350a2db582660cbf6c0ff64b": [
+   10,
+   25,
+   26,
+   31,
+   65,
+   74,
+   145
+  ],
+  "0xb2d52be3ab11006685843a59ec7d17bff2c554a1": [
+   10,
+   25,
+   26,
+   31,
+   65,
+   74,
+   145
+  ]
+ },
+ "transfer_to_parent_any_on_contracts_first_page": 0,
+ "duplicate_tx_across_both": 0
+}
+EXIT 0

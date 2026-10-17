@@ -15,3 +15,6 @@
 8453 0x4b0040c3646d3c44b8a28ad7055cfcf536c05372  # REALM
 8453 0xebba5b725a2889f7f089a6cae0246a32cad4e26b  # Installations
 8453 0x617fdb8093b309e4699107f48812b407a7c37938  # Tiles
+# Base Sepolia: none gated. Installation diamonds 0x4773…ff64b (deploy 25,528,247) and 0xb2d5…554a1 (deploy 26,278,719)
+# were gated and failed (RPC > events at every block; ingest starts at 0, before deploy). Architect decision: untracked,
+# reason "non-event balance changes (testnet)" (UNTRACKED_REASONS in cryptopnl/config.py).

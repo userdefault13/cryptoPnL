@@ -1,7 +1,7 @@
 import json, os, datetime
 from .db import b, hx
-from .sources import RPC, HyperSyncWalletLogs, HyperSyncContractLogs, TRANSFER, T1155S, T1155B, h2i
-from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS
+from .sources import RPC, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
+from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES
 
 def addr_of(topic): return "0x" + topic[-40:].lower()
 def words(data):
@@ -62,6 +62,7 @@ def reorg_check(conn, chain, rpc, log=print):
     db_ = conn.execute("DELETE FROM block WHERE chain_id=%s AND number >= %s", (chain, fork)).rowcount
     conn.execute("""UPDATE sync_cursor c SET last_block = %s - 1, last_block_hash = NULL, updated_at = now()
                     FROM wallet w WHERE w.id=c.wallet_id AND w.chain_id=%s AND c.last_block >= %s""", (fork, chain, fork))
+    conn.execute("UPDATE parent_scan SET last_block=%s-1 WHERE chain_id=%s AND last_block >= %s", (fork, chain, fork))
     conn.execute("UPDATE sync_cursor_global SET last_block=%s-1, last_block_hash=NULL, updated_at=now() WHERE chain_id=%s AND last_block >= %s", (fork, chain, fork))
     conn.commit()
     log(json.dumps({"reorg": True, "chain": chain, "mismatched_blocks": bad, "fork_block": fork, "deleted_events": de, "deleted_blocks": db_}))
@@ -136,6 +137,41 @@ def ingest_marketplace(conn, chain, log=print):
     if src.covered < to: log(json.dumps({"warn": "hypersync stopped early", "requested_to": to, "covered_to": src.covered}))
     to = src.covered
     log(json.dumps({"chain": chain, "source": src.name, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
+
+def gotchis_ever(conn, chain, w, canonical):
+    return sorted({int(r[0]) for r in conn.execute("""SELECT DISTINCT payload->>'token_id' FROM raw_event WHERE chain_id=%s AND kind='erc721_transfer'
+        AND payload->>'contract'=%s AND (payload->>'to'=%s OR payload->>'from'=%s)""", (chain, canonical, w, w))})
+
+def ingest_parent_transfers(conn, chain, address, log=print):
+    """P1.1: custody changes of wearables into/out of gotchis the wallet has held (never disposals)."""
+    wcfg = WEARABLES.get(chain)
+    if not wcfg: return
+    cfg = CHAINS[chain]; rpc = RPC(cfg["rpc"]); src = HyperSyncParentTransfers(cfg["hypersync"])
+    w = address.lower(); ids = gotchis_ever(conn, chain, w, wcfg["canonical"])
+    if not ids: log(json.dumps({"chain": chain, "parent_transfers": "no gotchis"})); return
+    to = rpc.safe_head(); done = dict((int(g), lb) for g, lb in conn.execute("SELECT gotchi_id, last_block FROM parent_scan WHERE chain_id=%s", (chain,)))
+    groups = {}
+    for g in ids: groups.setdefault(done.get(g, -1) + 1, []).append(g)
+    seen = inserted = 0
+    for frm, gs in sorted(groups.items()):
+        if frm > to: continue
+        for logs, blocks in src.fetch_ids(wcfg["parent"], gs, frm, to):
+            store_blocks(conn, chain, blocks)
+            for l in logs:
+                if h2i(l["block_number"]) > to: continue
+                seen += 1
+                kind = "wearable_to_parent" if l["topic0"] == T_TO_PARENT else "wearable_from_parent"
+                payload = {"contract": wcfg["canonical"], "parent_contract": addr_of(l["topic1"]), "gotchi_id": str(int(l["topic2"], 16)),
+                           "type_id": str(int(l["topic3"], 16)), "value": str(words(l.get("data"))[0] if words(l.get("data")) else 0)}
+                inserted += conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                    (chain, b(l["transaction_hash"]), h2i(l["log_index"]), h2i(l["block_number"]), b(l["block_hash"]), src.name, kind, json.dumps(payload))).rowcount
+        if src.covered < to: log(json.dumps({"warn": "hypersync parent scan stopped early", "requested_to": to, "covered_to": src.covered}))
+        for g in gs:   # advance only to what HyperSync actually covered (PR #1 review blocker 1)
+            if src.covered >= frm:
+                conn.execute("INSERT INTO parent_scan(chain_id,gotchi_id,last_block) VALUES (%s,%s,%s) ON CONFLICT (chain_id,gotchi_id) DO UPDATE SET last_block=EXCLUDED.last_block", (chain, g, src.covered))
+        conn.commit()
+    log(json.dumps({"chain": chain, "source": src.name, "gotchis": len(ids), "to": to, "logs_seen": seen, "inserted": inserted}))
 
 def counts(conn, chain):
     r = conn.execute("""SELECT count(*), md5(coalesce(string_agg(encode(tx_hash,'hex')||':'||log_index||':'||encode(block_hash,'hex'), ',' ORDER BY tx_hash, log_index),''))

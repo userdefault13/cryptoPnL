@@ -20,7 +20,7 @@ All 8 topics have hits; none needed re-deriving. (A first partial scan to block 
 | Test | Base Sepolia 84532 | Base 8453 |
 |---|---|---|
 | Ingest twice → identical counts | **PASS** 745 = 745, checksum e93ddc39… | **PASS** 32,547 = 32,547 (709 wallet + 31,838 marketplace), checksum 7a3d145e… |
-| Balances raw_event = RPC balanceOf at head + 3 historical blocks | **PARTIAL** 752/784; 32 fails = 8 Aavegotchi wearable ERC1155 ids on 2 contracts (0x4773…, 0xb2d5…) | **PASS for tracked assets** 28/28 (ENVIO §1.1 tokens + Aavegotchi Diamond); **FAIL for untracked** 356 of 1,188 (125 contracts) |
+| Balances raw_event = RPC balanceOf at head + 3 historical blocks | **PARTIAL** 752/784; fails on 2 Installation-type diamonds (0x4773…, 0xb2d5…). Correction (PR #2 review): the "8" was 8 (contract, id) pairs: 4 ids × 4 blocks = 16 failed checks per contract × 2 contracts = 32 failed checks in total, not 8 ids and not wearables; the P1.1 HyperSync scan found 7 distinct ids per contract (10, 25, 26, 31, 65, 74, 145) | **PASS for tracked assets** 28/28 (ENVIO §1.1 tokens + Aavegotchi Diamond); **FAIL for untracked** 356 of 1,188 (125 contracts) |
 | No 429 storms | PASS (0 × 429) | PASS with caveat: HyperSync 4/37 and 3/36 requests 429 (shared token), drpc 92/1,311 during verify; all retried with backoff, 0 failed requests |
 | Simulated reorg → rewind + re-ingest | **PASS** fork 47,171,965, 5 events deleted + re-ingested, checksum restored | **PASS** fork 52,440,523, 14 events deleted + re-ingested, checksum restored (first attempt FAILED: test window 10k didn't cover the tampered blocks; script fixed) |
 
@@ -47,7 +47,7 @@ Command: `abra run cryptoPnL -- scripts/p1_test.sh <chain> <TEST_WALLET>`. Logs:
 | Test | Base 8453 (`cryptopnl_e2e_base`) | Base Sepolia 84532 (`cryptopnl_e2e_sepolia`) |
 |---|---|---|
 | Ingest ×2 identical | **PASS** 32,547 = 32,547, checksum 7a3d145e… | **PASS** 745 = 745, checksum e93ddc39… |
-| Balances (gate) | **PASS** gated 28/28 (10 gated contracts configured). Untracked: 1,188 checks, 125 contracts not reconciling (spam 83, fee-on-transfer/burn 24, non-compliant 11, non-standard mint/rebasing 8), excluded from PnL | **N/A**: no gated assets (staging). Untracked: 784 checks, 2 contracts not reconciling (Aavegotchi wearables, non-standard mint) |
+| Balances (gate) | **PASS** gated 28/28 (10 gated contracts configured). Untracked: 1,188 checks, 125 contracts not reconciling (spam 83, fee-on-transfer/burn 24, non-compliant 11, non-standard mint/rebasing 8), excluded from PnL | **N/A**: no gated assets (staging). Untracked: 784 checks, 2 contracts not reconciling (Installation-type diamonds 0x4773…/0xb2d5…, non-standard mint; see correction above) |
 | Rate limits | HyperSync ingest #1 41 req / 7×429, effective 5.8/min; #2 39 / 5×429, 6.07/min. RPC verify 1,221 req / 2×429 at 60.0/min. HyperSync sent no Retry-After (retry_after_honored=0), so exp. backoff was used. No failed requests | RPC verify 787 req / 0×429 at 60.2/min; HyperSync 0–2×429 per run |
 | Simulated reorg | **PASS** fork 52,440,523, 14 events deleted + re-ingested, checksum restored | **PASS** fork 47,171,965, 5 events deleted + re-ingested, checksum restored |
 | Script result | `ALL PASS`, EXIT=0 | `ALL PASS`, EXIT=0 |

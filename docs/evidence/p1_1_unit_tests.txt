@@ -1,0 +1,13 @@
+test_cursor_reaches_head_when_fully_covered (tests.test_review_fixes.TestCursorStopsAtLastReturnedBlock) ... ok
+test_cursor_stops_at_last_returned_block_when_loop_ends_early (tests.test_review_fixes.TestCursorStopsAtLastReturnedBlock) ... ok
+test_marketplace_checkpoint_per_page_reaches_head (tests.test_review_fixes.TestMarketplaceCheckpointPerPage) ... ok
+test_pruned_block_raises_on_base_mainnet (tests.test_review_fixes.TestPrunedFinalOnlyOnSepolia) ... ok
+test_pruned_block_treated_final_on_base_sepolia (tests.test_review_fixes.TestPrunedFinalOnlyOnSepolia) ... ok
+test_verify_pruned_state_falls_back_on_sepolia (tests.test_review_fixes.TestVerifyPrunedRaisesOnMainnet) ... ok
+test_verify_pruned_state_raises_on_base_mainnet (tests.test_review_fixes.TestVerifyPrunedRaisesOnMainnet) ... ok
+test_to_then_from_parent_custody_only (tests.test_wearables_synthetic.TestToParentThenFromParent) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.061s
+
+OK
