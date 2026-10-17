@@ -1,10 +1,11 @@
 import argparse, json, sys
-from . import db, ingest, verify, classify
+from . import db, ingest, verify, classify, pricing
 from .net import STATS
 p = argparse.ArgumentParser(prog="cryptopnl")
-p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report", "lots", "set-basis"])
+p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report", "lots", "set-basis", "tx-index", "price", "price-report", "price-sample"])
 p.add_argument("--chain", type=int, default=84532)
 p.add_argument("--wallet", action="append", default=[])
+p.add_argument("--samples", type=int, default=20); p.add_argument("--seed", type=int, default=3)
 p.add_argument("--lot", type=int); p.add_argument("--basis-usdc"); p.add_argument("--acquired-at")
 a = p.parse_args(); conn = db.connect(); rc = 0
 if a.cmd == "migrate": print(json.dumps({"applied": db.migrate(conn)}))
@@ -34,4 +35,14 @@ elif a.cmd == "set-basis":   # user_default's manual basis: price_source=manual,
     try: classify.set_manual_basis(conn, a.lot, a.basis_usdc, a.acquired_at)
     except ValueError as e: sys.exit(f"set-basis: {e}")
     print(json.dumps({"lot": a.lot, "basis_status": "manual"}))
+elif a.cmd == "tx-index": ingest.ingest_tx_index(conn, a.chain)   # RPC only
+elif a.cmd in ("price", "price-sample"):
+    from .sources import RPC
+    from .config import CHAINS
+    pr = pricing.Pricer(a.chain, RPC(CHAINS[a.chain]["rpc"]), pricing.DefiLlama())
+    if a.cmd == "price": pricing.price_ledger(conn, a.chain, pr); print(json.dumps(pricing.coverage(conn, a.chain), default=str))
+    else:
+        r = pricing.sample(conn, a.chain, pr, a.samples, a.seed); rc = 0 if r["pass_all_priced"] and r["pass_dex_vs_api_3pct"] else 1
+elif a.cmd == "price-report":
+    r = pricing.coverage(conn, a.chain); print(json.dumps(r, default=str)); rc = 0 if r["pass"] else 1
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)

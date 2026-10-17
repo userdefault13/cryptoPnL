@@ -34,7 +34,7 @@ def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sl
     _T0.setdefault(name, time.monotonic())
     for attempt in range(retries):
         limiter.wait(); st["requests"] += 1; _reqlog(name, "attempt")
-        req = urllib.request.Request(url, json.dumps(body).encode(),
+        req = urllib.request.Request(url, None if body is None else json.dumps(body).encode(),   # body None -> GET (P3 price APIs)
               {"content-type": "application/json", "user-agent": "cryptoPnL/p1", **(headers or {})})
         delay = None
         try:

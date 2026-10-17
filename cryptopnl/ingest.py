@@ -108,7 +108,8 @@ def tx_payload(t):
     fee = hx_("gas_used") * hx_("effective_gas_price") + hx_("l1_fee")
     return {"from": (t.get("from") or "").lower(), "to": (t.get("to") or "").lower() or None, "value": str(hx_("value")),
             "gas_used": str(hx_("gas_used")), "effective_gas_price": str(hx_("effective_gas_price")), "l1_fee": str(hx_("l1_fee")),
-            "fee": str(fee), "status": t.get("status"), "selector": (t.get("input") or "0x")[:10]}
+            "fee": str(fee), "status": t.get("status"), "selector": (t.get("input") or "0x")[:10],
+            "tx_index": hx_("transaction_index") if t.get("transaction_index") not in (None, "", "0x") else None}   # P3: order within a block
 
 def ingest_wallet_txs(conn, chain, address, log=print):
     """P2: transactions from/to the wallet -> raw_event kind 'tx', log_index -1. Cursor = sync_cursor(source hypersync_tx)."""
@@ -249,3 +250,23 @@ def simulate_reorg(conn, chain, n=3):
     conn.execute("UPDATE sync_cursor c SET last_block_hash=%s FROM wallet w WHERE w.id=c.wallet_id AND w.chain_id=%s", (os.urandom(32), chain))
     conn.execute("UPDATE sync_cursor_global SET last_block_hash=%s WHERE chain_id=%s", (os.urandom(32), chain))
     conn.commit(); return nums
+
+
+def ingest_tx_index(conn, chain, log=print):
+    """P3: tx position for wallet txs that share a block with another wallet tx and have no tx_index yet. Read-only RPC
+    eth_getTransactionByHash (1 req/s, burst 3); zero HyperSync. Idempotent (only rows missing from tx_position)."""
+    rpc = RPC(CHAINS[chain]["rpc"]); n = 0
+    todo = conn.execute("""WITH t AS (SELECT DISTINCT tx_hash, block_number FROM ledger_entry WHERE chain_id=%s),
+        multi AS (SELECT block_number FROM t GROUP BY 1 HAVING count(*) > 1)
+        SELECT t.tx_hash, t.block_number FROM t JOIN multi USING (block_number)
+        WHERE NOT EXISTS (SELECT 1 FROM tx_position p WHERE p.chain_id=%s AND p.tx_hash=t.tx_hash)
+        AND NOT EXISTS (SELECT 1 FROM raw_event r WHERE r.chain_id=%s AND r.tx_hash=t.tx_hash AND r.kind='tx' AND r.payload->>'tx_index' IS NOT NULL)
+        ORDER BY 2, 1""", (chain, chain, chain)).fetchall()
+    for th, bn in todo:
+        t = rpc.call("eth_getTransactionByHash", [hx(th)])
+        if not t or t.get("transactionIndex") is None:
+            log(json.dumps({"warn": "tx index lookup null", "tx": hx(th)})); continue
+        if h2i(t["blockNumber"]) != bn: raise RuntimeError(f"{hx(th)}: block mismatch {h2i(t['blockNumber'])} != {bn} (reorg?)")
+        conn.execute("INSERT INTO tx_position(chain_id,tx_hash,block_number,tx_index) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                     (chain, th, bn, h2i(t["transactionIndex"]))); n += 1
+    conn.commit(); log(json.dumps({"chain": chain, "source": "rpc_txindex", "candidates": len(todo), "fetched": n}))
