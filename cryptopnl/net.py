@@ -1,6 +1,6 @@
 """HTTP JSON with token-bucket rate limiting (rate + burst), Retry-After / exp. backoff + jitter on 429/5xx,
 and per-source counters incl. effective throughput."""
-import json, random, time, urllib.request, urllib.error
+import http.client, json, random, time, urllib.request, urllib.error
 STATS = {}
 _T0 = {}
 # NOTE: this limiter is PER PROCESS. The HyperSync budget (7/min for the MBP) is per HOST/account: run only one
@@ -17,7 +17,7 @@ def _retry_after(e):
     v = e.headers.get("Retry-After") if e.headers else None
     try: return min(120.0, float(v)) if v else None
     except ValueError: return None
-def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90):
+def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sleep=time.sleep):
     st = STATS.setdefault(name, {"requests": 0, "ok": 0, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0})
     _T0.setdefault(name, time.monotonic())
     for attempt in range(retries):
@@ -34,9 +34,11 @@ def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90):
             else: st["errors"] += 1; raise RuntimeError(f"{name} HTTP {e.code}: {e.read()[:200]!r}")
             delay = _retry_after(e)
             if delay is not None: st["retry_after_honored"] += 1
-        except (urllib.error.URLError, TimeoutError):
-            st["errors"] += 1
-        time.sleep(delay if delay is not None else min(60, 2 ** attempt) + random.random())
+        except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException, OSError):
+            # dropped/reset connections (ConnectionResetError, RemoteDisconnected, IncompleteRead, socket errors):
+            # retry with exponential backoff + jitter, same as 5xx
+            st["errors"] += 1; st["conn_retries"] = st.get("conn_retries", 0) + 1
+        _sleep(delay if delay is not None else min(60, 2 ** attempt) + random.random())
     raise RuntimeError(f"{name}: retries exhausted")
 def _rate(name):
     el = max(1e-6, time.monotonic() - _T0[name]); st = STATS[name]
