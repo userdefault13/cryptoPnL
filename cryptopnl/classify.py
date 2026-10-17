@@ -442,7 +442,7 @@ def report(conn, chain):
     nrev = sum(rev.values())
     # per-tx category: priority order (a trade/custody category wins over its incidental legs), else fee
     cats = dict(conn.execute("""SELECT c, count(*) FROM (SELECT tx_hash, wallet_id, (array_agg(category ORDER BY array_position(
-        ARRAY['nft_buy','nft_sale','auction','swap','migration_in','bridge_in','escrow_out','escrow_return','transfer_internal','income','deposit','withdrawal','untracked','spam','fee'], category)))[1] c
+        ARRAY['nft_buy','nft_sale','auction','swap','migration_in','bridge_in','escrow_out','escrow_return','craft','craft_pending','upgrade','destroy_refund','gift_in','spend','transfer_internal','income','deposit','withdrawal','untracked','spam','fee'], category)))[1] c
         FROM ledger_entry WHERE chain_id=%s AND (wallet_id, tx_hash) NOT IN (SELECT wallet_id, tx_hash FROM review_queue WHERE chain_id=%s)
         GROUP BY 1,2) t GROUP BY 1""", (chain, chain)).fetchall())
     rows = dict(conn.execute("SELECT category, count(*) FROM ledger_entry WHERE chain_id=%s GROUP BY 1", (chain,)).fetchall())

@@ -83,6 +83,10 @@ class GV(unittest.TestCase):
         self.assertIn(("income", "wallet", FUD, 2 * E18, "lending:revenue"), self.rows(end))
         self.assertNotIn("nft_sale", self.cats(ex) + self.cats(end))
 
+    def test_lending_borrower_side_is_review(self):   # shape of real 0xe7505b72… (borrower pays upfront GHST, receives the gotchi)
+        h = self.add(tx(W, AG), e721(AG, X, W, 10774), e20(GHST, W, X, 2 * E18 // 10), gv(AG, "GotchiLendingExecuted", (1, X, W)))
+        self.run_(); self.assertIn("borrower", self.review(h))
+
     def test_gbm_seller_create_claim_and_cancel(self):
         NFTC = REALM
         cr = self.add(tx(W, GBM), e721(NFTC, W, GBM, 5), gv(GBM, "Auction_Initialized", (77, 5, 1), (int(NFTC, 16), 0, 0), market=True))

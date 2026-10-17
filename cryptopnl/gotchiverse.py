@@ -213,7 +213,8 @@ def r8_lending(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, co
     if not (ex or end): return None
     out = []; gotchi = [l for l in nfts if l["contract"] == g["aavegotchi"] and l["std"] == "erc721"]
     for lender, borrower in ex + end:
-        if lender != w: return None                    # wallet is the borrower: normal rules (no custody of others' gotchis)
+        if lender != w:   # borrower side is not in §9 R8; the normal rules would book a borrowed gotchi as nft_buy (real: 0xe7505b72…)
+            raise Review("lending: wallet is the borrower (DESIGN v1.3 §9 R8 covers the lender only)")
     for l in gotchi:
         borrower = (ex or end)[0][1]; loc = f"lent:{borrower}"
         if l["cp"] != borrower: raise Review("lending: gotchi moved to/from an address other than the borrower")
