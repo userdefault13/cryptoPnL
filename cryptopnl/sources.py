@@ -93,7 +93,7 @@ class HyperSyncParentTransfers(HyperSyncWalletLogs):
             b = nb
 
 class HyperSyncWalletTxs(HyperSyncWalletLogs):
-    """P2: transactions sent from / to the wallet (gas, native value, status). Shares the 7/min limiter."""
+    """P2: transactions sent from / to the wallet (gas, native value, status). Shares the 5/min limiter."""
     name = "hypersync_tx"
     def fetch(self, wallet, frm, to):
         b = frm; self.covered = frm - 1; w = wallet.lower()

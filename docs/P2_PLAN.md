@@ -12,7 +12,7 @@ None of the 20 wearable-parent txs is the wallet's own (earlier gotchi owners) -
 1. `net.post_json` retries dropped connections (done, 61d5c97).
 2. **Tx-level ingest:** `HyperSyncWalletTxs` (transactions from/to wallet; field_selection value, gas_used, effective_gas_price,
    l1_fee, status, input selector) -> `raw_event` kind `tx`, `log_index = -1` (DESIGN §3), source `hypersync_tx`, own cursor,
-   reorg-rewound with the rest. <= 7/min shared limiter.
+   reorg-rewound with the rest. <= 5/min shared limiter (was 7; architect PR #3 approval).
 3. **Migration 004:** `price_point` (FK target, empty until P3), `ledger_entry` per §3 (price columns NULL until P3; `qty` in raw
    token units, decimals resolved in P3), `review_queue(chain_id, tx_hash, reason, detail, created_at)`.
 4. **Classifier `cryptopnl/classify.py`** (deterministic rules, no models). Per wallet tx, legs = wallet-touching transfers + native

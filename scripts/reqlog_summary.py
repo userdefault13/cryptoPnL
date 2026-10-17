@@ -1,8 +1,8 @@
 """Summarise NET_REQLOG for one source: per-minute counts (UTC minute buckets and America/Los_Angeles labels) and the
-busiest sliding 60 s window. Usage: reqlog_summary.py <logfile> [source=hypersync] [since_unix_ts] [limit=7]"""
+busiest sliding 60 s window. Usage: reqlog_summary.py <logfile> [source=hypersync] [since_unix_ts] [limit=5]"""
 import sys, datetime, zoneinfo
 f = sys.argv[1]; src = sys.argv[2] if len(sys.argv) > 2 else "hypersync"
-since = float(sys.argv[3]) if len(sys.argv) > 3 else 0.0; limit = int(sys.argv[4]) if len(sys.argv) > 4 else 7
+since = float(sys.argv[3]) if len(sys.argv) > 3 else 0.0; limit = int(sys.argv[4]) if len(sys.argv) > 4 else 5
 ts = sorted(float(l.split()[0]) for l in open(f) if l.split()[1:2] == [src] and float(l.split()[0]) >= since)
 la = zoneinfo.ZoneInfo("America/Los_Angeles"); per = {}
 for t in ts:

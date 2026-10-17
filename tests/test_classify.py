@@ -323,4 +323,17 @@ class T(unittest.TestCase):
         lot = self.c.execute("SELECT basis_status, basis_usdc FROM fifo_lot").fetchall()
         self.assertEqual(lot, [("pending", None)])
 
+    def test_eip7702_non_allowlisted_mint_is_swap(self):   # shaped like Base 0x4a5a7c6c…f697 (architect approval condition)
+        LP = "0x7c307e128efa31f540f2e2d976c995e0b65f51f6"; POOL = "0x0a2854fbbd9b3ef66f17d47284e7f899b9509330"
+        h = self.add(tx(W, W, selector=EXEC7821), e20(LP, ZERO, W, 5024135863), e20(LP, W, POOL, 9478318086722626),
+                     e20(USDC, POOL, W, 25856803))
+        s = self.run_()
+        self.assertIsNone(self.review(h)); self.assertEqual(s["review"], 0)
+        r = self.c.execute("""SELECT category, qty, pnl_excluded, price_usdc, price_source, price_confidence_label FROM ledger_entry
+                              WHERE tx_hash=%s AND category<>'fee' ORDER BY log_index""", (h,)).fetchall()
+        self.assertEqual([(c, int(q), p, None if u is None else int(u), ps, cl) for c, q, p, u, ps, cl in r],
+                         [("untracked", 5024135863, True, None, None, None), ("untracked", -9478318086722626, True, None, None, None),
+                          ("swap", 25856803, False, 1, "par", "high")])
+        self.assertEqual(classify.report(self.c, C)["txs_by_category"].get("swap"), 1)
+
 if __name__ == "__main__": unittest.main()

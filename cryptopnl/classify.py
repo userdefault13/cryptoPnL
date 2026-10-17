@@ -259,8 +259,9 @@ def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
     mints = [l for l in legs if l["cp"] == ZERO and l["qty"] > 0]
     # EIP-7702 / smart-account wrapper (architect, 3c8b056): a wallet-sent self-call (tx.to == wallet) with calldata, e.g.
     # ERC-7821 execute 0xe9ae5c53. Only the top-level selector is stored, so the inner call cannot be decoded: a mint from 0x0
-    # inside it goes to review, never income/migration.
-    if sent and mints and tx.get("to") == w and (tx.get("selector") or "0x") != "0x":
+    # inside it goes to review, never income/migration. Only mints of ALLOWLISTED contracts (architect approval condition):
+    # a non-allowlisted mint in a self-sent tx is untracked/pnl_excluded by the normal rules, never income.
+    if sent and tx.get("to") == w and (tx.get("selector") or "0x") != "0x" and any(l["contract"] in allow for l in mints):
         raise Review("EIP-7702 execute wrapper with mint from 0x0: inner call not decoded")
     r = escrow_rule(chain, w, tx, legs, market, esc) or migration_rule(chain, w, info, legs, bn, warn) or bridge_rule(chain, w, info, legs, sent)
     if r: return r
@@ -368,10 +369,14 @@ def classify(conn, chain, log=print):
                 out = out + [dict(li=-1, std="native", contract=None, token_id=None, qty=-int(tx["fee"]), cat="fee", loc="wallet", ref=None, spam=False)]
             ids = []
             for l in out:
+                # tracked Circle USDC legs are priced at par (unit price 1 USDC, source 'par', high); everything else is priced in P3
+                par = l["contract"] in CCTP_TOKENS.get(chain, {}) and not l["spam"]
                 eid = conn.execute("""INSERT INTO ledger_entry(wallet_id,asset_id,chain_id,tx_hash,log_index,block_number,ts,qty,category,
-                    trade_group,location,escrow_ref,pnl_excluded) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                    trade_group,location,escrow_ref,pnl_excluded,price_usdc,price_source,price_confidence,price_confidence_label)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                     (wid, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), chain, th, l["li"], d["bn"], d["ts"],
-                     l["qty"], l["cat"], tg if l["cat"] in TRADE_CATS else None, l["loc"], l["ref"], l["spam"])).fetchone()[0]
+                     l["qty"], l["cat"], tg if l["cat"] in TRADE_CATS else None, l["loc"], l["ref"], l["spam"],
+                     1 if par else None, "par" if par else None, CONFIDENCE["high"] if par else None, "high" if par else None)).fetchone()[0]
                 ids.append(eid); stats["entries"] += 1
                 if l["cat"] == "migration_in":
                     lot = conn.execute("""INSERT INTO fifo_lot(wallet_group,asset_id,open_entry_id,opened_at,open_block,qty_open,qty_remaining,
