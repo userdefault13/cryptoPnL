@@ -8,6 +8,8 @@ import hashlib, json, uuid
 from decimal import Decimal, InvalidOperation
 from .config import gated, DEX_ROUTERS, ESCROW, BUYORDER_PLACE_SELECTORS, MIGRATION_REMINT, MANUAL_CONFIDENCE, CCTP, CCTP_TOKENS, CONFIDENCE
 from .db import b, hx
+from .gotchiverse import gv_rule
+from .config import GV
 
 ZERO = "0x" + "0" * 40
 GBM = {"0x80320a0000c7a6a34086e2acad6915ff57ffda31"}
@@ -26,7 +28,7 @@ def legs_of(w, rows):
     for li, kind, p in rows:
         if kind == "tx": tx = p; continue
         if kind == "tx_meta": meta = p; continue
-        if kind.startswith("market_"): market.append({**p, "li": li}); continue
+        if kind.startswith("market_") or kind.startswith("gv_"): market.append({**p, "li": li}); continue
         if kind not in TRANSFER_KINDS: continue
         f, t = p["from"], p["to"]
         if w not in (f, t) or f == t: continue
@@ -64,9 +66,9 @@ def words(data):
 class Escrow:
     """Open escrow per (diamond, token): FIFO list of {ref, qty, ids(ledger rows of the placement)}. Mutations are staged
     per tx (begin/commit/rollback) so a tx that ends in review leaves the state untouched."""
-    def __init__(self): self.open = {}; self._snap = None
-    def begin(self): self._snap = {k: [dict(e, ids=list(e["ids"])) for e in v] for k, v in self.open.items()}
-    def rollback(self): self.open = self._snap
+    def __init__(self): self.open = {}; self._snap = None; self.std = {}; self.parcels = {}   # P2.2: NFT std per escrow key; items per parcel
+    def begin(self): self._snap = ({k: [dict(e, ids=list(e["ids"])) for e in v] for k, v in self.open.items()}, dict(self.std), dict(self.parcels))
+    def rollback(self): self.open, self.std, self.parcels = self._snap
     def put(self, d, tok, ref, qty):
         e = dict(ref=ref, qty=qty, ids=[]); self.open.setdefault((d, tok), []).append(e); return e
     def linked(self, d, tok, ref):
@@ -142,8 +144,9 @@ def escrow_rule(chain, w, tx, legs, market, esc):
             raise Review("buy-order fill with non-NFT or outgoing wallet legs")
         out, upd = [L(l, "nft_buy") for l in legs], []
         for m in fills:
-            if m["event"] != "ERC1155BuyOrderExecute": raise Review("erc721 buy-order fill: event layout not verified")
-            wd = words(m["data"]); price, pay = wd[3], wd[3] * wd[4]   # (seller, token, id, priceInWei, quantity, time)
+            wd = words(m["data"])
+            if m["event"] == "ERC1155BuyOrderExecute": price, pay = wd[3], wd[3] * wd[4]   # (seller, token, id, priceInWei, quantity, time)
+            else: price = pay = wd[3]   # P2.2 R1: ERC721BuyOrderExecuted data = (seller, token, tokenId, priceInWei, time); qty 1
             ref = f"baazaar:buyorder:{t_int(m, 1)}"
             toks = sorted({k[1] for k in esc.open if k[0] == bz})
             # B2 (architect, 3c8b056): match by order id.
@@ -263,8 +266,10 @@ def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
     # a non-allowlisted mint in a self-sent tx is untracked/pnl_excluded by the normal rules, never income.
     if sent and tx.get("to") == w and (tx.get("selector") or "0x") != "0x" and any(l["contract"] in allow for l in mints):
         raise Review("EIP-7702 execute wrapper with mint from 0x0: inner call not decoded")
+    r = gv_rule(chain, w, tx, legs, market, esc, L, Review)   # P2.2 Gotchiverse (DESIGN v1.3 §9) before the escrow rules
+    if r: return bundle_tag(chain, r, esc)
     r = escrow_rule(chain, w, tx, legs, market, esc) or migration_rule(chain, w, info, legs, bn, warn) or bridge_rule(chain, w, info, legs, sent)
-    if r: return r
+    if r: return bundle_tag(chain, r, esc)
     # allowlisted mint from 0x0 in a tx the wallet neither sent nor received, with no usable RPC tx lookup -> review, not income
     if not tx and mints and len(mints) == len(legs) and all(l["contract"] in allow for l in legs) and (not meta or meta.get("lookup_null")):
         raise Review("allowlisted mint from 0x0 without tx metadata (RPC lookup null)")
@@ -286,7 +291,17 @@ def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
         out = [L(l, "spam" if junk(l) else cat, spam=junk(l)) for l in legs]
         return ("spam" if all(junk(l) for l in legs) else cat), out, []
     if why: raise Review(why)
-    return cat, [L(l, cat) for l in legs], []
+    return bundle_tag(chain, (cat, [L(l, cat) for l in legs], []), esc)
+
+def bundle_tag(chain, r, esc):
+    """R6 (DESIGN v1.3 §9): a REALM parcel leaving the wallet in a trade while items are equipped on it is one bundle disposal:
+    the parcel leg is tagged bundle:parcel:<id> (escrow_ref) for P4; the items stay at location parcel:<id>."""
+    g = GV.get(chain)
+    if not g: return r
+    for l in r[1]:
+        if l["contract"] == g["realm"] and l["qty"] < 0 and l["cat"] in TRADE_CATS and esc.parcels.get(int(l["token_id"]), 0) > 0:
+            tag = f"bundle:parcel:{l['token_id']}"; l["ref"] = f"{l['ref']};{tag}" if l["ref"] else tag
+    return r
 
 def asset_id(conn, cache, chain, std, contract, token_id):
     k = (std, contract, token_id)
