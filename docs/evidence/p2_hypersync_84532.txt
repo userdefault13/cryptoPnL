@@ -1,0 +1,5 @@
+source=hypersync requests=5
+  2026-10-16 23:13 PDT: 2
+  2026-10-16 23:15 PDT: 1
+  2026-10-16 23:16 PDT: 2
+busiest_60s_window=3 (ending 23:16:09 PDT) limit=7 -> OK

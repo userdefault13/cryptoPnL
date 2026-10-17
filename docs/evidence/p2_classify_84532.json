@@ -6,25 +6,27 @@
  "classified_pct": 100.0,
  "pass_98": true,
  "txs_by_category": {
+  "untracked": 1,
   "spam": 71,
   "fee": 39,
   "deposit": 5,
   "nft_buy": 4,
   "swap": 1,
-  "income": 1,
   "withdrawal": 5
  },
  "ledger_rows_by_category": {
   "fee": 46,
+  "untracked": 2,
   "withdrawal": 5,
   "deposit": 5,
-  "income": 1,
   "nft_buy": 8,
   "spam": 735,
-  "swap": 2
+  "swap": 1
  },
  "review_reasons": {},
  "spam_rows_pnl_excluded": 735,
+ "untracked_rows_pnl_excluded": 2,
+ "untracked_txs": 2,
  "open_escrow": [],
  "lots": {
   "lots": 0,
@@ -32,9 +34,9 @@
   "manual_lots": 0,
   "basis_usdc_total_excl_pending": null
  },
- "wallet_sent_txs_with_non_allowlisted_token_legs": 1,
+ "wallet_sent_txs_with_non_allowlisted_token_legs": 0,
  "ledger_rows": 802,
- "ledger_md5": "d359b9b469d5f4baa7ab3ba38584b465",
+ "ledger_md5": "f4a81e5d4948f29677aa7db4de84d43f",
  "review_rows": 0,
  "review_md5": null
 }
