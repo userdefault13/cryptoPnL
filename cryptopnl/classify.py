@@ -187,12 +187,12 @@ def migration_rule(chain, w, info, legs, bn, warn=None):
     an allowlisted Aavegotchi contract; tx.to/selector on the per-asset list. Bridge sender + unlisted selector -> review.
     The block window is only a warning. info = the tx row, or RPC tx_meta when the wallet neither sent nor received the tx."""
     M = MIGRATION_REMINT.get(chain)
-    if not M or not legs or not all(l["std"] in NFT and l["qty"] > 0 and l["cp"] == ZERO and l["contract"] in M["contracts"] for l in legs):
+    if not M or not legs or not info or not all(l["std"] in NFT and l["qty"] > 0 and l["cp"] == ZERO for l in legs):
         return None
-    if not info: return None
     frm, sel = info.get("from"), info.get("selector")
     if frm not in (M["bridge_sender"], w): return None
-    if M["selectors"].get(sel) != info.get("to"):
+    # bridge-sender mints never fall through to spam/income: unlisted selector/target or non-allowlisted contract -> review
+    if M["selectors"].get(sel) != info.get("to") or not all(l["contract"] in M["contracts"] for l in legs):
         if frm == M["bridge_sender"]: raise Review("bridge sender mint with unlisted selector/target")
         return None
     lo, hi = M["window"]
@@ -395,7 +395,8 @@ def basis_totals(conn, chain):
     r = conn.execute("""SELECT count(*), count(*) FILTER (WHERE f.basis_status='pending'), count(*) FILTER (WHERE f.basis_status='manual'),
         sum(f.basis_usdc) FILTER (WHERE f.basis_status<>'pending') FROM fifo_lot f JOIN ledger_entry l ON l.id=f.open_entry_id WHERE l.chain_id=%s""",
         (chain,)).fetchone()
-    return {"lots": r[0], "pending_lots": r[1], "manual_lots": r[2], "basis_usdc_total_excl_pending": r[3]}
+    return {"lots": r[0], "pending_lots": r[1], "manual_lots": r[2],
+            "basis_usdc_total_excl_pending": None if r[3] is None else str(r[3])}   # Decimal -> exact string (JSON)
 
 def report(conn, chain):
     """Counts from the stored ledger/review tables (no recomputation). A tx counts as classified when it is not in review_queue."""

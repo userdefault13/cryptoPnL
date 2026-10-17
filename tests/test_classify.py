@@ -188,6 +188,8 @@ class T(unittest.TestCase):
         self.assertEqual([(float(a), b_, round(c, 2), d, e) for a, b_, c, d, e in lot], [(5.0, "par", 1.0, "high", "resolved")])
         self.assertEqual(self.review(bad), "USDC mint not via Circle CCTP (tx.to unverified)")
         self.assertEqual(self.review(nometa), "USDC mint not via Circle CCTP (tx.to unverified)")
+        rep = classify.report(self.c, C); json.dumps(rep)                                 # report must serialise (Decimal basis)
+        self.assertEqual(rep["lots"]["basis_usdc_total_excl_pending"], "5")
 
     def test_gbm_bid_outbid_refund_and_win(self):
         esc = "escrow:" + GBM
@@ -235,6 +237,7 @@ class T(unittest.TestCase):
         wrong_to = self.add(e721(BZ, ZERO, W, 4), meta(BRIDGE, TILE, GOTCHI_SEL), bn=33_300_003)  # listed selector, wrong target
         own_other = self.add(tx(W, BZ, selector="0x11111111"), e721(BZ, ZERO, W, 5), bn=33_300_004)  # own mint, unlisted: normal rules
         other = self.add(e721(BZ, ZERO, W, 6), meta(X, BZ, GOTCHI_SEL), bn=33_300_005)            # not the bridge sender
+        fake = self.add(e721(SPAM, ZERO, W, 7), meta(BRIDGE, SPAM, "0x5e41ee65"), bn=33_222_797)   # bridge sender, non-allowlisted NFT
         s = self.run_()
         self.assertEqual(self.cats(own), [("fee", -100), ("migration_in", 1)])
         self.assertEqual(self.cats(late), [("migration_in", 1)])
@@ -243,6 +246,7 @@ class T(unittest.TestCase):
         self.assertEqual(self.review(wrong_to), "bridge sender mint with unlisted selector/target")
         self.assertEqual(self.cats(own_other), [("fee", -100), ("income", 1)])
         self.assertEqual(self.cats(other), [("income", 1)])
+        self.assertEqual(self.review(fake), "bridge sender mint with unlisted selector/target")      # never spam
         self.assertEqual(len(s["warnings"]), 1); self.assertIn("outside block window", s["warnings"][0])
         self.assertEqual(self.c.execute("SELECT count(*) FROM fifo_lot WHERE basis_status='pending'").fetchone()[0], 3)
 
