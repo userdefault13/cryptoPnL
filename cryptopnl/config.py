@@ -46,3 +46,7 @@ WEARABLES = {
 
 # Base Aavegotchi migration (first gotchi/wearable activity on Base); start of the time-spread verify samples.
 MIGRATION_BLOCK = {8453: 33_200_000}
+
+# Fixed untracked reasons (architect decisions) that override the heuristic in verify.reason().
+UNTRACKED_REASONS = {84532: {"0x4773f06fb66735f1350a2db582660cbf6c0ff64b": "non-event balance changes (testnet)",
+                             "0xb2d52be3ab11006685843a59ec7d17bff2c554a1": "non-event balance changes (testnet)"}}

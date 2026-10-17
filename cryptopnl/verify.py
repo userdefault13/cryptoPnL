@@ -2,7 +2,7 @@
 import json
 from .db import hx
 from .sources import RPC
-from .config import CHAINS, gated, WEARABLES, MIGRATION_BLOCK
+from .config import CHAINS, gated, WEARABLES, MIGRATION_BLOCK, UNTRACKED_REASONS
 import os
 
 def ledger(conn, chain, w, block):
@@ -139,7 +139,7 @@ def verify(conn, chain, log=print):
                     u_total += 1
                     if got != e_:
                         u = untracked.setdefault(a[0], {"contract": a[0], "standard": a[1], "reasons": set(), "failed_checks": 0})
-                        u["reasons"].add(reason(e_, got)); u["failed_checks"] += 1
+                        u["reasons"].add(UNTRACKED_REASONS.get(chain, {}).get(a[0]) or reason(e_, got)); u["failed_checks"] += 1
         log(json.dumps({"chain": chain, "wallet_id": wid, "blocks": blocks, "head_block": last, "assets": len(assets)}))
     rows = [dict(u, reasons=sorted(u["reasons"])) for u in sorted(untracked.values(), key=lambda x: x["contract"])]
     by = {}
