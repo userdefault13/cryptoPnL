@@ -1,0 +1,30 @@
+{
+ "chain": 84532,
+ "wallet_txs": 126,
+ "classified": 126,
+ "review": 0,
+ "classified_pct": 100.0,
+ "pass_98": true,
+ "txs_by_category": {
+  "deposit": 75,
+  "fee": 39,
+  "income": 1,
+  "nft_buy": 4,
+  "swap": 1,
+  "withdrawal": 6
+ },
+ "ledger_rows_by_category": {
+  "deposit": 739,
+  "fee": 46,
+  "income": 1,
+  "nft_buy": 8,
+  "swap": 2,
+  "withdrawal": 6
+ },
+ "review_reasons": {},
+ "txs_with_non_allowlisted_deposit_withdrawal_income": 72,
+ "ledger_rows": 802,
+ "ledger_md5": "9070322da1b4db06847e3e4ddb346c0a",
+ "review_rows": 0,
+ "review_md5": null
+}

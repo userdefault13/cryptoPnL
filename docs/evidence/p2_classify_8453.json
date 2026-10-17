@@ -1,0 +1,36 @@
+{
+ "chain": 8453,
+ "wallet_txs": 829,
+ "classified": 820,
+ "review": 9,
+ "classified_pct": 98.914,
+ "pass_98": true,
+ "txs_by_category": {
+  "auction": 27,
+  "fee": 280,
+  "deposit": 279,
+  "nft_buy": 12,
+  "swap": 41,
+  "income": 30,
+  "withdrawal": 151
+ },
+ "ledger_rows_by_category": {
+  "fee": 445,
+  "auction": 27,
+  "deposit": 342,
+  "withdrawal": 153,
+  "income": 111,
+  "nft_buy": 36,
+  "swap": 88
+ },
+ "review_reasons": {
+  "DEX router, fungible out only: native leg not indexed (internal ETH gap)": 1,
+  "mixed in/out legs": 1,
+  "zero-value transfers only (no balance effect; likely address poisoning)": 7
+ },
+ "txs_with_non_allowlisted_deposit_withdrawal_income": 354,
+ "ledger_rows": 1202,
+ "ledger_md5": "f7c3e423439305c3650e65c57fbce277",
+ "review_rows": 9,
+ "review_md5": "49f69000cc6db95357ae9da33603d3a1"
+}
