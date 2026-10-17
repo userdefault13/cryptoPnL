@@ -7,4 +7,5 @@ ALTER TABLE ledger_entry ADD CONSTRAINT ledger_entry_category_check CHECK (categ
   ('swap','nft_buy','nft_sale','auction','transfer_internal','deposit','withdrawal','fee','income',
    'escrow_out','escrow_return','spam','migration_in','untracked','bridge_in'));
 DROP TABLE IF EXISTS gotchi_escrow;
+DROP TABLE IF EXISTS craft_type_cost;
 COMMIT;

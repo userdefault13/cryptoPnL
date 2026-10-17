@@ -68,6 +68,7 @@ class Escrow:
     per tx (begin/commit/rollback) so a tx that ends in review leaves the state untouched."""
     def __init__(self, pockets=None):   # P2.2: NFT std per escrow key; items per parcel; gotchi escrow -> id; gotchis owned (wallet + lent)
         self.open = {}; self._snap = None; self.std = {}; self.parcels = {}; self.pockets = pockets or {}; self.gotchis = {}
+        self.type_cost = {}; self.bn = None   # (contract, type, block) -> alchemicaCost[4]; block of the tx being planned
     def track_gotchis(self, out, canonical):
         """After a classified tx: owned gotchis = wallet + lent:* legs of the canonical ERC721, never untracked (borrowed) ones."""
         for l in out:
@@ -254,6 +255,7 @@ def decide(chain, w, tx, legs, market, group):
 
 def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
     """Returns (category, out_legs, ref_updates) or raises Review."""
+    esc.bn = bn
     sent = bool(tx) and tx["from"] == w
     info = tx or meta
     if tx and str(tx.get("status")) == "0":
@@ -355,6 +357,8 @@ def classify(conn, chain, log=print):
     cache, stats = {}, {"txs": 0, "classified": 0, "review": 0, "by_category": {}, "review_reasons": {}, "entries": 0, "warnings": []}
     origin = MIGRATION_REMINT.get(chain, {}).get("chain_origin")
     pockets = {hx(e): int(i) for i, e in conn.execute("SELECT gotchi_id, escrow FROM gotchi_escrow WHERE chain_id=%s", (chain,))}
+    type_cost = {(hx(c), int(t), int(bn)): [int(x) for x in cost] for c, t, bn, cost in
+                 conn.execute("SELECT contract, type_id, block_number, cost FROM craft_type_cost WHERE chain_id=%s", (chain,))}
     canonical = GV.get(chain, {}).get("aavegotchi")
     for wid, w, grp in wallets:
         group = {a for _, a, g in wallets if g == grp and a != w}
@@ -369,7 +373,7 @@ def classify(conn, chain, log=print):
             rows.setdefault(bytes(th), {"bn": bn, "ts": ts, "rows": []})["rows"].append((li, kind, p))
         missing = len(txh) - len(rows)
         if missing: raise RuntimeError(f"{missing} wallet txs have no block row (ts unknown); re-run ingest")
-        esc = Escrow(pockets)
+        esc = Escrow(pockets); esc.type_cost = type_cost
         order = lambda h: (rows[h]["bn"], min([li for li, _, _ in rows[h]["rows"] if li >= 0] or [10**9]), h)
         for th in sorted(rows, key=order):           # chain order: escrow placement precedes fill/refund
             d = rows[th]; stats["txs"] += 1

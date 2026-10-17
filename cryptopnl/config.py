@@ -109,6 +109,9 @@ GV = {8453: {
                   "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"},
     # Aerodrome FUD/GHST volatile pool (PoolFactory.getPool(FUD, GHST, false)); the pool is its own LP token. NOT a router (§9 R10 correction)
     "aero_fud_ghst_pool": "0xeae2fb93e291c2eb69195851813de24f97f1ce71",
+    # alchemicaCost[4] order of the type getters (symbol() on Base): FUD, FOMO, ALPHA, KEK
+    "alchemica_order": ["0x2028b4043e6722ea164946c82fe806c4a43a0ff4", "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58",
+                        "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"],
     "start_block": 33_200_000}}
 # Selectors (openchain signature DB, verified-contract flag; ABIs of the Installation/Tile/REALM diamonds)
 # craft/claim/reduce selectors verified live on Base 2026-10-17 via DiamondLoupe facetAddress(bytes4) (eth_call, latest) + openchain names
@@ -120,6 +123,11 @@ GV_SEL = {"craft": {"0x9ff2a527", "0x976a1afe",           # craftInstallations(u
           # gotchi pocket (escrow) custody on the Aavegotchi diamond: depositERC20(uint256,address,uint256), transferEscrow(uint256,address,address,uint256),
           # batchTransferEscrow(uint256[],address[],address[],uint256[]) (all live, facetAddress check)
           "pocket": {"0xb0facab3", "0xab0fcabf", "0x2a206f11"}}
+# craft type cost getters (#27 split rule): selector, index of alchemicaCost[0] in the returned words (word 0 = tuple offset 0x20).
+# Verified 2026-10-17 (eth_call, Base): getInstallationType(56) at block 48,779,183 = [125 FUD, 63 FOMO, 0, 0] = the inputs of real craft
+# 0x74f55051…; types 10 and 145 cost 0 (the real free crafts); getTileType is live on the Tile diamond (facetAddress).
+TYPE_COST_GETTER = {"installation": ("0x42784f14", 12),   # getInstallationType(uint256) -> (...11 fields, uint256[4] alchemicaCost, ...)
+                    "tile": ("0xe042161f", 6)}            # getTileType(uint256) -> (width, height, deprecated, tileType, craftTime, uint256[4] alchemicaCost, name)
 GOTCHI_ESCROW_SEL = "0xa8e39da0"   # gotchiEscrow(uint256) -> address; RPC-verified: gotchiEscrow(3033) = 0x728f0baf79ebdfa336978c90f244324a0ba7bcff
 # topic0 -> event name (keccak of the ABI signatures; DESIGN §9 prefixes match: 0x0f52fde6…, 0x6d10597e…)
 GV_TOPICS = {

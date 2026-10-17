@@ -63,14 +63,16 @@ DESIGN.md in the repo is now the architect's v1.3, copied verbatim (e2abb9e, sha
   and the cross-checks return 0x0 (e.g. 0xfdc6d919 on the Installation diamond). openchain gives the names. Free batch crafts → `craft` (`craft:instant:free`), not income.
 - **B3 queue refs:** `craft:queue:<contract>:<id>` per leg. A claim takes the id from MintInstallation / MintTile data (owner = wallet, type = token id) among that
   diamond's QueueClaimed ids. Several queues in one craft tx → a `;`-joined ref (P4 splits the cost). Tests cover Installation q7 vs Tile q7 and one claim covering q7 + q8.
-- **R7 revenue claims by the borrower/operator:** an ingest selection pulls those txs. The lender comes from the tuple decode, not wallet topics. These are booked as income for the lender, following DESIGN v1.3's "→ income for the lender".
+- **R7 revenue claims by the borrower/operator:** an ingest selection pulls those txs. The lender comes from the tuple decode, not wallet topics. These are booked as lender income at the block's FMV, **confirmed by the architect on 2026-10-17** (the price comes in P3).
 - **reduceCraftTime:** GLTR burnFrom → 0x0 is accepted as craft cost and lands in `craft_pending` under the queue's ref.
 - **Pocket (confirmed):** custody at `pocket:<gotchiId>`; see KNOWN_GAPS #18. `gotchiEscrow(3033)` = 0x728f0baf… by RPC.
 - **Quantity:** the override is removed. Per (contract, id), the wallet's minted amounts must match MintInstallations/MintTiles for owner = wallet (multiset); a mismatch → review.
 - **Migration 008:** wrapped in BEGIN/COMMIT, with the new `gotchi_escrow` table. Migrate → rollback round trip checked on a scratch DB.
 - **Nits:** bounce-gate updates (EventPriorityAndDurationUpdated, GLTR → 0xFFfF) → `spend` (`bounce:event:<id>:update`). Parcels are cleared when a parcel leaves (an escrow_out to GBM keeps the bundle).
   The upgrade queue index is carried (KNOWN_GAPS #23). Pool add-liquidity is classified (KNOWN_GAPS #25).
-- **Unit tests:** 64 OK (1 skipped), with 22 in tests/test_gotchiverse.py. Run on the box with a local Postgres 17 and Python 3.13.
+- **#27 mixed instant + queued craft:** the split rule uses on-chain type costs (KNOWN_GAPS #27), with review as the fallback. Tests cover an exact split, a mismatch and a missing cost going to review,
+  a free type getting 0, and reduceCraftTime GLTR staying with its queue.
+- **Unit tests (before #27):** 64 OK (1 skipped), with 22 in tests/test_gotchiverse.py. Run on the box with a local Postgres 17 and Python 3.13.
 - **Base / Sepolia rerun: PENDING.** The DB copies, abra token and host HyperSync lock are on the builder Mac, which went offline at about 01:30 PDT.
   The commands are `git pull` then `abra run cryptoPnL -k ENVIO_API_TOKEN -- nohup scripts/p2_2_rerun.sh > logs/p2_2_rerun.log 2>&1 &`.
   Expected on Base: 828/829, with only the internal-ETH gap left in review.

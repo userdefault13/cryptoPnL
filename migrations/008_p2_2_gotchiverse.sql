@@ -13,4 +13,8 @@ ALTER TABLE ledger_entry ADD CONSTRAINT ledger_entry_category_check CHECK (categ
 CREATE TABLE gotchi_escrow (chain_id int NOT NULL, gotchi_id bigint NOT NULL, escrow bytea NOT NULL, resolved_block bigint NOT NULL,
   PRIMARY KEY (chain_id, gotchi_id));
 CREATE INDEX gotchi_escrow_addr ON gotchi_escrow (chain_id, escrow);
+-- Craft type alchemica cost at a block (KNOWN_GAPS #27 split rule): getInstallationType/getTileType eth_call at the craft tx block, cached at ingest
+-- (only for txs that both mint and queue); classify reads it. cost = alchemicaCost[4] (FUD, FOMO, ALPHA, KEK) in wei.
+CREATE TABLE craft_type_cost (chain_id int NOT NULL, contract bytea NOT NULL, type_id bigint NOT NULL, block_number bigint NOT NULL,
+  cost numeric[] NOT NULL, PRIMARY KEY (chain_id, contract, type_id, block_number));
 COMMIT;

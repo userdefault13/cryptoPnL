@@ -1,7 +1,7 @@
 import json, os, datetime
 from .db import b, hx
 from .sources import RPC, HyperSyncWalletGV, HyperSyncWalletTxs, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
-from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES, GV, GV_TOPICS, GOTCHI_ESCROW_SEL
+from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES, GV, GV_TOPICS, GOTCHI_ESCROW_SEL, TYPE_COST_GETTER
 
 def addr_of(topic): return "0x" + topic[-40:].lower()
 def words(data):
@@ -285,6 +285,34 @@ def ingest_gv(conn, chain, address, log=print):
         if src.covered < to: log(json.dumps({"warn": "hypersync gv scan stopped early", "requested_to": to, "covered_to": src.covered}))
     log(json.dumps({"chain": chain, "wallet_id": wid, "source": src.name, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
     ingest_gotchi_escrows(conn, chain, address, rpc, gv, log)
+    ingest_craft_type_costs(conn, chain, address, rpc, gv, log)
+
+def ingest_craft_type_costs(conn, chain, address, rpc, gv, log=print):
+    """KNOWN_GAPS #27: for wallet-sent craft txs that both mint (Installation/Tile from 0x0) and queue (AddedToQueue), read each involved
+    type's alchemicaCost at the tx block (eth_call, read-only) and cache it in craft_type_cost. Only those txs, so RPC use stays light."""
+    w = address.lower(); kind = {gv["installation"]: "installation", gv["tile"]: "tile"}; calls = added = 0
+    rows = conn.execute("""SELECT q.tx_hash, q.block_number, q.payload->>'contract', q.payload->'topics'->>2 FROM raw_event q
+        JOIN raw_event t ON t.chain_id=q.chain_id AND t.tx_hash=q.tx_hash AND t.kind='tx' AND t.payload->>'from'=%s
+        WHERE q.chain_id=%s AND q.kind='gv_AddedToQueue'""", (w, chain)).fetchall()
+    need = {}
+    for th, bn, c, item in rows:
+        if c not in kind: continue
+        mints = conn.execute("""SELECT payload->>'contract', payload->>'token_id' FROM raw_event WHERE chain_id=%s AND tx_hash=%s
+            AND kind LIKE 'erc1155%%' AND payload->>'from'=%s AND payload->>'to'=%s""", (chain, th, "0x" + "0" * 40, w)).fetchall()
+        mints = [(mc, int(t)) for mc, t in mints if mc in kind]
+        if not mints: continue                       # queue-only craft: no split needed
+        for key in mints + [(c, int(item, 16))]: need.setdefault((key[0], key[1], bn), True)
+    have = {(hx(c), int(t), int(bn)) for c, t, bn in conn.execute("SELECT contract, type_id, block_number FROM craft_type_cost WHERE chain_id=%s", (chain,))}
+    for c, t, bn in sorted(need):
+        if (c, t, bn) in have: continue
+        sel, i0 = TYPE_COST_GETTER[kind[c]]
+        d = rpc.eth_call(c, sel + format(t, "064x"), bn)[2:]; calls += 1
+        wd = [int(d[j:j + 64], 16) for j in range(0, len(d), 64)]
+        if not wd or wd[0] != 0x20: raise RuntimeError(f"type cost getter: unexpected return layout for {c} type {t}")
+        added += conn.execute("INSERT INTO craft_type_cost VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                              (chain, b(c), t, bn, [str(x) for x in wd[i0:i0 + 4]])).rowcount
+    conn.commit()
+    log(json.dumps({"chain": chain, "source": "rpc_craft_type_cost", "mixed_craft_types": len(need), "eth_calls": calls, "added": added}))
 
 def ingest_gotchi_escrows(conn, chain, address, rpc, gv, log=print):
     """Gotchi pocket cache (DESIGN v1.3 §9): gotchiEscrow(id) for every gotchi the wallet has held, resolved once (RPC eth_call, read-only)

@@ -73,6 +73,48 @@ class GV(unittest.TestCase):
         s = self.run_(); self.assertEqual(s["review"], 0)
         self.assertEqual(self.rows(h), [("craft_pending", "wallet", GLTR, -9 * E18, f"craft:queue:{INST}:7")])
 
+    # KNOWN_GAPS #27 split rule: costs from craft_type_cost (eth_call cache); type 56 = [125 FUD, 63 FOMO, 0, 0] as on Base at block 48,779,183
+    FOMO = "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58"; KEK = "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"
+    def tcost(self, t, cost, bn):
+        self.c.execute("INSERT INTO craft_type_cost VALUES (%s,%s,%s,%s,%s)", (C, b(INST), t, bn, [str(x) for x in cost])); self.c.commit()
+    def mixed(self, fud, bn, inst_type=56, extra=()):
+        return self.add(tx(W, INST, selector="0xe9332638"), *split(FUD, fud), *split(self.FOMO, 63 * E18 if inst_type == 56 else 0),
+                        *split(self.KEK, 10 * E18), e1155(INST, ZERO, W, inst_type, 1), gv(INST, "AddedToQueue", (7, 60), (999, int(W, 16))), *extra, bn=bn)
+    def by(self, h, cat, tok):
+        return sum(r[3] for r in self.rows(h) if r[0] == cat and r[2] == tok)
+
+    def test_mixed_craft_exact_split(self):
+        self.tcost(56, [125 * E18, 63 * E18, 0, 0], 500); self.tcost(60, [100 * E18, 0, 0, 10 * E18], 500)
+        h = self.mixed(225 * E18, 500)
+        s = self.run_(); self.assertEqual(s["review"], 0)
+        self.assertEqual((self.by(h, "craft", FUD), self.by(h, "craft_pending", FUD)), (-125 * E18, -100 * E18))   # instant gets its type cost
+        self.assertEqual((self.by(h, "craft", self.FOMO), self.by(h, "craft_pending", self.FOMO)), (-63 * E18, 0))
+        self.assertEqual((self.by(h, "craft", self.KEK), self.by(h, "craft_pending", self.KEK)), (0, -10 * E18))   # queued bucket gets the rest
+        self.assertIn(("craft", "wallet", f"{INST}#56", 1, "craft:instant"), self.rows(h))
+        self.assertTrue(all(r[4] == f"craft:queue:{INST}:7" for r in self.rows(h) if r[0] == "craft_pending"))
+
+    def test_mixed_craft_mismatch_and_missing_cost_review(self):
+        self.tcost(56, [125 * E18, 63 * E18, 0, 0], 600); self.tcost(60, [100 * E18, 0, 0, 10 * E18], 600)
+        bad = self.mixed(230 * E18, 600)                 # 5 FUD more than the summed type costs
+        nocache = self.mixed(225 * E18, 601)             # no cost cached at that block
+        self.run_()
+        self.assertIn("type costs", self.review(bad)); self.assertIn("not cached", self.review(nocache))
+
+    def test_mixed_craft_free_type_gets_zero(self):
+        self.tcost(10, [0, 0, 0, 0], 700); self.tcost(60, [100 * E18, 0, 0, 10 * E18], 700)
+        h = self.mixed(100 * E18, 700, inst_type=10)
+        s = self.run_(); self.assertEqual(s["review"], 0)
+        self.assertEqual(self.rows(h)[0][:2], ("craft", "wallet"))
+        self.assertIn(("craft", "wallet", f"{INST}#10", 1, "craft:instant:free"), self.rows(h))
+        self.assertEqual((self.by(h, "craft", FUD), self.by(h, "craft_pending", FUD)), (0, -100 * E18))
+
+    def test_mixed_craft_then_reduce_time_gltr_stays_with_queue(self):
+        self.tcost(56, [125 * E18, 63 * E18, 0, 0], 800); self.tcost(60, [100 * E18, 0, 0, 10 * E18], 800)
+        self.mixed(225 * E18, 800)
+        red = self.add(tx(W, INST, selector="0xe0d20147"), e20(GLTR, W, ZERO, 4 * E18), gv(INST, "CraftTimeReduced", (7,), (50,)), bn=801)
+        s = self.run_(); self.assertEqual(s["review"], 0)
+        self.assertEqual(self.rows(red), [("craft_pending", "wallet", GLTR, -4 * E18, f"craft:queue:{INST}:7")])
+
     def test_craft_leg_outside_split_is_review(self):
         h = self.add(tx(W, INST, selector="0x9ff2a527"), e20(FUD, W, X, E18), e1155(INST, ZERO, W, 56, 1))
         self.run_(); self.assertIn("35/30/30/5", self.review(h))

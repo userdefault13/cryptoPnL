@@ -166,7 +166,9 @@ def r3_craft(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost
         if mints or not inputs or not reduced: raise Review("reduceCraftTime with unexpected legs / without CraftTimeReduced")
         ref = ";".join(_q(c, q) for c, q in reduced)
         return "craft_pending", [L(l, "craft_pending", ref=ref) for l in inputs], []
-    if mints and queued: raise Review("craft tx that both mints and queues: inputs cannot be split between them")
+    if mints and queued:                           # #27 split rule (queue entries carry their item type: AddedToQueue topic2)
+        qi = sorted({(c, _ti(m, 1), _ti(m, 2)) for c in items for m in _ev(market, "AddedToQueue", c)})
+        return _split_mixed(g, mints, qi, inputs, esc, L, Review)
     if mints:                                      # instant craft (paid or free: no inputs = basis 0, never income)
         ref = "craft:instant" + ("" if inputs else ":free")
         return "craft", [L(l, "craft", ref=ref) for l in inputs + mints], []
@@ -174,6 +176,36 @@ def r3_craft(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost
         ref = ";".join(_q(c, q) for c, q in queued)
         return "craft_pending", [L(l, "craft_pending", ref=ref) for l in inputs], []
     raise Review("craft tx with neither minted items nor AddedToQueue")
+
+# KNOWN_GAPS #27 (architect, 2026-10-17): one craft tx that both mints instantly and queues. Inputs are allocated per item from each type's
+# on-chain alchemicaCost at that block (craft_type_cost cache, eth_call at ingest): instant items get their types' cost, the queued items'
+# pending bucket gets the rest. Summed type costs must equal the observed inputs per token (within 1 wei), else review. Free types cost 0.
+# GLTR in such a tx (per-item speed-up) is not allocated -> review; GLTR from reduceCraftTime stays with its queue (r3_craft above).
+def _split_mixed(g, mints, queued, inputs, esc, L, Review):
+    order = g["alchemica_order"]
+    def cost(c, t):
+        v = esc.type_cost.get((c, int(t), esc.bn))
+        if v is None: raise Review(f"mixed instant+queued craft: type cost of {c} #{t} not cached at block {esc.bn}")
+        return v
+    if any(l["contract"] not in order for l in inputs): raise Review("mixed instant+queued craft with non-alchemica inputs (GLTR/GHST): not allocated")
+    inst = [0] * 4; que = [0] * 4
+    for l in mints:
+        for i, x in enumerate(cost(l["contract"], l["token_id"])): inst[i] += x * int(l["qty"])
+    for c, _, it in queued:                        # one AddedToQueue = one queued item
+        for i, x in enumerate(cost(c, it)): que[i] += x
+    obs = [-sum(int(l["qty"]) for l in inputs if l["contract"] == a) for a in order]
+    for i, a in enumerate(order):
+        if abs(obs[i] - (inst[i] + que[i])) > 1:
+            raise Review(f"mixed instant+queued craft: type costs {inst[i] + que[i]} != observed inputs {obs[i]} for {a}")
+    qref = ";".join(_q(c, q) for c, q, _ in queued)
+    iref = "craft:instant" + ("" if any(inst) else ":free")
+    out = []
+    for l in inputs:
+        i = order.index(l["contract"]); tot = inst[i] + que[i]
+        a = -((-int(l["qty"])) * inst[i] // tot) if tot else 0; rest = int(l["qty"]) - a
+        if a: out.append(L(l, "craft", ref=iref, qty=a))
+        if rest: out.append(L(l, "craft_pending", ref=qref, qty=rest))
+    return "craft", out + [L(l, "craft", ref=iref) for l in mints], []
 
 # R4: upgrade. Cost tx (UpgradeQueued owner = wallet / UpgradeInitiated) and reduceUpgradeTime -> upgrade cost legs.
 # Finalize (REALM InstallationUpgraded prev -> next): old id leaves parcel:<realm>, new id lands there (no realized PnL; P4).
