@@ -1,9 +1,9 @@
 {
  "chain": 8453,
  "wallet_txs": 829,
- "classified": 827,
- "review": 2,
- "classified_pct": 99.759,
+ "classified": 828,
+ "review": 1,
+ "classified_pct": 99.879,
  "pass_98": true,
  "txs_by_category": {
   "untracked": 29,
@@ -15,7 +15,7 @@
   "migration_in": 9,
   "nft_buy": 12,
   "escrow_out": 15,
-  "swap": 35,
+  "swap": 36,
   "income": 9,
   "escrow_return": 10,
   "withdrawal": 61
@@ -26,22 +26,21 @@
   "fee": 445,
   "auction": 8,
   "escrow_return": 20,
-  "untracked": 51,
+  "untracked": 53,
   "deposit": 82,
   "withdrawal": 63,
   "income": 34,
   "migration_in": 81,
   "nft_buy": 34,
   "spam": 339,
-  "swap": 61
+  "swap": 62
  },
  "review_reasons": {
-  "EIP-7702 execute wrapper with mint from 0x0: inner call not decoded": 1,
   "DEX router, fungible out only: native leg not indexed (internal ETH gap)": 1
  },
  "spam_rows_pnl_excluded": 339,
- "untracked_rows_pnl_excluded": 51,
- "untracked_txs": 45,
+ "untracked_rows_pnl_excluded": 53,
+ "untracked_txs": 46,
  "open_escrow": [],
  "lots": {
   "lots": 82,
@@ -50,8 +49,8 @@
   "basis_usdc_total_excl_pending": "99.961238"
  },
  "wallet_sent_txs_with_non_allowlisted_token_legs": 0,
- "ledger_rows": 1249,
- "ledger_md5": "9e6bf4c8e5068ba7c0ad43b9020c4d7a",
- "review_rows": 2,
- "review_md5": "e3b34a2965239b38a571fec0b3070e8f"
+ "ledger_rows": 1252,
+ "ledger_md5": "34b5a786b2acdb922a07f41a7206d57a",
+ "review_rows": 1,
+ "review_md5": "e7de420e6883071793eb2790cd85b3af"
 }

@@ -1,31 +1,32 @@
-# P2 results: ledger & classification (PR #3 final re-review at 3c8b056: B2 blocker, FAKE Gotchis, CCTP, null lookup, EIP-7702)
+# P2 results: ledger & classification (PR #3 approved; approval condition at ac40aac: 7702 rule narrowed, USDC par, HyperSync 5/min)
 
 Pass test (DESIGN v1.1 §4 / docs/P2_PLAN.md): >98% of wallet txs classified, the rest in `review_queue`, 10 hand-checked txs match the explorer.
 
 | chain | DB | wallet txs | classified | review | % | gate | ledger rows / md5 | evidence |
 |-------|----|-----------:|-----------:|-------:|--:|------|-------------------|----------|
-| Base 8453 | cryptopnl_p11s_base | 829 | 827 | 2 | 99.759 | PASS | 1249 / 9e6bf4c8e5068ba7c0ad43b9020c4d7a | docs/evidence/p2_classify_8453.json |
+| Base 8453 | cryptopnl_p11s_base | 829 | 828 | 1 | 99.879 | PASS | 1252 / 34b5a786b2acdb922a07f41a7206d57a | docs/evidence/p2_classify_8453.json |
 | Base Sepolia 84532 | cryptopnl_p11s_sep | 126 | 126 | 0 | 100.0 | PASS | 802 / f4a81e5d4948f29677aa7db4de84d43f | docs/evidence/p2_classify_84532.json |
 
 (Sepolia not rerun: its config is unchanged. Earlier rounds: 3c8b056 Base 827/829 (eb12a1 + DEX in review); aed10d9 99.879%; before the first review 98.914%.)
-Base 827/829, not the expected 828/829. eb12a1 (FAKE Gotchis) moved from review to migration_in, but the new EIP-7702 rule moved **0x4a5a7c6c…f697** from swap
-to review. That tx is a wallet self-call with ERC-7821 `execute` 0xe9ae5c53 that mints non-allowlisted token 0x7c307e128efa31f540f2e2d976c995e0b65f51f6 from 0x0
-(5024135863 units), sends 9478318086722626 of the same token out, and receives 25.856803 USDC. Per the rule (mint from 0x0 inside execute → review) it is in review.
+Base 828/829 as expected. The 7702 review rule now applies only to mints of ALLOWLISTED contracts (architect approval condition), so **0x4a5a7c6c…f697**
+(ERC-7821 `execute` self-call: non-allowlisted 0x7c307e12… minted from 0x0 and partly sent out, 25.856803 USDC in) is a **swap**. The USDC leg is tracked, priced at par
+(price_usdc 1, source `par`, high), and both 0x7c30… legs are untracked/pnl_excluded. Previous round at aa58a72: 827/829 with this tx in review.
 
-- Runs (2026-10-16, PDT): Base `scripts/p2_test.sh` 23:26–23:31 (earlier round: Base 23:07–23:11, Sepolia 23:12–23:16). One chain at a time under nohup, with ≥75 s sleep before and between ingest passes.
+- Runs (2026-10-16, PDT): Base `scripts/p2_test.sh` 23:36–23:41 at ac40aac (earlier rounds: Base 23:26–23:31; Base 23:07–23:11, Sepolia 23:12–23:16). One chain at a time under nohup, with ≥75 s sleep before and between ingest passes.
   `classify` was run twice per chain and gave identical ledger/review md5.
 - **HyperSync** (host-wide request log `NET_REQLOG`, one line per HTTP attempt, retries included; `scripts/reqlog_summary.py`):
-  This run: Base 23:27=3, 23:28=2, 23:29=4, 23:30=1 (10 requests). **Busiest 60 s window = 5** (≤7). **Base got two HTTP 429s, one per ingest pass**
-  (5 requests each, effective ≤6.9/min), both retried OK. Reported to the CoS. Earlier round: Base 23:09=4, 23:10=1, 23:11=3; Sepolia 23:13=2, 23:15=1, 23:16=2 (busiest 4). Files: docs/evidence/p2_hypersync_<chain>.txt.
+  **Budget is now 5/min for all runs** (architect, PR #3 approval; `HYPERSYNC_RPM` default 5, `reqlog_summary.py` limit 5).
+  This run: Base 23:37=1, 23:38=3, 23:39=2, 23:40=2 (8 requests). **Busiest 60 s window = 4** (≤5). **No 429s.**
+  Previous run at aa58a72 (7/min cap): 23:27=3, 23:28=2, 23:29=4, 23:30=1, busiest 5, two HTTP 429s (one per pass), both retried OK. Earlier round: Base 23:09=4, 23:10=1, 23:11=3; Sepolia 23:13=2, 23:15=1, 23:16=2 (busiest 4). Files: docs/evidence/p2_hypersync_<chain>.txt.
   Sepolia pass 2 got **one HTTP 429** (no Retry-After header). Exponential backoff retried it and it succeeded. The budget was ≤3/min at that moment, so either
   the host-side limit is shared with another consumer or it is lower than 7/min (**possible shared or lower limit, unverified**; KNOWN_GAPS #10).
 - RPC (1/s, burst 3): Base tx_meta 24 lookups, Sepolia 69, no 429. `ingest_tx_meta` is new. It calls RPC `eth_getTransactionByHash` for wallet-received mints from 0x0 whose
   tx the wallet neither sent nor received, and stores `raw_event` kind `tx_meta` (log_index -3) with {from, to, selector, value}. It is idempotent: the second pass had 0 candidates. A null lookup is stored with `lookup_null`, and an allowlisted mint with a null or missing lookup goes to review.
-- Review queue. Base (2): 0xccbfe04a…58c0, the DEX swap into ETH (internal ETH gap). 0x4a5a7c6c3fde6b40c32fbe2540d34803e3f3f52d9d40af2ba100d208ed0ef697, the EIP-7702 execute wrapper with a mint (see above). Sepolia: 0.
-- Unit tests: `CRYPTOPNL_DSN=postgresql:///cryptopnl_unit11 ENVIO_API_TOKEN=x .venv/bin/python -m unittest discover tests` gives 36 OK (21 classify).
+- Review queue. Base (1): 0xccbfe04a…58c0, the DEX swap into ETH (internal ETH gap). Sepolia: 0.
+- Unit tests: `CRYPTOPNL_DSN=postgresql:///cryptopnl_unit11 ENVIO_API_TOKEN=x .venv/bin/python -m unittest discover tests` gives 37 OK (22 classify).
 
 ## Base tx categories (per tx)
-spam 337 · fee 280 · withdrawal 61 · swap 35 · untracked 29 · deposit 25 · escrow_out 15 · nft_buy 12 · escrow_return 10 · income 9 · migration_in 9 · auction 4 · bridge_in 1 · review 2.
+spam 337 · fee 280 · withdrawal 61 · swap 36 · untracked 29 · deposit 25 · escrow_out 15 · nft_buy 12 · escrow_return 10 · income 9 · migration_in 9 · auction 4 · bridge_in 1 · review 1.
 Sepolia: spam 71 · fee 39 · deposit 5 · withdrawal 5 · nft_buy 4 · swap 1 · untracked 1.
 
 ## Escrow (blocker 1 + B1/B2)
