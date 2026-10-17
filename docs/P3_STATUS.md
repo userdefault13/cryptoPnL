@@ -24,3 +24,14 @@ Main (bed74e9) has NOT been merged in yet. A trial merge in a scratch worktree w
 - Liquidity floor: the alchemica/GHST Aerodrome pools hold only $220–$1,300 of GHST reserve, so the proposed $1,000 floor rejects them at later blocks.
 - DefiLlama searchWidth (3600 s), the confidence-label mapping per source, and the price_point source names (dex_slot0/dex_reserves/numeraire).
 - GLTR: no pool vs USDC/WETH/GHST and no DefiLlama price.
+
+## Architect ruling (2026-10-17, 01:19 PDT): alchemica pricing order, recorded only, not implemented (P3 paused)
+Try each source in order and use the first that yields a price:
+1. Trade-implied price (the wallet's own trade at that tx).
+2. The pool at the block, if its depth is at or above the liquidity floor. Confidence high or medium.
+3. The Gotchi-Trader daily candle. Confidence medium.
+4. A thin pool below the floor, if it has non-zero reserves and a swap within 7 days. Confidence low, and flagged.
+5. Otherwise unpriced: excluded from totals and flagged.
+- Record the pool's USD depth with each price.
+- Low-confidence prices count in the totals and carry a badge. Also report a total that excludes them.
+- This answers the "Liquidity floor" item above. When P3 resumes, check Gotchi-Trader against the free-sources rule and add any key it needs to .env.example by name.
