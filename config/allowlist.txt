@@ -19,3 +19,4 @@
 # were gated and failed (RPC > events at every block; ingest starts at 0, before deploy). Architect decision: untracked,
 # reason "non-event balance changes (testnet)" (UNTRACKED_REASONS in cryptopnl/config.py).
 8453 0xab59ca4a16925b0a4bac5026c94beb20a29df479  # FAKE Gotchis (FakeGotchisNFTDiamond, ERC721; architect 3c8b056)
+8453 0xe46b8902dad841476d9fee081f1d62ae317206a9  # FAKE Gotchi Cards (FakeGotchisCardDiamond, ERC1155; P2.1)

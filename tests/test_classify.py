@@ -31,6 +31,8 @@ def mkt(c, ev): return ("market_" + ev, {"contract": c, "event": ev})
 BRIDGE = "0xf52398257a254d541f392667600901f710a006ed"; GOTCHI_SEL = "0xf55b061c"; TILE_SEL = "0x91b06c6e"
 CCTP_MT = "0xad09780d193884d503182ad4588450c416d6f9d4"
 FG = "0xab59ca4a16925b0a4bac5026c94beb20a29df479"; MINTBATCH = "0x5e41ee65"; EXEC7821 = "0xe9ae5c53"
+FGC = "0xe46b8902dad841476d9fee081f1d62ae317206a9"; MASSMINT = "0x88f351bb"   # FAKE Gotchi Cards (P2.1)
+FACETS = ("0x04d1424f15846e88285478e19f413aeb080740fc", "0x3aa42d4e944ff4696284573a83829e94435c0655")
 def meta(frm, to, sel): return ("tx_meta", {"from": frm, "to": to, "selector": sel, "value": "0"})   # RPC tx_meta (log_index -3)
 
 class T(unittest.TestCase):
@@ -335,5 +337,21 @@ class T(unittest.TestCase):
                          [("untracked", 5024135863, True, None, None, None), ("untracked", -9478318086722626, True, None, None, None),
                           ("swap", 25856803, False, 1, "par", "high")])
         self.assertEqual(classify.report(self.c, C)["txs_by_category"].get("swap"), 1)
+
+    def test_fake_gotchi_cards_massmint_migration_lots_per_id(self):   # P2.1
+        def batch(c, f, t, ids, vals): return ("erc1155_batch", {"contract": c, "operator": f, "from": f, "to": t, "ids": [str(i) for i in ids], "values": [str(v) for v in vals]})
+        one = self.add(e1155(FGC, ZERO, W, 0, 3), meta(BRIDGE, FGC, MASSMINT), bn=33_222_090)            # shaped like 0x7ac8afa8…
+        two = self.add(batch(FGC, ZERO, W, [1, 2], [2, 5]), meta(BRIDGE, FGC, MASSMINT), bn=33_222_091)  # batch: one lot per (contract, id)
+        other = self.add(e1155(TILE, ZERO, W, 28, 1), meta(BRIDGE, TILE, MASSMINT), bn=33_222_092)      # massMint on another contract
+        wrongsel = self.add(e1155(FGC, ZERO, W, 0, 1), meta(BRIDGE, FGC, MINTBATCH), bn=33_222_093)     # FG's selector on the cards
+        facet = self.add(e1155(FACETS[0], ZERO, W, 0, 1), meta(BRIDGE, FACETS[0], MASSMINT), bn=33_222_094)  # facet-like: not allowlisted
+        self.run_()
+        self.assertEqual(self.cats(one), [("migration_in", 3)])
+        self.assertEqual(sorted(self.cats(two)), [("migration_in", 2), ("migration_in", 5)])
+        for h in (other, wrongsel, facet): self.assertIsNotNone(self.review(h))
+        lots = self.c.execute("""SELECT a.token_id, l.qty_open, l.basis_status, l.basis_usdc, l.basis_price_source, l.chain_origin
+                                 FROM fifo_lot l JOIN asset a ON a.id=l.asset_id ORDER BY a.token_id""").fetchall()
+        self.assertEqual([(str(t), int(q), st, b_, ps, o) for t, q, st, b_, ps, o in lots],
+                         [("0", 3, "pending", None, None, 137), ("1", 2, "pending", None, None, 137), ("2", 5, "pending", None, None, 137)])
 
 if __name__ == "__main__": unittest.main()

@@ -90,3 +90,13 @@ In P2 the labels set are bridge_in lots (high) and manual basis (low).
 - `ledger_entry` gains `location`, `escrow_ref` and `pnl_excluded`. The unique key now includes location and category.
 - `fifo_lot` and `lot_disposal` did not exist yet. They were created with the DESIGN §3 columns plus `basis_status`, `chain_origin`, `escrow_ref` and `payment_for`. `basis_usdc` and `cost_usdc` are nullable for pending basis.
 - `manual_basis` was added.
+
+## P2.1: FAKE Gotchi Cards (branch p2.1-fake-gotchi-cards, stacked on PR #3)
+- RPC check of FakeGotchisCardDiamond `0xe46b8902dad841476d9fee081f1d62ae317206a9`: getCode 4619 B, ERC165 ERC1155 = true, ERC721 = false, no `name()`/`symbol()`. Creator: the bridge sender.
+- Mint selector (read-only: Blockscout advanced filters + RPC `eth_getTransactionByHash`): the bridge sender's mints from 0x0 are **`massMint` 0x88f351bb**,
+  tx.from 0xf523…06ed → tx.to the card diamond (sampled 0x788c885d… block 33,222,087; 0x7ac8afa8… 33,222,090; 0x3f25297e… 33,223,310). `startNewSeries` 0x51b4b0c3 emits no transfers.
+- Allowlisted on Base. `0x88f351bb → 0xe46b…` maps to migration_in for that contract only (carry-over basis pending, ERC1155 lots per (contract, id), chain_origin 137).
+  massMint on any other contract, or another selector on the cards, goes to review. Facet-like `0x04d1…40fc` / `0x3aa4…0655` are excluded (KNOWN_GAPS #13).
+- Base rerun at e264682 (23:43–23:48 PDT, 5/min): **828/829 (99.879%)**, ledger 1252 / md5 34b5a786b2acdb922a07f41a7206d57a, identical to PR #3. The test wallet holds no FAKE Gotchi Cards
+  (0 raw events on 0xe46b…), so no Base tx changes. HyperSync 23:45=4, 23:46=1, 23:47=3 (8 requests), **busiest 60 s window = 4** (≤5), no 429. RPC: one 429, retried OK.
+- Unit tests: 38 OK (23 classify), including massMint single + batch (lots per id), massMint elsewhere → review, wrong selector → review, facet → review.
