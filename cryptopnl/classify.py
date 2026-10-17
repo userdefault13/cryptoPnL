@@ -69,6 +69,9 @@ class Escrow:
     def rollback(self): self.open = self._snap
     def put(self, d, tok, ref, qty):
         e = dict(ref=ref, qty=qty, ids=[]); self.open.setdefault((d, tok), []).append(e); return e
+    def linked(self, d, tok, ref):
+        """EVERY entry carrying this ref, including used-up ones (qty 0): an order id, once linked, never re-links."""
+        return [e for e in self.open.get((d, tok), []) if e["ref"] == ref]
     def avail(self, d, tok, ref=None):
         return [e for e in self.open.get((d, tok), []) if e["qty"] > 0 and (ref is None or e["ref"] == ref)]
     def take(self, d, tok, qty, ref=None):
@@ -143,17 +146,21 @@ def escrow_rule(chain, w, tx, legs, market, esc):
             wd = words(m["data"]); price, pay = wd[3], wd[3] * wd[4]   # (seller, token, id, priceInWei, quantity, time)
             ref = f"baazaar:buyorder:{t_int(m, 1)}"
             toks = sorted({k[1] for k in esc.open if k[0] == bz})
-            # B2 (architect): match by order id. 1) entries already linked to this order id; 2) else exactly one unlinked open
-            # entry with amount == price*qty; else (first partial fill) exactly one unlinked entry that is a multiple of price
-            # and larger than the payment. Anything else (none or several candidates) -> review.
-            linked = [(t, e) for t in toks for e in esc.avail(bz, t, ref)]
+            # B2 (architect, 3c8b056): match by order id.
+            # 1) ANY entry already linked to this order id (including used-up ones) -> take only from those; a shortfall
+            #    raises Review (a fill on an exhausted order never claims a new placement).
+            # 2) else exactly one unlinked open entry (placed before the fill: escrow state is built in chain order) with
+            #    amount == price*qty;
+            # 3) else (first partial fill) exactly one unlinked open entry whose amount is an exact integer multiple of the
+            #    unit price and >= the payment (remaining >= 0). Zero or several candidates -> review.
+            linked = [(t, e) for t in toks for e in esc.linked(bz, t, ref)]
             if linked:
-                tok = linked[0][0]
                 if len({t for t, _ in linked}) != 1: raise Review("buy-order fill: order id linked in several tokens")
-                esc.take(bz, tok, pay, ref)
+                tok = linked[0][0]; esc.take(bz, tok, pay, ref)
             else:
                 un = [(t, e) for t in toks for e in esc.avail(bz, t) if e["ref"] is None]
-                cand = [x for x in un if x[1]["qty"] == pay] or [x for x in un if price and x[1]["qty"] > pay and x[1]["qty"] % price == 0]
+                cand = [x for x in un if x[1]["qty"] == pay] or \
+                       [x for x in un if price and x[1]["qty"] % price == 0 and x[1]["qty"] - pay >= 0]
                 if len(cand) != 1: raise Review(f"buy-order fill: {'no' if not cand else 'ambiguous'} matching escrow for the order id")
                 tok, e = cand[0]; e["qty"] -= pay; e["ref"] = ref; upd.append((e, ref))
             out.append(dict(li=m["li"], std="erc20", contract=tok, token_id=None, qty=-pay, cat="nft_buy",
@@ -248,10 +255,19 @@ def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
         if sent: return "fee", [], []
         if zero: return "spam", [L(l, "spam", spam=True) for l in zero], []   # address poisoning: kept, flagged, qty 0
         raise Review("no wallet legs")
+    allow = gated(chain)
+    mints = [l for l in legs if l["cp"] == ZERO and l["qty"] > 0]
+    # EIP-7702 / smart-account wrapper (architect, 3c8b056): a wallet-sent self-call (tx.to == wallet) with calldata, e.g.
+    # ERC-7821 execute 0xe9ae5c53. Only the top-level selector is stored, so the inner call cannot be decoded: a mint from 0x0
+    # inside it goes to review, never income/migration.
+    if sent and mints and tx.get("to") == w and (tx.get("selector") or "0x") != "0x":
+        raise Review("EIP-7702 execute wrapper with mint from 0x0: inner call not decoded")
     r = escrow_rule(chain, w, tx, legs, market, esc) or migration_rule(chain, w, info, legs, bn, warn) or bridge_rule(chain, w, info, legs, sent)
     if r: return r
+    # allowlisted mint from 0x0 in a tx the wallet neither sent nor received, with no usable RPC tx lookup -> review, not income
+    if not tx and mints and len(mints) == len(legs) and all(l["contract"] in allow for l in legs) and (not meta or meta.get("lookup_null")):
+        raise Review("allowlisted mint from 0x0 without tx metadata (RPC lookup null)")
     cat, why = decide(chain, w, tx, legs, market, group)
-    allow = gated(chain)
     junk = lambda l: l["std"] != "native" and l["contract"] not in allow
     # untracked (architect): non-allowlisted legs in wallet-sent txs -> 'untracked', no lot, pnl_excluded. The tracked legs keep
     # their own category and are valued at their own price in P3 (never at the untracked leg's price; untracked legs carry no

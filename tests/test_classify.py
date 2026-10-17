@@ -30,6 +30,7 @@ def e721(c, f, t, i): return ("erc721_transfer", {"contract": c, "from": f, "to"
 def mkt(c, ev): return ("market_" + ev, {"contract": c, "event": ev})
 BRIDGE = "0xf52398257a254d541f392667600901f710a006ed"; GOTCHI_SEL = "0xf55b061c"; TILE_SEL = "0x91b06c6e"
 CCTP_MT = "0xad09780d193884d503182ad4588450c416d6f9d4"
+FG = "0xab59ca4a16925b0a4bac5026c94beb20a29df479"; MINTBATCH = "0x5e41ee65"; EXEC7821 = "0xe9ae5c53"
 def meta(frm, to, sel): return ("tx_meta", {"from": frm, "to": to, "selector": sel, "value": "0"})   # RPC tx_meta (log_index -3)
 
 class T(unittest.TestCase):
@@ -268,5 +269,58 @@ class T(unittest.TestCase):
         self.add(e721(BZ, ZERO, W, 954), meta(BRIDGE, BZ, GOTCHI_SEL), bn=33_205_609); self.add(tx(W, X), e20(USDC, W, X, 10), e20(SPAM, X, W, 5))
         self.add(e20(USDC, ZERO, W, 5_000_000), meta(X, CCTP_MT, "0x57ecfd28"))
         self.run_(); a = classify.checksum(self.c, C); self.run_(); self.assertEqual(a, classify.checksum(self.c, C))
+
+    def test_b2_exhausted_order_never_claims_new_placement(self):     # architect BLOCKER, 3c8b056
+        esc = "escrow:" + BZ
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 300))
+        self.add(tx(X, BZ), e1155(TILE, X, W, 28, 3), bo_exec(3, W, X, TILE, 28, 100, 3))     # fill ord3 3x100: exact, links
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 200))
+        late = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(3, W, X, TILE, 28, 100, 1))  # ord3 already used up
+        self.run_()
+        self.assertEqual(self.review(late), "escrow fill/return larger than open escrow")
+        self.assertEqual(self.open_escrow(), {esc: 200})                                      # the 200 is not consumed
+        self.assertIsNone(self.c.execute("SELECT 1 FROM ledger_entry WHERE tx_hash=%s", (late,)).fetchone())
+
+    def test_b2_partial_fallback_conditions(self):
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 300)); self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 300))
+        two = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(7, W, X, TILE, 28, 100, 1))   # two equal multiples
+        self.run_(); self.assertEqual(self.review(two), "buy-order fill: ambiguous matching escrow for the order id")
+        self.setUp()
+        self.add(tx(W, BZ, selector=PLACE), e20(GHST, W, BZ, 250))                            # not an integer multiple of 100
+        none_ = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 1), bo_exec(8, W, X, TILE, 28, 100, 1))
+        big = self.add(tx(X, BZ), e1155(TILE, X, W, 28, 5), bo_exec(9, W, X, TILE, 50, 100, 5))   # 500 > 250: remaining < 0
+        self.run_()
+        self.assertEqual(self.review(none_), "buy-order fill: no matching escrow for the order id")
+        self.assertEqual(self.review(big), "buy-order fill: no matching escrow for the order id")
+
+    def test_null_rpc_lookup_mint_goes_to_review(self):
+        nul = self.add(e721(NFT, ZERO, W, 1), ("tx_meta", {"from": None, "to": None, "selector": None, "value": None, "lookup_null": True}))
+        nometa = self.add(e721(NFT, ZERO, W, 2))
+        self.run_()
+        for h in (nul, nometa): self.assertEqual(self.review(h), "allowlisted mint from 0x0 without tx metadata (RPC lookup null)")
+        self.assertFalse(self.c.execute("SELECT 1 FROM ledger_entry WHERE category='income'").fetchone())
+
+    def test_eip7702_execute_wrapper_mint_goes_to_review(self):
+        wrap = self.add(tx(W, W, selector=EXEC7821), e721(NFT, ZERO, W, 3))
+        wrap_m = self.add(tx(W, W, selector=EXEC7821), e721(BZ, ZERO, W, 4), bn=33_300_000)   # would-be re-mint: still review
+        plain = self.add(tx(W, W, selector=EXEC7821), e20(USDC, W, X, 10))                   # no mint: normal rules
+        self.run_()
+        for h in (wrap, wrap_m): self.assertEqual(self.review(h), "EIP-7702 execute wrapper with mint from 0x0: inner call not decoded")
+        self.assertIsNone(self.review(plain))
+        self.assertFalse(self.c.execute("SELECT 1 FROM ledger_entry WHERE category IN ('income','migration_in')").fetchone())
+
+    def test_ghst_to_gbm_without_bid_goes_to_review(self):
+        h = self.add(tx(W, GBM), e20(GHST, W, GBM, 50)); self.run_()
+        self.assertTrue(self.review(h).startswith("gbm"))
+        self.assertEqual(self.open_escrow(), {})
+
+    def test_fake_gotchis_mintbatch_only_on_that_contract(self):
+        fg = self.add(e721(FG, ZERO, W, 11), meta(BRIDGE, FG, MINTBATCH), bn=33_222_797)
+        tile = self.add(e1155(TILE, ZERO, W, 28, 1), meta(BRIDGE, TILE, MINTBATCH), bn=33_222_798)   # mintBatch elsewhere
+        self.run_()
+        self.assertEqual(self.cats(fg), [("migration_in", 1)])
+        self.assertIsNotNone(self.review(tile))
+        lot = self.c.execute("SELECT basis_status, basis_usdc FROM fifo_lot").fetchall()
+        self.assertEqual(lot, [("pending", None)])
 
 if __name__ == "__main__": unittest.main()

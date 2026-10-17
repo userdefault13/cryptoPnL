@@ -150,9 +150,11 @@ def ingest_tx_meta(conn, chain, address, log=print):
                                 "0x" + "0" * 40, address.lower())).fetchall()
     for th, bn, bh in todo:
         t = rpc.call("eth_getTransactionByHash", [hx(th)])
-        if not t: continue
-        meta = {"from": t["from"].lower(), "to": (t.get("to") or "").lower() or None, "selector": (t.get("input") or "0x")[:10],
-                "value": str(h2i(t.get("value") or "0x0"))}
+        if t:
+            meta = {"from": t["from"].lower(), "to": (t.get("to") or "").lower() or None, "selector": (t.get("input") or "0x")[:10],
+                    "value": str(h2i(t.get("value") or "0x0"))}
+        else:   # null lookup: recorded so classify sends allowlisted mints to review (architect, 3c8b056)
+            meta = {"from": None, "to": None, "selector": None, "value": None, "lookup_null": True}
         conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
             VALUES (%s,%s,-3,%s,%s,'rpc_txmeta','tx_meta',%s) ON CONFLICT DO NOTHING""", (chain, th, bn, bh, json.dumps(meta)))
         fetched += 1
