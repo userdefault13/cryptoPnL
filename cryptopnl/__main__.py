@@ -1,8 +1,8 @@
 import argparse, json, sys
-from . import db, ingest, verify
+from . import db, ingest, verify, classify
 from .net import STATS
 p = argparse.ArgumentParser(prog="cryptopnl")
-p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg"])
+p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report"])
 p.add_argument("--chain", type=int, default=84532)
 p.add_argument("--wallet", action="append", default=[])
 a = p.parse_args(); conn = db.connect(); rc = 0
@@ -18,4 +18,8 @@ elif a.cmd == "verify":
 elif a.cmd == "verify-wearables":
     t, ok, f = verify.verify_wearables(conn, a.chain); rc = 1 if f else (3 if t == 0 else 0)
 elif a.cmd == "simulate-reorg": print(json.dumps({"tampered_blocks": ingest.simulate_reorg(conn, a.chain)}))
+elif a.cmd == "classify": classify.classify(conn, a.chain); print(json.dumps(classify.checksum(conn, a.chain)))
+elif a.cmd == "classify-report":
+    r = classify.report(conn, a.chain); print(json.dumps(r, indent=1))
+    rc = 0 if r["pass_98"] else 1
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)

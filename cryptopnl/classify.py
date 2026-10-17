@@ -133,3 +133,23 @@ def checksum(conn, chain):
         FROM ledger_entry WHERE chain_id=%s""", (chain,)).fetchone()
     q = conn.execute("SELECT count(*), md5(string_agg(encode(tx_hash,'hex')||reason, ',' ORDER BY tx_hash)) FROM review_queue WHERE chain_id=%s", (chain,)).fetchone()
     return {"ledger_rows": r[0], "ledger_md5": r[1], "review_rows": q[0], "review_md5": q[1]}
+
+def report(conn, chain):
+    """Counts from the stored ledger/review tables (no recomputation). A tx counts as classified when it is not in review_queue."""
+    allow = gated(chain)
+    txs = conn.execute("""SELECT count(*) FROM (SELECT DISTINCT wallet_id, tx_hash FROM ledger_entry WHERE chain_id=%s
+                          UNION SELECT wallet_id, tx_hash FROM review_queue WHERE chain_id=%s) t""", (chain, chain)).fetchone()[0]
+    rev = dict(conn.execute("SELECT reason, count(*) FROM review_queue WHERE chain_id=%s GROUP BY 1", (chain,)).fetchall())
+    nrev = sum(rev.values())
+    # per-tx category = the non-fee category if any, else fee
+    cats = dict(conn.execute("""SELECT c, count(*) FROM (SELECT tx_hash, wallet_id, coalesce(max(category) FILTER (WHERE category<>'fee'),'fee') c
+        FROM ledger_entry WHERE chain_id=%s AND (wallet_id, tx_hash) NOT IN (SELECT wallet_id, tx_hash FROM review_queue WHERE chain_id=%s)
+        GROUP BY 1,2) t GROUP BY 1""", (chain, chain)).fetchall())
+    rows = dict(conn.execute("SELECT category, count(*) FROM ledger_entry WHERE chain_id=%s GROUP BY 1", (chain,)).fetchall())
+    spam = conn.execute("""SELECT count(DISTINCT l.tx_hash) FROM ledger_entry l JOIN asset a ON a.id=l.asset_id
+        WHERE l.chain_id=%s AND l.category IN ('deposit','withdrawal','income') AND a.contract IS NOT NULL
+        AND NOT ('0x'||encode(a.contract,'hex') = ANY(%s))""", (chain, list(allow))).fetchone()[0]
+    pct = round(100.0 * (txs - nrev) / txs, 3) if txs else None
+    return {"chain": chain, "wallet_txs": txs, "classified": txs - nrev, "review": nrev, "classified_pct": pct,
+            "pass_98": bool(txs) and pct > 98, "txs_by_category": cats, "ledger_rows_by_category": rows, "review_reasons": rev,
+            "txs_with_non_allowlisted_deposit_withdrawal_income": spam, **checksum(conn, chain)}
