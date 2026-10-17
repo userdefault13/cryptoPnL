@@ -50,3 +50,10 @@ MIGRATION_BLOCK = {8453: 33_200_000}
 # Fixed untracked reasons (architect decisions) that override the heuristic in verify.reason().
 UNTRACKED_REASONS = {84532: {"0x4773f06fb66735f1350a2db582660cbf6c0ff64b": "non-event balance changes (testnet)",
                              "0xb2d52be3ab11006685843a59ec7d17bff2c554a1": "non-event balance changes (testnet)"}}
+
+# P2: DEX routers. A wallet tx through one of these with fungible out and nothing in is most likely a swap into native ETH
+# paid back as an internal transfer (not indexed, DESIGN §1 "internal ETH gap") -> review queue, never "withdrawal".
+DEX_ROUTERS = {8453: {"0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",   # Uniswap Universal Router (blockscout-verified name)
+                      "0x6ff5693b99212da76ad316178a184ab56d299b43",   # Uniswap Universal Router v4
+                      "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43",   # Aerodrome Router
+                      "0x6cb442acf35158d5eda88fe602221b67b400be3e"}}  # Aerodrome Universal Router
