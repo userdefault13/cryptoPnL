@@ -83,9 +83,24 @@ class GV(unittest.TestCase):
         self.assertIn(("income", "wallet", FUD, 2 * E18, "lending:revenue"), self.rows(end))
         self.assertNotIn("nft_sale", self.cats(ex) + self.cats(end))
 
-    def test_lending_borrower_side_is_review(self):   # shape of real 0xe7505b72… (borrower pays upfront GHST, receives the gotchi)
-        h = self.add(tx(W, AG), e721(AG, X, W, 10774), e20(GHST, W, X, 2 * E18 // 10), gv(AG, "GotchiLendingExecuted", (1, X, W)))
-        self.run_(); self.assertIn("borrower", self.review(h))
+    def test_lending_borrower_r8b(self):   # shapes of real 0xe7505b72… / 0xec5e558b… (+ a revenue share and a channel while borrowing)
+        ex = self.add(tx(W, AG), e721(AG, X, W, 10774), e20(GHST, W, X, 2 * E18 // 10), gv(AG, "GotchiLendingExecuted", (1, X, W)))
+        ch = self.add(tx(W, REALM, selector="0x8027870e"), e20(FUD, REALM, W, 4 * E18))
+        end = self.add(tx(X, AG), e721(AG, W, X, 10774), e20(FUD, AG, W, E18), gv(AG, "GotchiLendingEnded", (1, X, W)))
+        s = self.run_(); self.assertEqual(s["review"], 0)
+        self.assertEqual(self.rows(ex), [("spend", "wallet", GHST, -2 * E18 // 10, "lending:borrower:upfront"),
+                                         ("untracked", "wallet", f"{AG}#10774", 1, f"borrowed:{X}")])
+        self.assertEqual(self.rows(ch), [("income", "wallet", FUD, 4 * E18, "")])
+        self.assertEqual(self.rows(end), [("income", "wallet", FUD, E18, "lending:borrower:revenue:fmv_unpriced"),
+                                          ("untracked", "wallet", f"{AG}#10774", -1, f"borrowed:{X}")])
+        q = self.c.execute("""SELECT bool_and(pnl_excluded) FILTER (WHERE category='untracked'), bool_or(price_usdc IS NOT NULL)
+                              FROM ledger_entry WHERE tx_hash IN (%s,%s)""", (ex, end)).fetchone()
+        self.assertEqual(q, (True, False))   # borrowed gotchi pnl_excluded; nothing priced before P3
+        self.assertEqual(self.c.execute("SELECT count(*) FROM fifo_lot").fetchone()[0], 0)   # no phantom gotchi lot
+
+    def test_lending_borrower_odd_legs_review(self):
+        h = self.add(tx(W, AG), e721(AG, B_, W, 10774), gv(AG, "GotchiLendingExecuted", (1, X, W)))   # gotchi not from the lender
+        self.run_(); self.assertIn("lender", self.review(h))
 
     def test_gbm_seller_create_claim_and_cancel(self):
         NFTC = REALM

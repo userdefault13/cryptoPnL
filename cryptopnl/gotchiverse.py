@@ -212,9 +212,9 @@ def r8_lending(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, co
     ex = _lend(market, g, ("GotchiLendingExecuted",), w); end = _lend(market, g, ("GotchiLendingEnded", "GotchiLendingClaimed"), w)
     if not (ex or end): return None
     out = []; gotchi = [l for l in nfts if l["contract"] == g["aavegotchi"] and l["std"] == "erc721"]
-    for lender, borrower in ex + end:
-        if lender != w:   # borrower side is not in §9 R8; the normal rules would book a borrowed gotchi as nft_buy (real: 0xe7505b72…)
-            raise Review("lending: wallet is the borrower (DESIGN v1.3 §9 R8 covers the lender only)")
+    sides = {lender == w for lender, _ in ex + end}
+    if len(sides) != 1: raise Review("lending: wallet is lender and borrower in one tx")
+    if sides == {False}: return _r8b_borrower(g, w, ex, end, legs, fung, gotchi, L, Review)
     for l in gotchi:
         borrower = (ex or end)[0][1]; loc = f"lent:{borrower}"
         if l["cp"] != borrower: raise Review("lending: gotchi moved to/from an address other than the borrower")
@@ -224,6 +224,27 @@ def r8_lending(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, co
         out.append(L(l, "income", ref="lending:" + ("upfront" if ex else "revenue")))
     if len(out) != len(gotchi) * 2 + len(fung) or len(gotchi) + len(fung) != len(legs): raise Review("lending tx with unexplained legs")
     return ("income" if fung else "transfer_internal"), out, []
+
+# R8b (architect, accepted 2026-10-17, KNOWN_GAPS #19; to be added to DESIGN §9 as rule 8b): wallet is the BORROWER.
+# The borrowed gotchi is not owned: its legs (to/from the lender) are `untracked` (pnl_excluded, no lot), ref borrowed:<lender>.
+# Upfront GHST paid (with GotchiLendingExecuted) -> `spend`. Revenue share received (Claimed/Ended) -> `income` at the block's FMV;
+# price is P3, so the ref carries `:fmv_unpriced` (price_usdc stays NULL). Alchemica channeled while borrowing is income via R7.
+# Real: 0xe7505b72…d183 (borrow 10774, 0.2 GHST to the lender) and 0xec5e558b…7e79 (10774 back to the lender).
+def _r8b_borrower(g, w, ex, end, legs, fung, gotchi, L, Review):
+    lender = (ex or end)[0][0]; out = []
+    for l in gotchi:
+        if l["cp"] != lender: raise Review("lending (borrower): gotchi moved to/from an address other than the lender")
+        out.append(L(l, "untracked", ref=f"borrowed:{lender}"))
+    for l in fung:
+        if l["qty"] < 0:
+            if not ex: raise Review("lending (borrower): outgoing token leg without GotchiLendingExecuted")
+            out.append(L(l, "spend", ref="lending:borrower:upfront"))
+        else:
+            if not end: raise Review("lending (borrower): incoming token leg without GotchiLendingClaimed/Ended")
+            out.append(L(l, "income", ref="lending:borrower:revenue:fmv_unpriced"))
+    if len(gotchi) + len(fung) != len(legs): raise Review("lending (borrower) tx with unexplained legs")
+    cats = {l["cat"] for l in out}
+    return ("spend" if "spend" in cats else "income" if "income" in cats else "untracked"), out, []
 
 # R7: claim/channel paid from REALM's balance (Great Portal path) on the claim/channel selectors -> income, not deposit
 def r7_income(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost_to, L, Review):
