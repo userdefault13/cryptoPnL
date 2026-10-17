@@ -63,7 +63,8 @@ DEX_ROUTERS = {8453: {"0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",   # Uniswap 
 ESCROW = {8453: {"baazaar": "0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "gbm": "0x80320a0000c7a6a34086e2acad6915ff57ffda31"}}
 # Baazaar buy-order placement selectors (observed: 0x4cc4a386 in 0x2a01e94f…5cc8, which emits ERC1155BuyOrderAdd id 327
 # per Blockscout logs). The BuyOrderAdd/Cancel events are not ingested yet; fills link to escrow by FIFO amount + order id.
-BUYORDER_PLACE_SELECTORS = {"0x4cc4a386"}
+BUYORDER_PLACE_SELECTORS = {"0x4cc4a386",   # placeERC1155BuyOrder
+                            "0x6feecbb5"}   # placeERC721BuyOrder(address,uint256,uint256,uint256,uint256,bool[]) (P2.2 R1; openchain, verified contract)
 # Polygon->Base re-mints (architect, PR #3 decisions): migration_in = tx.from in {bridge sender, the wallet itself}
 # AND an NFT mint from 0x0 to the wallet of an allowlisted Aavegotchi contract AND (tx.to, selector) on the per-asset list.
 # The bridge sender calling an unlisted selector -> review. The block window is only an assertion (warning when outside).
@@ -95,3 +96,48 @@ CCTP = {8453: {"0xad09780d193884d503182ad4588450c416d6f9d4", "0x81d40f21f12a8f0e
 CCTP_TOKENS = {8453: {"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6}}   # USDC (Circle-minted) -> decimals for the par basis
 CONFIDENCE = {"high": 1.0, "medium": 0.6, "low": 0.2}   # label -> number (architect, PR #3)
 MANUAL_CONFIDENCE = 0.2   # = CONFIDENCE["low"] (DESIGN §8 manual basis)
+
+
+# ---- P2.2 Gotchiverse (DESIGN v1.3 §9). Addresses: allowlist (§7) + craft receipt 0x74f55051… (cost split recipients, RPC).
+GV = {8453: {
+    "realm": "0x4b0040c3646d3c44b8a28ad7055cfcf536c05372", "installation": "0xebba5b725a2889f7f089a6cae0246a32cad4e26b",
+    "tile": "0x617fdb8093b309e4699107f48812b407a7c37938", "gbm": "0x80320a0000c7a6a34086e2acad6915ff57ffda31",
+    "aavegotchi": "0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "burn": "0xffffffffffffffffffffffffffffffffffffffff",
+    "pixelcraft": "0x50def14c51123660f8768b511b93cc8c09f30356", "dao": "0x939b67f6f6be63e09b0258621c5a24eecb92631c",
+    "ghst": "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb", "gltr": "0x4d140ce792bedc430498c2d219afbc33e2992c9d",
+    "alchemica": {"0x2028b4043e6722ea164946c82fe806c4a43a0ff4", "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58",
+                  "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"},
+    "start_block": 33_200_000}}
+# Selectors (openchain signature DB, verified-contract flag; ABIs of the Installation/Tile/REALM diamonds)
+GV_SEL = {"craft": {"0x9ff2a527", "0x976a1afe"},          # craftInstallations(uint16[],uint40[]), craftTiles(uint16[])
+          "claim_alchemica": {"0x9fefe547", "0x8027870e"},   # claimAvailableAlchemica(uint256,uint256,bytes), channelAlchemica(uint256,uint256,uint256,bytes)
+          "pocket_deposit": {"0xb0facab3"}}                 # depositERC20(uint256,address,uint256) on the Aavegotchi diamond (R10 -> review)
+# topic0 -> event name (keccak of the ABI signatures; DESIGN §9 prefixes match: 0x0f52fde6…, 0x6d10597e…)
+GV_TOPICS = {
+    "0x0f52fde6171d45c02579364597406652690bf2264e564ba1a5b88ffa98d8815b": "ERC721ExecutedToRecipient",   # (listingId*, buyer*, recipient*)
+    "0x6d10597eaea3b6f10739896c93a2cdebf87810d37226b40bc3e433745f55ce9c": "ERC1155ExecutedToRecipient",
+    "0x427c7dcdefdb1654e9ab491c1fc9a1f83a16e79968042c8bb54873541173a656": "ERC721BuyOrderAdded",        # (buyOrderId*, buyer*, ...)
+    "0xb89a3fa09a6b61b06fa0f16a43b319ca184062389055411b6e698cabdf7e9edc": "ERC1155BuyOrderAdd",
+    "0x2c10b67d57c65fd2fc6cc56eba63f4c5c704a09abf5aa54cec0753bfeda09c56": "ERC721BuyOrderCanceled",
+    "0xa3bcfada5116fec4553cde6319984603d411a22d1b646957d5734b77693c6cd7": "ERC1155BuyOrderCancel",
+    "0x76575e9201a7a7a387d15babed3e4c37a179e1a368c8482288251d52401ff584": "AddedToQueue",               # (queueId*, itemId*, readyBlock, sender)
+    "0xe8a0b83f7c7560add63dd9f946f59e35fb72430cb395889f4369ba19b91e0319": "QueueClaimed",               # (queueId*)
+    "0xb7907a81902fa66f0a79bc78a88097437c835502cb688cf0559b052db41d67b6": "CraftTimeReduced",           # (queueId*, blocks)
+    "0x07d6dfde038acc4db278bc4333a59375b806deec664e469c6b09f17a73bafade": "MintInstallations",          # (owner*, installationId*, uint16 amount)
+    "0xf2bd7a0a4587b4c000ee36ad5681c67c7fcad9d00a80bf975ac2e315f8577c4d": "MintInstallation",
+    "0xcf4ec29a21df4a833e09008384c100f3bde71017c3868dd3b89e2d4b86dc5ffc": "MintTiles",                  # (owner*, tileId*, uint16 amount)
+    "0xf1e7ab6f403ab027329be55c1aa82c8c92c513aae2a27fc0bbaaa03b0dd8f12a": "UpgradeQueued",              # (owner*, realmId*, queueIndex*)
+    "0xff977a48e6ed060e1323f331b58d75fed1eadb4dac3e3bdb86664ea6a9f4354e": "UpgradeInitiated",           # (realmId*, x, y, blockInitiated, readyBlock, installationId)
+    "0xe2e4b3bcba1b8d227ae00a114468153a60fad154306154b2ff1e67325cc48315": "UpgradeFinalized",           # (realmId*, x, y, newInstallationId)
+    "0x395d9a08b897acfa143a6e0de3173b720402b3f2829112ef5deadbaf1f212e25": "UpgradeTimeReduced",         # (queueId*, realmId*, x, y, blocks)
+    "0x74b654614ea2444b876a14dec11c709807cda89060906c4b7e443e4f8ff9ed53": "InstallationUpgraded",       # REALM: (realmId, prevId, nextId, x, y)
+    "0xe82810099d182b25e23e895715954d6e7b41867a02e2c693cce68a8f250e43d3": "TransferToParent",           # (toContract*, toTokenId*, typeId*, value)
+    "0x4b287e36a0531da8ccee303de127c778302f48d8fc9569b1fe1dcb9d64465c6d": "TransferFromParent",
+    "0x1eba211322935090f825dc2d5b300150db5078adc958f33161f7ea7a1d3026f0": "EventStarted",               # REALM bounce gate (eventId*)
+    "0xdb9cc99dc874f9afbae71151f737e51547d3d412b52922793437d86607050c3c": "AuctionCancelled",           # GBM (auctionId*, tokenId)
+    "0x67725b3b5836354867e57ef59784870b52a0b07f53c7f0b41fefc726225f5bfb": "GotchiLendingExecuted",      # (listingId*, lender*, borrower*, ...)
+    "0x2240d94f92369c7722021a9f6158fa5577eedeae5191c5ce9fbcc9c66fe4a7ce": "GotchiLendingEnded",
+    "0xee31c7b8017a392ce3690715faeb5c45ec46dc3483ea25d4b62e6f680cd878b3": "GotchiLendingClaimed",
+    "0x19f483d7b19be804210fad17c0ccb74c8e82f575ed3de6a498f4d12e36a4263a": "GotchiLendingExecutedT",     # tuple versions (no indexed fields)
+    "0x6c3cd77eda2c6ff7d015d27dadcdadb382c298ab604fda85d72cef7711478ca5": "GotchiLendingEndedT",
+    "0x23e3c7705ebea1f89164a677cb2117a22a29cd757523cff32fc5fb52d5dbb769": "GotchiLendingClaimedT"}
