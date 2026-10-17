@@ -1,0 +1,62 @@
+{
+ "chain": 8453,
+ "wallet_txs": 829,
+ "classified": 825,
+ "review": 4,
+ "classified_pct": 99.517,
+ "pass_98": true,
+ "txs_by_category": {
+  "untracked": 29,
+  "spam": 337,
+  "bridge_in": 1,
+  "auction": 4,
+  "transfer_internal": 2,
+  "fee": 280,
+  "deposit": 24,
+  "migration_in": 9,
+  "nft_buy": 10,
+  "escrow_out": 15,
+  "craft": 4,
+  "swap": 36,
+  "income": 6,
+  "escrow_return": 10,
+  "withdrawal": 58
+ },
+ "ledger_rows_by_category": {
+  "escrow_out": 30,
+  "bridge_in": 1,
+  "craft": 12,
+  "auction": 8,
+  "escrow_return": 20,
+  "untracked": 53,
+  "transfer_internal": 4,
+  "nft_buy": 23,
+  "swap": 62,
+  "fee": 445,
+  "deposit": 81,
+  "withdrawal": 60,
+  "income": 31,
+  "migration_in": 81,
+  "spam": 339
+ },
+ "review_reasons": {
+  "DEX router, fungible out only: native leg not indexed (internal ETH gap)": 1,
+  "gotchi pocket depositERC20 to 0x728f0baf79ebdfa336978c90f244324a0ba7bcff: counterparty not identified (DESIGN \u00a79 R10)": 1,
+  "lending: wallet is the borrower (DESIGN v1.3 \u00a79 R8 covers the lender only)": 2
+ },
+ "spam_rows_pnl_excluded": 339,
+ "untracked_rows_pnl_excluded": 53,
+ "untracked_txs": 46,
+ "open_escrow": [],
+ "lots": {
+  "lots": 82,
+  "pending_lots": 81,
+  "manual_lots": 0,
+  "basis_usdc_total_excl_pending": "99.961238"
+ },
+ "wallet_sent_txs_with_non_allowlisted_token_legs": 0,
+ "ledger_rows": 1250,
+ "ledger_md5": "2d0a5a1637aca84fcdefe20bb2d2a469",
+ "review_rows": 4,
+ "review_md5": "3ddffcd8fdbc6ae464a9e8df848e6b90"
+}
