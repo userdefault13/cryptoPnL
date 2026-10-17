@@ -124,7 +124,7 @@ PRICE_POOLS = {8453: {
 DEX_MIN_QUOTE_USD = float(os.environ.get("DEX_MIN_QUOTE_USD", "1000"))
 # DefiLlama: free, no key. searchWidth (s) = max distance of the API point from the tx time (OPEN QUESTION; conservative default).
 DEFILLAMA_URL = os.environ.get("DEFILLAMA_URL", "https://coins.llama.fi")
-DEFILLAMA_SEARCH_WIDTH = int(os.environ.get("DEFILLAMA_SEARCH_WIDTH", "600"))
+DEFILLAMA_SEARCH_WIDTH = int(os.environ.get("DEFILLAMA_SEARCH_WIDTH", "3600"))   # observed GHST points 6-30 min apart
 API_RPS = float(os.environ.get("API_RPS", "1"))
 # Confidence label per source (proposal; OPEN QUESTION for the architect). Numbers via CONFIDENCE.
 PRICE_LABEL = {"numeraire": "high", "trade_usdc": "high", "dex_direct": "high", "dex_routed": "medium", "defillama": "medium"}
