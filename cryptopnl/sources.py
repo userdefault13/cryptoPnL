@@ -2,7 +2,8 @@
 The AarcadeGh$t proxy is a point-lookup source only (single-row responses); no Goldsky."""
 import os
 from .net import Limiter, post_json
-from .config import HYPERSYNC_RPM, RPC_RPS, RPC_BURST
+from .config import RPC_RPS, RPC_BURST
+from .hostlimit import hypersync_limiter
 TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 T1155S = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
 T1155B = "0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb"
@@ -29,7 +30,7 @@ class HyperSyncWalletLogs:
     _lim = None
     def __init__(self, url):
         self.url = url.rstrip("/") + "/query"
-        if HyperSyncWalletLogs._lim is None: HyperSyncWalletLogs._lim = Limiter(HYPERSYNC_RPM / 60.0)
+        if HyperSyncWalletLogs._lim is None: HyperSyncWalletLogs._lim = hypersync_limiter()   # host-wide flock budget (P3 step 1)
         self.headers = {"Authorization": "Bearer " + os.environ["ENVIO_API_TOKEN"]}
     def fetch(self, wallet, frm, to):
         """Yield (logs, blocks) pages for [frm, to] (inclusive) touching wallet."""
