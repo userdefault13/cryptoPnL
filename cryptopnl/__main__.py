@@ -13,6 +13,7 @@ elif a.cmd == "ingest":
     for w in a.wallet: ingest.ingest_wallet_txs(conn, a.chain, w)
     for w in a.wallet: ingest.ingest_parent_transfers(conn, a.chain, w)
     ingest.ingest_marketplace(conn, a.chain)
+    for w in a.wallet: ingest.ingest_tx_meta(conn, a.chain, w)   # RPC only
 elif a.cmd == "counts": print(json.dumps(ingest.counts(conn, a.chain)))
 elif a.cmd == "verify":
     t, ok, f = verify.verify(conn, a.chain); rc = 1 if f else (3 if t == 0 else 0)

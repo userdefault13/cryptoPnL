@@ -1,6 +1,6 @@
 """HTTP JSON with token-bucket rate limiting (rate + burst), Retry-After / exp. backoff + jitter on 429/5xx,
 and per-source counters incl. effective throughput."""
-import http.client, json, random, ssl, time, urllib.request, urllib.error
+import http.client, json, os, random, ssl, time, urllib.request, urllib.error
 STATS = {}
 _T0 = {}
 # NOTE: this limiter is PER PROCESS. The HyperSync budget (7/min for the MBP) is per HOST/account: run only one
@@ -22,12 +22,19 @@ def permanent(e):
     URLError wraps the real cause in .reason."""
     r = getattr(e, "reason", None) if isinstance(e, urllib.error.URLError) else e
     if isinstance(r, ssl.SSLError) and not isinstance(r, (ssl.SSLEOFError, ssl.SSLZeroReturnError)): return True
+    if isinstance(r, json.JSONDecodeError): return False   # HTML challenge/error page instead of JSON: transient
     return isinstance(r, (ssl.CertificateError, http.client.InvalidURL, ValueError))
+def _reqlog(name, outcome):
+    """Host-wide request log (NET_REQLOG=path): one line per HTTP attempt, '<unix_ts> <source> <outcome>'. Used to cite
+    HyperSync per-minute counts across processes (scripts/reqlog_summary.py)."""
+    f = os.environ.get("NET_REQLOG")
+    if f:
+        with open(f, "a") as fh: fh.write(f"{time.time():.3f} {name} {outcome}\n")
 def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sleep=time.sleep):
     st = STATS.setdefault(name, {"requests": 0, "ok": 0, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0})
     _T0.setdefault(name, time.monotonic())
     for attempt in range(retries):
-        limiter.wait(); st["requests"] += 1
+        limiter.wait(); st["requests"] += 1; _reqlog(name, "attempt")
         req = urllib.request.Request(url, json.dumps(body).encode(),
               {"content-type": "application/json", "user-agent": "cryptoPnL/p1", **(headers or {})})
         delay = None

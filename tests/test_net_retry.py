@@ -50,6 +50,13 @@ class TestPermanent(unittest.TestCase):
         self.assertEqual(self._calls(ssl.SSLCertVerificationError(1, "certificate verify failed")), (1, []))
     def test_bad_url(self):
         self.assertEqual(self._calls(http.client.InvalidURL("nonnumeric port")), (1, []))
+    def test_html_challenge_page_is_transient(self):
+        seq = ["<html>Just a moment...</html>"]; sleeps = []
+        def fake(req, timeout=None):
+            return Resp(seq.pop(0).encode() if seq else json.dumps({"ok": 1}).encode())
+        urllib.request.urlopen = fake
+        self.assertEqual(net.post_json("p_html", Lim(), "https://x", {}, _sleep=sleeps.append), {"ok": 1})
+        self.assertEqual(len(sleeps), 1)
     def test_ssl_eof_is_transient(self):
         seq = [urllib.error.URLError(ssl.SSLEOFError(8, "EOF occurred in violation of protocol"))]; sleeps = []
         def fake(req, timeout=None):

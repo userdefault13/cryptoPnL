@@ -137,6 +137,28 @@ def ingest_wallet_txs(conn, chain, address, log=print):
     conn.commit()
     log(json.dumps({"chain": chain, "wallet_id": wid, "source": src.name, "from": frm, "to": to, "txs_seen": seen, "inserted": inserted}))
 
+def ingest_tx_meta(conn, chain, address, log=print):
+    """P2 decisions: tx.from/to/selector for wallet-received mints (from 0x0) whose tx the wallet did not send/receive
+    (no 'tx' row): needed for the migration (bridge sender + selector) and bridge_in (tx.to = CCTP) rules.
+    Read-only RPC eth_getTransactionByHash (RPC limiter 1/s, burst 3); no HyperSync. raw_event kind 'tx_meta', log_index -3.
+    Idempotent: only hashes without a tx/tx_meta row; reorg rewind deletes these rows with their block."""
+    rpc = RPC(CHAINS[chain]["rpc"]); fetched = 0
+    todo = conn.execute("""SELECT DISTINCT ON (r.tx_hash) r.tx_hash, r.block_number, r.block_hash FROM raw_event r
+        WHERE r.chain_id=%s AND r.kind = ANY(%s) AND r.payload->>'from'=%s AND r.payload->>'to'=%s
+        AND NOT EXISTS (SELECT 1 FROM raw_event t WHERE t.chain_id=r.chain_id AND t.tx_hash=r.tx_hash AND t.kind IN ('tx','tx_meta'))
+        ORDER BY r.tx_hash""", (chain, ["erc20_transfer", "erc721_transfer", "erc1155_single", "erc1155_batch"],
+                                "0x" + "0" * 40, address.lower())).fetchall()
+    for th, bn, bh in todo:
+        t = rpc.call("eth_getTransactionByHash", [hx(th)])
+        if not t: continue
+        meta = {"from": t["from"].lower(), "to": (t.get("to") or "").lower() or None, "selector": (t.get("input") or "0x")[:10],
+                "value": str(h2i(t.get("value") or "0x0"))}
+        conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+            VALUES (%s,%s,-3,%s,%s,'rpc_txmeta','tx_meta',%s) ON CONFLICT DO NOTHING""", (chain, th, bn, bh, json.dumps(meta)))
+        fetched += 1
+    conn.commit()
+    log(json.dumps({"chain": chain, "source": "rpc_txmeta", "candidates": len(todo), "fetched": fetched}))
+
 def store_blocks(conn, chain, blocks):
     for x in blocks:
         ts = datetime.datetime.fromtimestamp(h2i(x["timestamp"]), datetime.timezone.utc)
