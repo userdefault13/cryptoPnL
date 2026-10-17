@@ -3,7 +3,7 @@
 Branch `p2.2-gotchiverse` (from main bed74e9). Spec: DESIGN.md **v1.3 §9** (box copy; the repo copy stays v1.0). Plan: docs/P2_2_PLAN.md.
 Times are PDT (America/Los_Angeles). Test wallet redacted as `<TEST_WALLET>`.
 
-## Runs
+## Runs (before the PR #5 review fixes; superseded once `scripts/p2_2_rerun.sh` runs, see the review section below)
 - `scripts/p2_2_test.sh` on DB copies `cryptopnl_p22_base` / `cryptopnl_p22_sep` (made with `createdb -T` from the P2.1 evidence DBs, which are not written).
   The runs were one chain at a time under nohup, with every HyperSync request going through the host lock. Code at 35e3dbf.
 - Base 8453 (final run, 01:07–01:14): **99.517 % classified (825 / 829 wallet txs), 4 in review.** classify ×2: identical ledger
@@ -53,3 +53,24 @@ MintInstallations qty override, bounce gate and ERC721 buy-order placement 0x6fe
 
 ## Tests
 `tests/test_gotchiverse.py`: 11 tests. Full suite: 53 tests, OK (1 skipped).
+
+## PR #5 review (architect: CHANGES requested at 4a3426b), fixes at 4b6c746..99fe329
+DESIGN.md in the repo is now the architect's v1.3, copied verbatim (e2abb9e, sha256 03675eb3…). All evidence below is read-only.
+- **B1 buy-now double count:** auction ids are de-duplicated, because real 0x271109cf… (auction 5637) emits both Auction_BoughtNow and Auction_ItemClaimed.
+  The seller-paid-by-buy-now and buyer tests now use that shape (both events).
+- **B2 batch crafts:** batchCraftInstallations 0xe9332638 (Installation diamond) and batchCraftTiles 0xfdc6d919 (Tile diamond) were added, plus the claim selectors claimInstallations 0x763b948a /
+  claimTiles 0xa185cc01 and reduceCraftTime 0xe0d20147. All are live: DiamondLoupe `facetAddress(bytes4)` eth_call on Base returns facets 0x6eab691f… / 0xc4f58280…,
+  and the cross-checks return 0x0 (e.g. 0xfdc6d919 on the Installation diamond). openchain gives the names. Free batch crafts → `craft` (`craft:instant:free`), not income.
+- **B3 queue refs:** `craft:queue:<contract>:<id>` per leg. A claim takes the id from MintInstallation / MintTile data (owner = wallet, type = token id) among that
+  diamond's QueueClaimed ids. Several queues in one craft tx → a `;`-joined ref (P4 splits the cost). Tests cover Installation q7 vs Tile q7 and one claim covering q7 + q8.
+- **R7 revenue claims by the borrower/operator:** an ingest selection pulls those txs. The lender comes from the tuple decode, not wallet topics. These are booked as income for the lender, following DESIGN v1.3's "→ income for the lender".
+- **reduceCraftTime:** GLTR burnFrom → 0x0 is accepted as craft cost and lands in `craft_pending` under the queue's ref.
+- **Pocket (confirmed):** custody at `pocket:<gotchiId>`; see KNOWN_GAPS #18. `gotchiEscrow(3033)` = 0x728f0baf… by RPC.
+- **Quantity:** the override is removed. Per (contract, id), the wallet's minted amounts must match MintInstallations/MintTiles for owner = wallet (multiset); a mismatch → review.
+- **Migration 008:** wrapped in BEGIN/COMMIT, with the new `gotchi_escrow` table. Migrate → rollback round trip checked on a scratch DB.
+- **Nits:** bounce-gate updates (EventPriorityAndDurationUpdated, GLTR → 0xFFfF) → `spend` (`bounce:event:<id>:update`). Parcels are cleared when a parcel leaves (an escrow_out to GBM keeps the bundle).
+  The upgrade queue index is carried (KNOWN_GAPS #23). Pool add-liquidity is classified (KNOWN_GAPS #25).
+- **Unit tests:** 64 OK (1 skipped), with 22 in tests/test_gotchiverse.py. Run on the box with a local Postgres 17 and Python 3.13.
+- **Base / Sepolia rerun: PENDING.** The DB copies, abra token and host HyperSync lock are on the builder Mac, which went offline at about 01:30 PDT.
+  The commands are `git pull` then `abra run cryptoPnL -k ENVIO_API_TOKEN -- nohup scripts/p2_2_rerun.sh > logs/p2_2_rerun.log 2>&1 &`.
+  Expected on Base: 828/829, with only the internal-ETH gap left in review.
