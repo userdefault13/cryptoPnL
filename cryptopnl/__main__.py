@@ -2,9 +2,10 @@ import argparse, json, sys
 from . import db, ingest, verify, classify
 from .net import STATS
 p = argparse.ArgumentParser(prog="cryptopnl")
-p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report"])
+p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report", "lots", "set-basis"])
 p.add_argument("--chain", type=int, default=84532)
 p.add_argument("--wallet", action="append", default=[])
+p.add_argument("--lot", type=int); p.add_argument("--basis-usdc"); p.add_argument("--acquired-at")
 a = p.parse_args(); conn = db.connect(); rc = 0
 if a.cmd == "migrate": print(json.dumps({"applied": db.migrate(conn)}))
 elif a.cmd == "ingest":
@@ -22,4 +23,11 @@ elif a.cmd == "classify": classify.classify(conn, a.chain); print(json.dumps(cla
 elif a.cmd == "classify-report":
     r = classify.report(conn, a.chain); print(json.dumps(r, indent=1))
     rc = 0 if r["pass_98"] else 1
+elif a.cmd == "lots":   # migration lots + basis status (pending = unknown basis, excluded from PnL totals)
+    for r in conn.execute("""SELECT f.id, encode(l.tx_hash,'hex'), l.log_index, '0x'||encode(s.contract,'hex'), s.token_id, f.qty_remaining,
+        f.basis_status, f.basis_usdc, f.basis_price_source, f.chain_origin FROM fifo_lot f JOIN ledger_entry l ON l.id=f.open_entry_id
+        JOIN asset s ON s.id=f.asset_id WHERE l.chain_id=%s ORDER BY f.id""", (a.chain,)):
+        print(json.dumps([str(x) if x is not None else None for x in r]))
+elif a.cmd == "set-basis":   # user_default's manual basis: price_source=manual, confidence low (DESIGN §8)
+    classify.set_manual_basis(conn, a.lot, a.basis_usdc, a.acquired_at); print(json.dumps({"lot": a.lot, "basis_status": "manual"}))
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)
