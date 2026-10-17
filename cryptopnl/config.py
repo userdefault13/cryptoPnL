@@ -58,3 +58,17 @@ DEX_ROUTERS = {8453: {"0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",   # Uniswap 
                       "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7",   # Uniswap v4 UniversalRouterV2.1.1 (blockscout tag, P2 hand check)
                       "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43",   # Aerodrome Router
                       "0x6cb442acf35158d5eda88fe602221b67b400be3e"}}  # Aerodrome Universal Router
+
+# P2 review (DESIGN v1.2 §8). Escrow diamonds: GHST sent here on order placement / bid is custody (escrow_out).
+ESCROW = {8453: {"baazaar": "0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "gbm": "0x80320a0000c7a6a34086e2acad6915ff57ffda31"}}
+# Baazaar buy-order placement selectors (observed: 0x4cc4a386 in 0x2a01e94f…5cc8, which emits ERC1155BuyOrderAdd id 327
+# per Blockscout logs). The BuyOrderAdd/Cancel events are not ingested yet; fills link to escrow by FIFO amount + order id.
+BUYORDER_PLACE_SELECTORS = {"0x4cc4a386"}
+# Polygon->Base re-mints: mints from 0x0 of these contracts, in txs NOT sent by the wallet, inside the window, are
+# migration_in. Window = first/last re-mint block observed in our Base data (33,205,609 .. 34,000,138; 0x1f6395ee…60c2 is
+# mintAavegotchiBridged per Blockscout). End bound is data-derived: architect to confirm.
+MIGRATION_REMINT = {8453: {"window": (33_200_000, 34_000_138), "chain_origin": 137,
+                           "contracts": {"0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "0x052e6c114a166b0e91c2340370d72d4c33752b4b",
+                                         "0x50af2d63b839aa32b4166fd1cb247129b715186c", "0x4b0040c3646d3c44b8a28ad7055cfcf536c05372",
+                                         "0xebba5b725a2889f7f089a6cae0246a32cad4e26b", "0x617fdb8093b309e4699107f48812b407a7c37938"}}}
+MANUAL_CONFIDENCE = 0.2   # DESIGN §8 "confidence = low" for manual basis entries
