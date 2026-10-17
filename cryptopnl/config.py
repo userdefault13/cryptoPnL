@@ -77,15 +77,19 @@ MIGRATION_REMINT = {8453: {
         "0x506ccb27": "0x50af2d63b839aa32b4166fd1cb247129b715186c",   # Forge
         "0x0d51a188": "0x4b0040c3646d3c44b8a28ad7055cfcf536c05372",   # REALM
         "0x9110d148": "0xebba5b725a2889f7f089a6cae0246a32cad4e26b",   # Installations
-        "0x91b06c6e": "0x617fdb8093b309e4699107f48812b407a7c37938"},  # Tiles
+        "0x91b06c6e": "0x617fdb8093b309e4699107f48812b407a7c37938",   # Tiles
+        "0x5e41ee65": "0xab59ca4a16925b0a4bac5026c94beb20a29df479"},  # FAKE Gotchis mintBatch: THIS contract only (architect, 3c8b056)
     "contracts": {"0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "0x052e6c114a166b0e91c2340370d72d4c33752b4b",
                   "0x50af2d63b839aa32b4166fd1cb247129b715186c", "0x4b0040c3646d3c44b8a28ad7055cfcf536c05372",
-                  "0xebba5b725a2889f7f089a6cae0246a32cad4e26b", "0x617fdb8093b309e4699107f48812b407a7c37938"}}}
+                  "0xebba5b725a2889f7f089a6cae0246a32cad4e26b", "0x617fdb8093b309e4699107f48812b407a7c37938",
+                  "0xab59ca4a16925b0a4bac5026c94beb20a29df479"}}}   # + FakeGotchisNFTDiamond (getCode 4619 B, name "FAKE Gotchis", ERC721)
 # Circle CCTP on Base (domain 6), official docs fetched 2026-10-16. bridge_in requires tx.to in this set.
 #  V1 (legacy) https://developers.circle.com/cctp/v1/evm-smart-contracts : TokenMessenger 0x1682Ae63…8962, MessageTransmitter 0xAD09780d…F9D4
 #  V2 https://developers.circle.com/cctp/references/contract-addresses  : TokenMessengerV2 0x28b5a0e9…cf5d, MessageTransmitterV2 0x81D40F21…4B64
-CCTP = {8453: {"0x1682ae6375c4e4a97e4b583bc394c861a46d8962", "0xad09780d193884d503182ad4588450c416d6f9d4",
-               "0x28b5a0e9c621a5badaa536219b3a228c8168cf5d", "0x81d40f21f12a8f0e3252bccb954d722d4c464b64"}}
+# Only the MessageTransmitters (they call mint on receiveMessage); TokenMessengers dropped (architect, 3c8b056).
+#  V1 MessageTransmitter: https://developers.circle.com/cctp/v1/evm-smart-contracts
+#  V2 MessageTransmitterV2: https://developers.circle.com/cctp/references/contract-addresses
+CCTP = {8453: {"0xad09780d193884d503182ad4588450c416d6f9d4", "0x81d40f21f12a8f0e3252bccb954d722d4c464b64"}}
 CCTP_TOKENS = {8453: {"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6}}   # USDC (Circle-minted) -> decimals for the par basis
 CONFIDENCE = {"high": 1.0, "medium": 0.6, "low": 0.2}   # label -> number (architect, PR #3)
 MANUAL_CONFIDENCE = 0.2   # = CONFIDENCE["low"] (DESIGN §8 manual basis)
