@@ -83,8 +83,8 @@ MIGRATION_REMINT = {8453: {
     "contracts": {"0xa99c4b08201f2913db8d28e71d020c4298f29dbf", "0x052e6c114a166b0e91c2340370d72d4c33752b4b",
                   "0x50af2d63b839aa32b4166fd1cb247129b715186c", "0x4b0040c3646d3c44b8a28ad7055cfcf536c05372",
                   "0xebba5b725a2889f7f089a6cae0246a32cad4e26b", "0x617fdb8093b309e4699107f48812b407a7c37938",
-                  "0xab59ca4a16925b0a4bac5026c94beb20a29df479",
-                  "0xe46b8902dad841476d9fee081f1d62ae317206a9"}}}   # + FakeGotchisCardDiamond (getCode 4619 B, ERC165 ERC1155, no name(); P2.1)   # + FakeGotchisNFTDiamond (getCode 4619 B, name "FAKE Gotchis", ERC721)
+                  "0xab59ca4a16925b0a4bac5026c94beb20a29df479",   # + FakeGotchisNFTDiamond (getCode 4619 B, name "FAKE Gotchis", ERC721)
+                  "0xe46b8902dad841476d9fee081f1d62ae317206a9"}}}   # + FakeGotchisCardDiamond (getCode 4619 B, ERC165 ERC1155, no name(), uri(0)="0"; P2.1)
 # Circle CCTP on Base (domain 6), official docs fetched 2026-10-16. bridge_in requires tx.to in this set.
 #  V1 (legacy) https://developers.circle.com/cctp/v1/evm-smart-contracts : TokenMessenger 0x1682Ae63…8962, MessageTransmitter 0xAD09780d…F9D4
 #  V2 https://developers.circle.com/cctp/references/contract-addresses  : TokenMessengerV2 0x28b5a0e9…cf5d, MessageTransmitterV2 0x81D40F21…4B64
