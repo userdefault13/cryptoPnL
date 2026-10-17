@@ -110,6 +110,8 @@ def escrow_rule(chain, w, tx, legs, market, esc):
         if len(g_out) + len(g_in) + len(g_nft) != len(legs): raise Review("gbm escrow legs mixed with other legs")
         bids_w = sorted({t_int(m, 1) for m in ev("Auction_BidPlaced", gbm) if t_addr(m, 2) == w})
         bid_any = {t_int(m, 1) for m in ev("Auction_BidPlaced", gbm)}
+        # a cancelled auction refunds its highest bid (+ incentive): real 0x9248c703… (AuctionCancelled 5613, 0.5 GHST bid + 0.025)
+        bid_any |= {t_int(m, 1) for m in ev("AuctionCancelled", gbm)}
         claims = sorted({t_int(m, 1) for m in ev("Auction_ItemClaimed", gbm)})
         out, cat = [], None
         for l in g_in:                                  # refunds first: they release the previous (own) bid
