@@ -112,7 +112,7 @@ class HyperSyncWalletTxs(HyperSyncWalletLogs):
             b = nb
 
 class HyperSyncWalletGV(HyperSyncWalletLogs):
-    """P2.2 (DESIGN v1.3 §9): every log of wallet-sent txs (join_mode 1 = JoinAll) plus logs of txs that carry a wallet-topic
+    """P2.2 (DESIGN v1.3 §9): every log of wallet-sent txs (join_mode "JoinAll") plus logs of txs that carry a wallet-topic
     Gotchiverse/marketplace/lending event or an Installation/Tile/Aavegotchi token move to/from the wallet (JoinAll pulls the whole tx,
     e.g. a finalize or claim sent by someone else). Shares the host HyperSync lock (<= 5/min)."""
     name = "hypersync_gv"
@@ -126,7 +126,7 @@ class HyperSyncWalletGV(HyperSyncWalletLogs):
                     {"address": nft, "topics": [[T1155S, T1155B], [], [], [t]]}, {"address": nft, "topics": [[T1155S, T1155B], [], [t]]},
                     {"address": nft, "topics": [[TRANSFER], [t]]}, {"address": nft, "topics": [[TRANSFER], [], [t]]}]
         while b <= to:
-            q = {"from_block": b, "to_block": to + 1, "join_mode": 1, "transactions": [{"from": [wallet.lower()]}], "logs": logs_sel,
+            q = {"from_block": b, "to_block": to + 1, "join_mode": "JoinAll", "transactions": [{"from": [wallet.lower()]}], "logs": logs_sel,
                  "field_selection": {"log": ["block_number", "block_hash", "transaction_hash", "log_index", "address",
                                              "topic0", "topic1", "topic2", "topic3", "data"],
                                      "block": ["number", "hash", "timestamp"]}}
