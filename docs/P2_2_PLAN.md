@@ -19,7 +19,7 @@ Scope = classification only. Prices at the craft/upgrade/refund blocks are P3. B
 ## Steps (small commits, pushed)
 1. Plan (this file).
 2. Ingest: new HyperSync source `hypersync_gv` per wallet (sync_cursor), under the host lock (≤ 5/min, nohup):
-   wallet-sent txs with `join_mode` 1 (JoinAll: every log of those txs), plus wallet-topic selections for ERC721/1155ExecutedToRecipient
+   wallet-sent txs with `join_mode` "JoinAll" (every log of those txs; the JSON API rejects the int form), plus wallet-topic selections for ERC721/1155ExecutedToRecipient
    (recipient), GotchiLending* (lender / borrower), and Installation/Tile TransferSingle/Batch to the wallet (pulls the finalize/claim txs others send).
    Only logs whose topic0 is in GV_TOPICS are stored (raw_event kind `gv_<Event>`); transfers/market rows already exist (PK = tx, log_index).
 3. Classifier rules 1–10 (§9), each with a test. Unclear cases go to review, never guessed:
