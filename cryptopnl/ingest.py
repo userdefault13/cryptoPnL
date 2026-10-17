@@ -1,7 +1,7 @@
 import json, os, datetime
 from .db import b, hx
-from .sources import RPC, HyperSyncWalletTxs, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
-from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES
+from .sources import RPC, HyperSyncWalletGV, HyperSyncWalletTxs, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
+from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES, GV, GV_TOPICS
 
 def addr_of(topic): return "0x" + topic[-40:].lower()
 def words(data):
@@ -249,3 +249,38 @@ def simulate_reorg(conn, chain, n=3):
     conn.execute("UPDATE sync_cursor c SET last_block_hash=%s FROM wallet w WHERE w.id=c.wallet_id AND w.chain_id=%s", (os.urandom(32), chain))
     conn.execute("UPDATE sync_cursor_global SET last_block_hash=%s WHERE chain_id=%s", (os.urandom(32), chain))
     conn.commit(); return nums
+
+
+def ingest_gv(conn, chain, address, log=print):
+    """P2.2: Gotchiverse/lending/marketplace-recipient logs for the wallet (HyperSyncWalletGV). Only logs whose topic0 is in GV_TOPICS
+    are stored, as raw_event kind 'gv_<Event>' with the real log_index (transfers and market_* rows of the same log already exist and
+    win on the (tx, log_index) key). Aavegotchi-diamond TransferTo/FromParent (wearables) stay with ingest_parent_transfers.
+    Cursor: sync_cursor(source hypersync_gv, wallet). Idempotent."""
+    gv = GV.get(chain)
+    if not gv: log(json.dumps({"chain": chain, "gv": "none configured"})); return
+    cfg = CHAINS[chain]; rpc = RPC(cfg["rpc"]); src = HyperSyncWalletGV(cfg["hypersync"])
+    wid = wallet_id(conn, chain, address); reorg_check(conn, chain, rpc, log)
+    cur = conn.execute("SELECT last_block FROM sync_cursor WHERE source=%s AND wallet_id=%s", (src.name, wid)).fetchone()
+    frm = (cur[0] + 1) if cur else gv["start_block"]; to = rpc.safe_head(); seen = inserted = 0
+    if frm <= to:
+        for logs, blocks in src.fetch(address, frm, to, gv, GV_TOPICS):
+            store_blocks(conn, chain, blocks)
+            for l in logs:
+                ev = GV_TOPICS.get(l.get("topic0"))
+                if not ev or h2i(l["block_number"]) > to: continue
+                if ev in ("TransferToParent", "TransferFromParent") and l["address"].lower() == gv["aavegotchi"]: continue
+                seen += 1
+                payload = {"contract": l["address"].lower(), "event": ev,
+                           "topics": [l.get(k) for k in ("topic0", "topic1", "topic2", "topic3") if l.get(k)], "data": l.get("data")}
+                inserted += conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                    (chain, b(l["transaction_hash"]), h2i(l["log_index"]), h2i(l["block_number"]), b(l["block_hash"]), src.name,
+                     "gv_" + ev, json.dumps(payload))).rowcount
+            if src.covered >= frm:
+                n, h, _ = rpc.block(src.covered)
+                conn.execute("""INSERT INTO sync_cursor(source,wallet_id,last_block,last_block_hash,updated_at) VALUES (%s,%s,%s,%s,now())
+                    ON CONFLICT (source,wallet_id) DO UPDATE SET last_block=EXCLUDED.last_block, last_block_hash=EXCLUDED.last_block_hash, updated_at=now()""",
+                    (src.name, wid, n, b(h)))
+            conn.commit()
+        if src.covered < to: log(json.dumps({"warn": "hypersync gv scan stopped early", "requested_to": to, "covered_to": src.covered}))
+    log(json.dumps({"chain": chain, "wallet_id": wid, "source": src.name, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
