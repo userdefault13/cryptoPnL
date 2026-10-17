@@ -91,3 +91,21 @@ class HyperSyncParentTransfers(HyperSyncWalletLogs):
                    [x for d in r.get("data", []) for x in (d.get("blocks") or [])])
             if nb <= b: break
             b = nb
+
+class HyperSyncWalletTxs(HyperSyncWalletLogs):
+    """P2: transactions sent from / to the wallet (gas, native value, status). Shares the 7/min limiter."""
+    name = "hypersync_tx"
+    def fetch(self, wallet, frm, to):
+        b = frm; self.covered = frm - 1; w = wallet.lower()
+        while b <= to:
+            q = {"from_block": b, "to_block": to + 1, "transactions": [{"from": [w]}, {"to": [w]}],
+                 "field_selection": {"transaction": ["hash", "block_number", "block_hash", "transaction_index", "from", "to",
+                                                     "value", "gas_used", "effective_gas_price", "l1_fee", "status", "input"],
+                                     "block": ["number", "hash", "timestamp"]}}
+            r = post_json("hypersync", self._lim, self.url, q, self.headers)
+            nb = r["next_block"]
+            if nb > b: self.covered = min(nb - 1, to)
+            yield ([t for d in r.get("data", []) for t in (d.get("transactions") or [])],
+                   [x for d in r.get("data", []) for x in (d.get("blocks") or [])])
+            if nb <= b: break
+            b = nb
