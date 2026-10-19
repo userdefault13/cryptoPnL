@@ -28,16 +28,44 @@ def gv_rule(chain, w, tx, legs, market, esc, L, Review):
 
 # R10 (PR #5 review): 0xeae2fb93… is the Aerodrome FUD/GHST POOL (its own LP token), not a router. A plain add-liquidity (inputs -> pool,
 # LP minted from 0x0 to the wallet) disposes the inputs at the block price (category swap, priced in P3) and the LP token is untracked.
-# Anything else touching the pool (swaps through it, LP burns/transfers) -> review.
+# R10b (KNOWN_GAPS #25 plan, speculative pending architect ack): direct/multi-hop pool swaps -> swap (pool_swap:<pool>);
+# LP stake/unstake to a non-zero non-burn address -> transfer_internal at gauge:<addr>. Else -> review.
 def r10_pool(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost_to, L, Review):
     pool = g.get("aero_fud_ghst_pool")
     if not pool or not any(l.get("cp") == pool or l["contract"] == pool for l in legs): return None
-    lp = [l for l in legs if l["contract"] == pool and l["qty"] > 0 and l.get("cp") == ZERO]
+    burn = g.get("burn", "0xffffffffffffffffffffffffffffffffffffffff")
+    lp_mint = [l for l in legs if l["contract"] == pool and l["qty"] > 0 and l.get("cp") == ZERO]
     ins = [l for l in fung if l["contract"] != pool and l["qty"] < 0 and l.get("cp") == pool]
-    if sent and len(lp) == 1 and ins and len(lp) + len(ins) == len(legs):
+    if sent and len(lp_mint) == 1 and ins and len(lp_mint) + len(ins) == len(legs):
         ref = f"lp_add:{pool}"
-        return "swap", [L(l, "swap", ref=ref) for l in ins] + [L(lp[0], "untracked", ref=ref)], []
-    raise Review(f"Aerodrome FUD/GHST pool {pool}: not a plain add-liquidity (DESIGN §9 R10: pool, not a router)")
+        return "swap", [L(l, "swap", ref=ref) for l in ins] + [L(lp_mint[0], "untracked", ref=ref)], []
+    # R10b: no NFT legs; LP token moves are stake/unstake (or burn -> review), not swaps.
+    if nfts:
+        raise Review(f"Aerodrome FUD/GHST pool {pool}: NFT legs with pool (DESIGN §9 R10/R10b)")
+    lp_legs = [l for l in fung if l["contract"] == pool]
+    non_lp = [l for l in fung if l["contract"] != pool]
+    if not lp_legs and sent and non_lp:
+        to_pool = [l for l in non_lp if l["qty"] < 0 and l.get("cp") == pool]
+        from_pool = [l for l in non_lp if l["qty"] > 0 and l.get("cp") == pool]
+        outs = [l for l in non_lp if l["qty"] < 0]
+        inns = [l for l in non_lp if l["qty"] > 0]
+        ref = f"pool_swap:{pool}"
+        # Direct: exactly one token to the pool and one different token from the pool.
+        if len(to_pool) == 1 and len(from_pool) == 1 and len(non_lp) == 2 and to_pool[0]["contract"] != from_pool[0]["contract"]:
+            return "swap", [L(l, "swap", ref=ref) for l in non_lp], []
+        # Multi-hop: fungible out + in, pool is a counterparty on at least one leg (real 0xa51f0359…).
+        if outs and inns and any(l.get("cp") == pool for l in non_lp) and len(non_lp) == len(legs):
+            return "swap", [L(l, "swap", ref=ref) for l in non_lp], []
+    if sent and lp_legs and not non_lp and len(lp_legs) == len(legs):
+        # LP stake (out to gauge) / unstake (back from gauge). Burn / self / pool -> review.
+        if len(lp_legs) != 1:
+            raise Review(f"Aerodrome FUD/GHST pool {pool}: multiple LP legs (DESIGN §9 R10b)")
+        l = lp_legs[0]; gauge = l.get("cp")
+        if not gauge or gauge in (ZERO, pool, burn):
+            raise Review(f"Aerodrome FUD/GHST pool {pool}: LP burn or unknown counterparty (DESIGN §9 R10b)")
+        loc = f"gauge:{gauge}"
+        return "transfer_internal", [L(l, "transfer_internal", ref=loc), L(l, "transfer_internal", loc=loc, qty=-l["qty"], ref=loc)], []
+    raise Review(f"Aerodrome FUD/GHST pool {pool}: not a plain add-liquidity / R10b swap or LP stake (DESIGN §9 R10)")
 
 # R1: NFT received as listing recipient (ExecutedToRecipient, recipient = wallet, buyer != wallet) with no wallet payment -> gift_in
 def r1_gift(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost_to, L, Review):

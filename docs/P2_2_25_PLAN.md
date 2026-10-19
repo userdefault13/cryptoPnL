@@ -1,6 +1,8 @@
 # P2.2 / KNOWN_GAPS #25 plan: Aerodrome FUD/GHST pool beyond add-liquidity
 
-**Status:** draft for architect ack (architect rate-limited 2026-10-19). Do not merge rule changes until ack, or merge PR #5 with the 4 txs still in review.
+**Status:** **implemented on speculative branch `p2.2-r10b`** (2026-10-19), awaiting architect ack. Do not merge into `main` / PR #5 until ack. PR #5 can still merge with the 4 txs in review if preferred.
+
+**Speculative results (classify-only on `cryptopnl_p22_base`, no HyperSync):** Base **828 / 829 (99.879%)**, review = 1 (internal-ETH gap only). Evidence: `docs/evidence/p2_2_r10b_classify_8453.json`. Unit suite 69 OK.
 
 Branch `p2.2-gotchiverse`. Blocks Base from 824/829 → **828/829** (only the internal-ETH gap left). Spec today: DESIGN v1.3 §9 R10 — plain `lp_add` only; everything else touching pool `0xeae2fb93…` → review.
 
@@ -33,15 +35,15 @@ Keep R10 add-liquidity as written. Add **R10b** for the same pool (and, later, o
 
 **P2.1 parity:** (1)(2) restore `swap`; (3) upgrades P2.1 `untracked` to custody at `gauge:<addr>` so holdings stay correct. If the architect prefers P2.1 literal parity for (3), use `untracked` / `pnl_excluded` instead — call that out in ack.
 
-## Steps (small commits after ack)
+## Steps
 
-1. Plan (this file) — pushed for review while architect is rate-limited.
-2. Implement R10b in `cryptopnl/gotchiverse.py` `r10_pool` (ordered: `lp_add` → direct swap → multi-hop → LP stake/unstake → Review).
-3. Tests in `tests/test_gotchiverse.py`: shapes of the four real txs + negative (LP burn / mixed NFT → review). Extend existing `test_aerodrome_pool_add_liquidity_and_other_review`.
-4. Unit: `CRYPTOPNL_DSN=postgresql:///cryptopnl_unit_p22 ENVIO_API_TOKEN=x .venv/bin/python -m unittest discover tests`.
-5. Base rerun only: `abra run cryptoPnL -k ENVIO_API_TOKEN -- scripts/p2_2_test.sh 8453` on a fresh `cryptopnl_p22_base` copy. Expect **828/829**, review = internal-ETH only. Sepolia unchanged (no GV / no this pool).
-6. Docs: close KNOWN_GAPS #25; P2_2_RESULTS table + review list; DESIGN §9 R10b note (architect edits DESIGN, or builder copies ack text like R8b).
-7. STOP. No force-push. P3 still paused.
+1. ~~Plan (this file)~~ — on `p2.2-gotchiverse`.
+2. ~~Implement R10b in `cryptopnl/gotchiverse.py` `r10_pool`~~ — on `p2.2-r10b`.
+3. ~~Tests~~ — `test_aerodrome_pool_add_liquidity_and_r10b` (direct, multi-hop, gauge, onesided+burn → review).
+4. ~~Unit~~ — 69 OK (1 skipped) on builder Mac.
+5. ~~Classify-only proof on existing `cryptopnl_p22_base`~~ — **828/829**. Full HyperSync `p2_2_test.sh` optional after ack (ingest unchanged).
+6. Docs after ack: close KNOWN_GAPS #25; fold into P2_2_RESULTS; DESIGN §9 R10b (architect edits, or builder copies ack text like R8b).
+7. Merge path after ack: `p2.2-r10b` → `p2.2-gotchiverse` (or into `main` with #5). STOP until ack.
 
 ## Out of scope
 

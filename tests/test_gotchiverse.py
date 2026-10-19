@@ -259,14 +259,32 @@ class GV(unittest.TestCase):
         s = self.run_(); self.assertEqual(s["review"], 0)
         self.assertEqual(self.rows(h), [("income", "wallet", FUD, 3 * E18, "lending:revenue")])
 
-    def test_aerodrome_pool_add_liquidity_and_other_review(self):   # R10: 0xeae2fb93… is a pool (its own LP token), not a router
+    def test_aerodrome_pool_add_liquidity_and_r10b(self):   # R10 lp_add + R10b pool_swap / gauge (KNOWN_GAPS #25; real Base shapes)
         POOL = "0xeae2fb93e291c2eb69195851813de24f97f1ce71"
-        add = self.add(tx(W, "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43"), e20(FUD, W, POOL, 100 * E18), e20(GHST, W, POOL, E18), e20(POOL, ZERO, W, 7 * E18))
-        sw = self.add(tx(W, "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43"), e20(FUD, W, POOL, 10 * E18), e20(GHST, POOL, W, E18 // 10))
-        self.run_()
+        USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        HOP = "0x4e392fbfe4d0557c82d2f97f02ec39daa31516dd"
+        GAUGE = "0xab449dca14413a6ae0bcea9ea210b57ace280d2c"
+        ROUTER = "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43"
+        add = self.add(tx(W, ROUTER), e20(FUD, W, POOL, 100 * E18), e20(GHST, W, POOL, E18), e20(POOL, ZERO, W, 7 * E18))
+        # Direct GHST→FUD against the pool (real 0x374fdd85… / 0x88f750fc…)
+        direct = self.add(tx(W, W), e20(GHST, W, POOL, 3 * E18), e20(FUD, POOL, W, 39_000 * E18))
+        # Multi-hop: USDC out to a hop, FUD in from the pool (real 0xa51f0359…)
+        multi = self.add(tx(W, W), e20(USDC, W, HOP, 3_000_000), e20(FUD, POOL, W, 1_244_662 * E18))
+        # LP stake to gauge (real 0x061ba233…, selector 0xe2bbb158)
+        stake = self.add(tx(W, GAUGE, selector="0xe2bbb158"), e20(POOL, W, GAUGE, 100 * E18))
+        # Negatives: one-sided to pool, LP burn
+        onesided = self.add(tx(W, ROUTER), e20(GHST, W, POOL, E18))
+        burn = self.add(tx(W, POOL), e20(POOL, W, ZERO, E18))
+        s = self.run_(); self.assertEqual(s["review"], 2)
         self.assertEqual(self.rows(add), [("swap", "wallet", FUD, -100 * E18, f"lp_add:{POOL}"), ("swap", "wallet", GHST, -E18, f"lp_add:{POOL}"),
                                           ("untracked", "wallet", POOL, 7 * E18, f"lp_add:{POOL}")])
-        self.assertIn("pool", self.review(sw))
+        self.assertEqual(self.rows(direct), [("swap", "wallet", FUD, 39_000 * E18, f"pool_swap:{POOL}"),
+                                             ("swap", "wallet", GHST, -3 * E18, f"pool_swap:{POOL}")])
+        self.assertEqual(self.rows(multi), [("swap", "wallet", FUD, 1_244_662 * E18, f"pool_swap:{POOL}"),
+                                            ("swap", "wallet", USDC, -3_000_000, f"pool_swap:{POOL}")])
+        self.assertEqual(self.rows(stake), [("transfer_internal", f"gauge:{GAUGE}", POOL, 100 * E18, f"gauge:{GAUGE}"),
+                                            ("transfer_internal", "wallet", POOL, -100 * E18, f"gauge:{GAUGE}")])
+        self.assertIn("pool", self.review(onesided)); self.assertIn("pool", self.review(burn))
 
     def test_parcel_bundle_cleared_when_parcel_leaves(self):
         self.add(tx(W, REALM), e1155(INST, W, REALM, 10, 1), gv(INST, "TransferToParent", (REALM, 42, 10), (1,)))
