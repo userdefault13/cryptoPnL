@@ -1,3 +1,4 @@
+gv_AuctionCancelled|1
 gv_ERC1155BuyOrderAdd|1
 gv_ERC1155ExecutedToRecipient|4
 gv_GotchiLendingClaimedT|2
@@ -5,4 +6,5 @@ gv_GotchiLendingEndedT|2
 gv_GotchiLendingExecutedT|2
 gv_MintInstallation|95
 gv_MintInstallations|83
+gv_MintTile|138
 gv_MintTiles|359

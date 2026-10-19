@@ -1,6 +1,6 @@
 # P2.2 results: Gotchiverse classification (DESIGN v1.3 §9)
 
-Branch `p2.2-gotchiverse` (from main bed74e9). Spec: DESIGN.md **v1.3 §9** (box copy; the repo copy stays v1.0). Plan: docs/P2_2_PLAN.md.
+Branch `p2.2-gotchiverse` (from main bed74e9). Spec: DESIGN.md **v1.3 §9** (architect copy at e2abb9e). Plan: docs/P2_2_PLAN.md.
 Times are PDT (America/Los_Angeles). Test wallet redacted as `<TEST_WALLET>`.
 
 ## Runs (before the PR #5 review fixes; superseded by the final rerun in the review section below)
@@ -24,7 +24,7 @@ Times are PDT (America/Los_Angeles). Test wallet redacted as `<TEST_WALLET>`.
 | 0x74f55051230b7873bff03e5118c642189b308c6f6c5de70ce1a82da940513092 (id 56, FUD/FOMO 35/30/30/5) | nft_buy | craft | R3 |
 | 0x2d99c3469986d1da807289d330f8465c8bbeb4dd1bf4b883045dd84b6bf6dad4 (lend gotchi 954) | withdrawal | transfer_internal → `lent:<borrower>` | R8 |
 | 0x64f6712df870fc6e8c088d74caa06e272c805739dd47419b72225dc0a3938270 (gotchi 954 back) | deposit | transfer_internal ← `lent:<borrower>` | R8 |
-| 0x3a46db382e373e96997018dd9b1c996ff6e187667a48a71aa1d5cc1aed0b8442 (FUD depositERC20 → 0x728f0baf…) | withdrawal | review | R10 |
+| 0x3a46db382e373e96997018dd9b1c996ff6e187667a48a71aa1d5cc1aed0b8442 (FUD depositERC20 → 0x728f0baf…) | withdrawal | transfer_internal → `pocket:3033` | pocket |
 | 0xe7505b722e29f6587875c202de12960ef5816a33f8f64094554198684913d183 (borrow gotchi 10774, 0.2 GHST) | nft_buy | spend (GHST) + untracked (gotchi, `borrowed:<lender>`) | R8b |
 | 0xec5e558bb1cd3a6f8f296111ba915cd3cc36746f126426ee3eabccbcee177e79 (borrowed gotchi returned) | withdrawal | untracked (gotchi back to the lender) | R8b |
 No other Base tx changed. The migration-window MintInstallation(s)/MintTiles (blocks 33,999,872 / 34,000,138) stay migration_in.

@@ -1,0 +1,63 @@
+{
+ "chain": 8453,
+ "wallet_txs": 829,
+ "classified": 824,
+ "review": 5,
+ "classified_pct": 99.397,
+ "pass_98": true,
+ "txs_by_category": {
+  "untracked": 29,
+  "spam": 337,
+  "bridge_in": 1,
+  "auction": 4,
+  "transfer_internal": 6,
+  "fee": 280,
+  "deposit": 21,
+  "spend": 1,
+  "migration_in": 9,
+  "nft_buy": 10,
+  "escrow_out": 15,
+  "craft": 4,
+  "swap": 33,
+  "income": 6,
+  "escrow_return": 10,
+  "withdrawal": 58
+ },
+ "ledger_rows_by_category": {
+  "escrow_out": 30,
+  "bridge_in": 1,
+  "craft": 12,
+  "auction": 8,
+  "escrow_return": 20,
+  "untracked": 54,
+  "transfer_internal": 126,
+  "nft_buy": 23,
+  "swap": 56,
+  "spend": 1,
+  "fee": 445,
+  "deposit": 21,
+  "withdrawal": 60,
+  "income": 31,
+  "migration_in": 81,
+  "spam": 339
+ },
+ "review_reasons": {
+  "Aerodrome FUD/GHST pool 0xeae2fb93e291c2eb69195851813de24f97f1ce71: not a plain add-liquidity (DESIGN \u00a79 R10: pool, not a router)": 4,
+  "DEX router, fungible out only: native leg not indexed (internal ETH gap)": 1
+ },
+ "spam_rows_pnl_excluded": 339,
+ "untracked_rows_pnl_excluded": 54,
+ "untracked_txs": 47,
+ "open_escrow": [],
+ "lots": {
+  "lots": 82,
+  "pending_lots": 81,
+  "manual_lots": 0,
+  "basis_usdc_total_excl_pending": "99.961238"
+ },
+ "wallet_sent_txs_with_non_allowlisted_token_legs": 0,
+ "ledger_rows": 1308,
+ "ledger_md5": "96bab9e45257d5581c02afa3f047d1ac",
+ "review_rows": 5,
+ "review_md5": "1b8490807a4be4e856c8936bb8211580"
+}
