@@ -2,7 +2,7 @@
 Each rule returns (category, out_legs, ref_updates) or None, or raises Review when a Gotchiverse flow is recognised but does not fit.
 Events come from raw_event kinds market_* (bulk marketplace logs) and gv_* (ingest_gv); legs are the wallet's token moves.
 No prices here (P3); no basis carry, bundle PnL or location holdings maths (P4): only categories, locations and refs."""
-from .config import GV, GV_SEL
+from .config import GV, GV_SEL, gated
 
 def _ev(market, name, contract=None):
     return [m for m in market if m.get("event") == name and (contract is None or m.get("contract") == contract)]
@@ -18,6 +18,7 @@ def _li(m): return m.get("li", 0)
 def gv_rule(chain, w, tx, legs, market, esc, L, Review):
     g = GV.get(chain)
     if not g: return None
+    g = {**g, "_allow": gated(chain)}
     sent = bool(tx) and tx["from"] == w; to = (tx or {}).get("to"); sel = (tx or {}).get("selector")
     fung = [l for l in legs if l["std"] == "erc20"]; nfts = [l for l in legs if l["std"] in ("erc721", "erc1155")]
     items = (g["installation"], g["tile"]); cost_to = {g["realm"], g["pixelcraft"], g["dao"], g["burn"]}
@@ -26,18 +27,50 @@ def gv_rule(chain, w, tx, legs, market, esc, L, Review):
         if out: return out
     return None
 
-# R10 (PR #5 review): 0xeae2fb93… is the Aerodrome FUD/GHST POOL (its own LP token), not a router. A plain add-liquidity (inputs -> pool,
-# LP minted from 0x0 to the wallet) disposes the inputs at the block price (category swap, priced in P3) and the LP token is untracked.
-# Anything else touching the pool (swaps through it, LP burns/transfers) -> review.
+# R10 (DESIGN §9 R10 as widened by the architect on 2026-10-22, KNOWN_GAPS #25). 0xeae2fb93… is the Aerodrome FUD/GHST POOL (its own LP token),
+# not a router; the same rules apply to every pool in g["pricing_pools"]. LP tokens are never tracked (untracked, pnl_excluded, no lot).
+#  - add-liquidity: inputs -> pool + LP minted from 0x0 -> inputs `swap` disposals at the block price (ref lp_add:<pool>), LP untracked.
+#  - remove-liquidity: LP -> pool (or 0x0) + tokens from the pool -> LP burn untracked, tokens acquired at the block price (`swap`, ref lp_remove:<pool>).
+#  - direct or multi-hop swap with the pool as counterparty on a wallet leg: `swap` (ref pool_swap:<pool>); allowlisted legs at the block price,
+#    non-allowlisted wallet legs untracked; intermediate hops are not wallet legs and are ignored.
+#  - LP into / out of an allowlisted gauge (g["lp_gauges"]): untracked, no PnL. Rewards from the gauge: income if the token is allowlisted, else untracked.
+#  - anything else touching the pool (or LP moving anywhere else) -> review.
 def r10_pool(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost_to, L, Review):
-    pool = g.get("aero_fud_ghst_pool")
-    if not pool or not any(l.get("cp") == pool or l["contract"] == pool for l in legs): return None
-    lp = [l for l in legs if l["contract"] == pool and l["qty"] > 0 and l.get("cp") == ZERO]
-    ins = [l for l in fung if l["contract"] != pool and l["qty"] < 0 and l.get("cp") == pool]
-    if sent and len(lp) == 1 and ins and len(lp) + len(ins) == len(legs):
-        ref = f"lp_add:{pool}"
-        return "swap", [L(l, "swap", ref=ref) for l in ins] + [L(lp[0], "untracked", ref=ref)], []
-    raise Review(f"Aerodrome FUD/GHST pool {pool}: not a plain add-liquidity (DESIGN §9 R10: pool, not a router)")
+    pools = set(g.get("pricing_pools") or [g["aero_fud_ghst_pool"]]); gauges = set(g.get("lp_gauges", ()))
+    pool_hit = [p for p in pools if any(l.get("cp") == p or l["contract"] == p for l in legs)]
+    gauge_hit = any(l.get("cp") in gauges for l in fung)
+    if not pool_hit and not gauge_hit: return None
+    allow = g.get("_allow", set())
+    tracked = lambda l: l["contract"] in allow
+    what = f"pricing pool {pool_hit[0]}" if pool_hit else f"LP gauge {sorted(gauges)[0]}"
+    if nfts or len(pool_hit) > 1: raise Review(f"{what}: NFT legs or several pools in one tx (DESIGN §9 R10)")
+    lp = [l for l in fung if l["contract"] in pools]; other = [l for l in fung if l["contract"] not in pools]
+    if pool_hit:
+        pool = pool_hit[0]
+        mint = [l for l in lp if l["qty"] > 0 and l.get("cp") == ZERO]
+        burn = [l for l in lp if l["qty"] < 0 and l.get("cp") in (pool, ZERO)]
+        to_pool = [l for l in other if l["qty"] < 0 and l.get("cp") == pool]
+        from_pool = [l for l in other if l["qty"] > 0 and l.get("cp") == pool]
+        if sent and len(mint) == 1 and to_pool and len(mint) + len(to_pool) == len(legs):
+            ref = f"lp_add:{pool}"
+            return "swap", [L(l, "swap", ref=ref) for l in to_pool] + [L(mint[0], "untracked", ref=ref)], []
+        if sent and len(burn) == 1 and from_pool and len(burn) + len(from_pool) == len(legs):
+            ref = f"lp_remove:{pool}"
+            return "swap", [L(l, "swap" if tracked(l) else "untracked", ref=ref) for l in from_pool] + [L(burn[0], "untracked", ref=ref)], []
+        if sent and not lp and other and len(other) == len(legs) and any(l["qty"] < 0 for l in other) and any(l["qty"] > 0 for l in other) \
+                and (to_pool or from_pool) and any(tracked(l) for l in other):
+            ref = f"pool_swap:{pool}"
+            return "swap", [L(l, "swap" if tracked(l) else "untracked", ref=ref) for l in other], []
+    # gauge legs: the pool's LP staked/unstaked (untracked) and rewards from the gauge (income if allowlisted, else untracked)
+    if sent and gauge_hit and len(fung) == len(legs) and all(l.get("cp") in gauges for l in fung):
+        rewards = [l for l in other if l["qty"] > 0]
+        if not pool_hit and len(rewards) != len(other): return None   # another LP token staked (e.g. 0x89d68cf4…): normal rules
+        if pool_hit and len(rewards) != len(other): raise Review(f"{what}: non-LP token sent to the gauge (DESIGN §9 R10)")
+        out = [L(l, "untracked", ref=f"gauge:{l['cp']}") for l in lp]
+        out += [L(l, "income" if tracked(l) else "untracked", ref=f"gauge:{l['cp']}:reward") for l in rewards]
+        return ("income" if any(tracked(l) for l in rewards) else "untracked"), out, []
+    if not pool_hit: return None
+    raise Review(f"Aerodrome {what}: not add/remove-liquidity, a swap or an LP gauge move (DESIGN §9 R10)")
 
 # R1: NFT received as listing recipient (ExecutedToRecipient, recipient = wallet, buyer != wallet) with no wallet payment -> gift_in
 def r1_gift(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost_to, L, Review):

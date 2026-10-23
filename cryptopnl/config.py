@@ -109,6 +109,11 @@ GV = {8453: {
                   "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"},
     # Aerodrome FUD/GHST volatile pool (PoolFactory.getPool(FUD, GHST, false)); the pool is its own LP token. NOT a router (§9 R10 correction)
     "aero_fud_ghst_pool": "0xeae2fb93e291c2eb69195851813de24f97f1ce71",
+    # widened R10 (architect, 2026-10-22): allowlisted pricing pools (swaps through them are swaps) and LP staking contracts ("gauges").
+    "pricing_pools": ["0xeae2fb93e291c2eb69195851813de24f97f1ce71"],   # Aerodrome FUD/GHST (PoolFactory.getPool(FUD, GHST, false))
+    # 0xab449dca… = Aavegotchi GLTR staking farm (Diamond; reward token getter 0xf7c618c1 -> GLTR; deposit(pid, amount) 0xe2bbb158).
+    # Read-only check 2026-10-22: Aerodrome Voter 0x16613524….gauges(pool) = 0x0 and isGauge(0xab449dca…) = false, so it is not an Aerodrome gauge.
+    "lp_gauges": ["0xab449dca14413a6ae0bcea9ea210b57ace280d2c"],
     # alchemicaCost[4] order of the type getters (symbol() on Base): FUD, FOMO, ALPHA, KEK
     "alchemica_order": ["0x2028b4043e6722ea164946c82fe806c4a43a0ff4", "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58",
                         "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"],

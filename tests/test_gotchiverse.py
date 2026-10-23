@@ -259,14 +259,36 @@ class GV(unittest.TestCase):
         s = self.run_(); self.assertEqual(s["review"], 0)
         self.assertEqual(self.rows(h), [("income", "wallet", FUD, 3 * E18, "lending:revenue")])
 
-    def test_aerodrome_pool_add_liquidity_and_other_review(self):   # R10: 0xeae2fb93… is a pool (its own LP token), not a router
-        POOL = "0xeae2fb93e291c2eb69195851813de24f97f1ce71"
-        add = self.add(tx(W, "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43"), e20(FUD, W, POOL, 100 * E18), e20(GHST, W, POOL, E18), e20(POOL, ZERO, W, 7 * E18))
-        sw = self.add(tx(W, "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43"), e20(FUD, W, POOL, 10 * E18), e20(GHST, POOL, W, E18 // 10))
-        self.run_()
+    def test_aerodrome_pool_widened_r10(self):   # R10 widened (architect 2026-10-22, KNOWN_GAPS #25); shapes of the real Base txs
+        POOL = "0xeae2fb93e291c2eb69195851813de24f97f1ce71"; ROUTER = "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43"
+        USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; HOP = "0x4e392fbfe4d0557c82d2f97f02ec39daa31516dd"
+        FARM = "0xab449dca14413a6ae0bcea9ea210b57ace280d2c"; GLTR = "0x4d140ce792bedc430498c2d219afbc33e2992c9d"
+        AERO = "0x940181a94a35a4569e4529a3cdfb74e38fd98631"; LP2 = "0x62ab7d558a011237f8a57ac0f97601a764e85b88"
+        add = self.add(tx(W, ROUTER), e20(FUD, W, POOL, 100 * E18), e20(GHST, W, POOL, E18), e20(POOL, ZERO, W, 7 * E18))
+        direct = self.add(tx(W, ROUTER), e20(GHST, W, POOL, 3 * E18), e20(FUD, POOL, W, 39_000 * E18))         # 0x374fdd85… / 0x88f750fc…
+        multi = self.add(tx(W, ROUTER), e20(USDC, W, HOP, 3_000_000), e20(FUD, POOL, W, 1_244_662 * E18))       # 0xa51f0359…: hop ignored
+        junk = self.add(tx(W, ROUTER), e20(AERO, W, POOL, E18), e20(FUD, POOL, W, 5 * E18))                     # non-allowlisted leg untracked
+        stake = self.add(tx(W, FARM, selector="0xe2bbb158"), e20(POOL, W, FARM, 100 * E18))                     # 0x061ba233…
+        unstake = self.add(tx(W, FARM), e20(POOL, FARM, W, 100 * E18), e20(GLTR, FARM, W, 50 * E18))          # LP back + GLTR reward
+        reward_junk = self.add(tx(W, FARM), e20(AERO, FARM, W, E18))                                           # non-allowlisted reward
+        other_lp = self.add(tx(W, FARM, selector="0xe2bbb158"), e20(LP2, W, FARM, 100 * E18))                  # 0x89d68cf4…: normal rules
+        remove = self.add(tx(W, ROUTER), e20(POOL, W, POOL, 7 * E18), e20(FUD, POOL, W, 90 * E18), e20(GHST, POOL, W, E18))
+        onesided = self.add(tx(W, ROUTER), e20(GHST, W, POOL, E18))
+        lp_away = self.add(tx(W, X), e20(POOL, W, X, E18))                                                     # LP to a non-gauge -> review
+        s = self.run_(); self.assertEqual(s["review"], 2)
         self.assertEqual(self.rows(add), [("swap", "wallet", FUD, -100 * E18, f"lp_add:{POOL}"), ("swap", "wallet", GHST, -E18, f"lp_add:{POOL}"),
                                           ("untracked", "wallet", POOL, 7 * E18, f"lp_add:{POOL}")])
-        self.assertIn("pool", self.review(sw))
+        self.assertEqual(self.rows(direct), [("swap", "wallet", FUD, 39_000 * E18, f"pool_swap:{POOL}"), ("swap", "wallet", GHST, -3 * E18, f"pool_swap:{POOL}")])
+        self.assertEqual(self.rows(multi), [("swap", "wallet", FUD, 1_244_662 * E18, f"pool_swap:{POOL}"), ("swap", "wallet", USDC, -3_000_000, f"pool_swap:{POOL}")])
+        self.assertEqual(self.rows(junk), [("swap", "wallet", FUD, 5 * E18, f"pool_swap:{POOL}"), ("untracked", "wallet", AERO, -E18, f"pool_swap:{POOL}")])
+        self.assertEqual(self.rows(stake), [("untracked", "wallet", POOL, -100 * E18, f"gauge:{FARM}")])
+        self.assertEqual(self.rows(unstake), [("income", "wallet", GLTR, 50 * E18, f"gauge:{FARM}:reward"), ("untracked", "wallet", POOL, 100 * E18, f"gauge:{FARM}")])
+        self.assertEqual(self.rows(reward_junk), [("untracked", "wallet", AERO, E18, f"gauge:{FARM}:reward")])
+        self.assertEqual(self.cats(other_lp), ["untracked"])
+        self.assertEqual(self.rows(remove), [("swap", "wallet", FUD, 90 * E18, f"lp_remove:{POOL}"), ("swap", "wallet", GHST, E18, f"lp_remove:{POOL}"),
+                                             ("untracked", "wallet", POOL, -7 * E18, f"lp_remove:{POOL}")])
+        self.assertIn("pool", self.review(onesided)); self.assertIn("pool", self.review(lp_away))
+        self.assertTrue(self.c.execute("SELECT bool_and(pnl_excluded) FROM ledger_entry WHERE category='untracked'").fetchone()[0])
 
     def test_parcel_bundle_cleared_when_parcel_leaves(self):
         self.add(tx(W, REALM), e1155(INST, W, REALM, 10, 1), gv(INST, "TransferToParent", (REALM, 42, 10), (1,)))
