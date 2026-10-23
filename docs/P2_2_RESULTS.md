@@ -86,7 +86,7 @@ DESIGN.md in the repo is now the architect's v1.3, copied verbatim (e2abb9e, sha
   - 4 × the Aerodrome FUD/GHST pool 0xeae2fb93…, which per KNOWN_GAPS #25 goes to review unless it is a plain add-liquidity. All 4 were classified in P2.1. **Architect decision needed:**
     - 0x374fdd859265e769db2f88c13a7b7557975eb4c1f47817192cb11db10191778e and 0x88f750fc5e81c3cf4b18f2e69c2f956253c4b6c5c861a40e13639d73aaf87a00 each swap 3 GHST → ~39,000 FUD against the pool (P2.1: swap).
     - 0xa51f0359ee945a1c7a004cb02f360a31be5d2528a2183bfd4b8c96071badc31a sends 3 USDC to 0x4e392fbf… and receives ~1.24 M (18-decimal units) of a token from the pool, a multi-hop swap (P2.1: swap).
-    - 0x061ba2330f9e5b904c243f2be68fbec255c42932b52da1399854375b083196c8 is a deposit of 100 pool LP tokens to 0xab449dca…, selector 0xe2bbb158, likely a gauge/staking deposit (P2.1: untracked).
+    - 0x061ba2330f9e5b904c243f2be68fbec255c42932b52da1399854375b083196c8 is a deposit of 100 pool LP tokens to 0xab449dca…, selector 0xe2bbb158, a GLTR staking farm deposit (P2.1: untracked).
   - 1 × 0xccbfe04a6920793f7000b61d74e0da342e65252efe3e73170ec2f751c5bc58c0: DEX router, native leg not indexed (internal-ETH gap, as in P2.1).
   Resolved vs earlier runs: 0x3a46… (FUD depositERC20 → gotchi 3033's escrow) is now `transfer_internal` → `pocket:3033`. The R8b borrower pair is classified.
 - **Regression found by the first rerun and fixed (34478e6):** the first rerun at eb5b88f (01:45–02:04, log kept on the Mac as `logs/p2_2_rerun_1.log`) gave Base 99.276 % (823 / 829, 6 in review), with identical md5s (cfaaa724…) and busiest windows 5/5/2/2.

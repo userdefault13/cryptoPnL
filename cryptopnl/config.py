@@ -109,7 +109,7 @@ GV = {8453: {
                   "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"},
     # Aerodrome FUD/GHST volatile pool (PoolFactory.getPool(FUD, GHST, false)); the pool is its own LP token. NOT a router (§9 R10 correction)
     "aero_fud_ghst_pool": "0xeae2fb93e291c2eb69195851813de24f97f1ce71",
-    # widened R10 (architect, 2026-10-22): allowlisted pricing pools (swaps through them are swaps) and LP staking contracts ("gauges").
+    # widened R10 (architect, 2026-10-22): allowlisted pricing pools (swaps through them are swaps) and LP staking contracts (the GLTR staking farm; config key lp_gauges kept).
     "pricing_pools": ["0xeae2fb93e291c2eb69195851813de24f97f1ce71"],   # Aerodrome FUD/GHST (PoolFactory.getPool(FUD, GHST, false))
     # 0xab449dca… = Aavegotchi GLTR staking farm (Diamond; reward token getter 0xf7c618c1 -> GLTR; deposit(pid, amount) 0xe2bbb158).
     # Read-only check 2026-10-22: Aerodrome Voter 0x16613524….gauges(pool) = 0x0 and isGauge(0xab449dca…) = false, so it is not an Aerodrome gauge.

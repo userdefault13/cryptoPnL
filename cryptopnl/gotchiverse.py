@@ -33,7 +33,7 @@ def gv_rule(chain, w, tx, legs, market, esc, L, Review):
 #  - remove-liquidity: LP -> pool (or 0x0) + tokens from the pool -> LP burn untracked, tokens acquired at the block price (`swap`, ref lp_remove:<pool>).
 #  - direct or multi-hop swap with the pool as counterparty on a wallet leg: `swap` (ref pool_swap:<pool>); allowlisted legs at the block price,
 #    non-allowlisted wallet legs untracked; intermediate hops are not wallet legs and are ignored.
-#  - LP into / out of an allowlisted gauge (g["lp_gauges"]): untracked, no PnL. Rewards from the gauge: income if the token is allowlisted, else untracked.
+#  - LP into / out of the allowlisted GLTR staking farm (g["lp_gauges"]): untracked, no PnL. Rewards from the farm: income if the token is allowlisted, else untracked.
 #  - anything else touching the pool (or LP moving anywhere else) -> review.
 def r10_pool(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost_to, L, Review):
     pools = set(g.get("pricing_pools") or [g["aero_fud_ghst_pool"]]); gauges = set(g.get("lp_gauges", ()))
@@ -42,7 +42,7 @@ def r10_pool(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost
     if not pool_hit and not gauge_hit: return None
     allow = g.get("_allow", set())
     tracked = lambda l: l["contract"] in allow
-    what = f"pricing pool {pool_hit[0]}" if pool_hit else f"LP gauge {sorted(gauges)[0]}"
+    what = f"pricing pool {pool_hit[0]}" if pool_hit else f"GLTR staking farm {sorted(gauges)[0]}"
     if nfts or len(pool_hit) > 1: raise Review(f"{what}: NFT legs or several pools in one tx (DESIGN §9 R10)")
     lp = [l for l in fung if l["contract"] in pools]; other = [l for l in fung if l["contract"] not in pools]
     if pool_hit:
@@ -65,12 +65,12 @@ def r10_pool(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost
     if sent and gauge_hit and len(fung) == len(legs) and all(l.get("cp") in gauges for l in fung):
         rewards = [l for l in other if l["qty"] > 0]
         if not pool_hit and len(rewards) != len(other): return None   # another LP token staked (e.g. 0x89d68cf4…): normal rules
-        if pool_hit and len(rewards) != len(other): raise Review(f"{what}: non-LP token sent to the gauge (DESIGN §9 R10)")
+        if pool_hit and len(rewards) != len(other): raise Review(f"{what}: non-LP token sent to the GLTR staking farm (DESIGN §9 R10)")
         out = [L(l, "untracked", ref=f"gauge:{l['cp']}") for l in lp]
         out += [L(l, "income" if tracked(l) else "untracked", ref=f"gauge:{l['cp']}:reward") for l in rewards]
         return ("income" if any(tracked(l) for l in rewards) else "untracked"), out, []
     if not pool_hit: return None
-    raise Review(f"Aerodrome {what}: not add/remove-liquidity, a swap or an LP gauge move (DESIGN §9 R10)")
+    raise Review(f"Aerodrome {what}: not add/remove-liquidity, a swap or a GLTR staking farm move (DESIGN §9 R10)")
 
 # R1: NFT received as listing recipient (ExecutedToRecipient, recipient = wallet, buyer != wallet) with no wallet payment -> gift_in
 def r1_gift(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost_to, L, Review):
