@@ -95,3 +95,24 @@ DESIGN.md in the repo is now the architect's v1.3, copied verbatim (e2abb9e, sha
   which gives back the P2.1 result (escrow_return + income, `gbm:auction:5613`). There is a new test.
 - **Unit tests:** 69 OK (1 skipped) at 34478e6 on the box (Postgres 17, Python 3.13). On the builder Mac (Python 3.9), 68 OK (1 skipped) at eb5b88f, before the regression test existed.
 - Evidence: `docs/evidence/p2_2_{classify,gv_events,hypersync}_<chain>.*` (P2.2 pass) and `docs/evidence/p2_2_p2pass_{classify,hypersync}_<chain>.*` (P2 pass).
+
+## Widened R10 (architect, 2026-10-22): KNOWN_GAPS #25 closed (e7fbf89)
+- The rule is in `cryptopnl/gotchiverse.py` `r10_pool`, with config `GV.pricing_pools` and `GV.lp_gauges` (KNOWN_GAPS #25 has the full rule).
+  `tests/test_gotchiverse.py::test_aerodrome_pool_widened_r10` covers add, direct swap, multi-hop, a non-allowlisted leg, stake, unstake + GLTR reward, a non-allowlisted reward,
+  another LP token in the farm (normal rules), remove-liquidity, and → review for one-sided or LP-to-a-non-gauge.
+- Unit suite: **69 OK (1 skipped)** on the builder Mac (Python 3.9, Postgres), at e7fbf89.
+- **Classify-only check** (builder Mac, 22:11 PDT 2026-10-22). This was one run of `classify --chain 8453` on the 2026-10-17 `cryptopnl_p22_base` ingest (raw events from the 34478e6 rerun, no network).
+  Result: **828 / 829 (99.879 %)**, review = 1 (0xccbfe04a…, the internal-ETH gap), ledger 1,315 rows, ledger_md5 8fc11f91d3a00533195c6e80ba9cfa3c.
+  - 0x374fdd85… and 0x88f750fc…: `swap` (`pool_swap:<pool>`, −3 GHST / +~39,000 FUD).
+  - 0xa51f0359…: `swap` (−3 USDC / +1,244,662.46 FUD).
+  - 0x061ba233…: `untracked` (`gauge:0xab449dca…`).
+  - 0x14bca6f0… stays `lp_add`; 0x89d68cf4… (another LP token into the farm) stays `untracked` under the normal rules.
+  This is not the two-run md5 check. That needs the full rerun below, and the DB has since been re-made by the failed rerun.
+- **Full HyperSync rerun: BLOCKED (2026-10-22 22:13–22:18 PDT).** `scripts/p2_2_rerun.sh` at e7fbf89 failed on the first HyperSync request of both Base passes with `SSL: WRONG_VERSION_NUMBER`.
+  The run was stopped before Sepolia. Two failed connects in total, no queries answered, 0 × 429.
+  Cause: on the builder Mac's network, port 443 of base(-sepolia).hypersync.xyz (84.32.129.x, the same answer from 1.1.1.1 / 8.8.8.8) is intercepted by a web filter.
+  A plaintext probe returns `302 → https://www.safebrowse.io/warn.html?...`. Other HTTPS (GitHub) works.
+  This needs the owner to allow hypersync.xyz in that filter (home network; not changed by the builder). The committed evidence files are still those of the 2026-10-17 34478e6 rerun.
+  The failed-run logs are kept on the Mac in `logs/failed_2026-10-22/`.
+- Note: branch `p2.2-r10b` / PR #6 (an earlier speculative R10b, 2026-10-19) used gauge = `transfer_internal` and had no remove-liquidity or rewards rules. It is superseded by this rule.
+  Its uncommitted local doc edits on the Mac (an "ack 2026-10-20" for gauge = `transfer_internal`) are saved in `git stash` on the Mac and not committed.
