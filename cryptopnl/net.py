@@ -23,17 +23,18 @@ def permanent(e):
     if isinstance(r, ssl.SSLError) and not isinstance(r, (ssl.SSLEOFError, ssl.SSLZeroReturnError)): return True
     if isinstance(r, json.JSONDecodeError): return False   # HTML challenge/error page instead of JSON: transient
     return isinstance(r, (ssl.CertificateError, http.client.InvalidURL, ValueError))
-def _reqlog(name, outcome):
+def _reqlog(name, outcome, ts=None):
     """Host-wide request log (NET_REQLOG=path): one line per HTTP attempt, '<unix_ts> <source> <outcome>'. Used to cite
     HyperSync per-minute counts across processes (scripts/reqlog_summary.py)."""
     f = os.environ.get("NET_REQLOG")
     if f:
-        with open(f, "a") as fh: fh.write(f"{time.time():.3f} {name} {outcome}\n")
+        with open(f, "a") as fh: fh.write(f"{(ts if ts is not None else time.time()):.3f} {name} {outcome}\n")
 def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sleep=time.sleep):
     st = STATS.setdefault(name, {"requests": 0, "ok": 0, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0})
     _T0.setdefault(name, time.monotonic())
     for attempt in range(retries):
-        limiter.wait(); st["requests"] += 1; _reqlog(name, "attempt")
+        t = limiter.wait(); st["requests"] += 1
+        _reqlog(name, "attempt", t if isinstance(t, float) else None)   # host limiter: log the gate's own start time
         req = urllib.request.Request(url, json.dumps(body).encode(),
               {"content-type": "application/json", "user-agent": "cryptoPnL/p1", **(headers or {})})
         delay = None
@@ -53,7 +54,9 @@ def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sl
             # dropped/reset connections (ConnectionResetError, RemoteDisconnected, IncompleteRead, socket errors):
             # retry with exponential backoff + jitter, same as 5xx
             st["errors"] += 1; st["conn_retries"] = st.get("conn_retries", 0) + 1
-        _sleep(delay if delay is not None else min(60, 2 ** attempt) + random.random())
+        d = delay if delay is not None else min(60, 2 ** attempt) + random.random()
+        if hasattr(limiter, "backoff"): limiter.backoff(d)   # host-wide hold-off for every process; uses no slot
+        _sleep(d)
     raise RuntimeError(f"{name}: retries exhausted")
 def _rate(name):
     el = max(1e-6, time.monotonic() - _T0[name]); st = STATS[name]
