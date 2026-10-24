@@ -53,7 +53,7 @@ def r10_pool(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost
         from_pool = [l for l in other if l["qty"] > 0 and l.get("cp") == pool]
         if sent and len(mint) == 1 and to_pool and len(mint) + len(to_pool) == len(legs):
             ref = f"lp_add:{pool}"
-            return "swap", [L(l, "swap", ref=ref) for l in to_pool] + [L(mint[0], "untracked", ref=ref)], []
+            return "swap", [L(l, "swap" if tracked(l) else "untracked", ref=ref) for l in to_pool] + [L(mint[0], "untracked", ref=ref)], []
         if sent and len(burn) == 1 and from_pool and len(burn) + len(from_pool) == len(legs):
             ref = f"lp_remove:{pool}"
             return "swap", [L(l, "swap" if tracked(l) else "untracked", ref=ref) for l in from_pool] + [L(burn[0], "untracked", ref=ref)], []
