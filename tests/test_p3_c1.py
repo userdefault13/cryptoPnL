@@ -1,0 +1,80 @@
+"""P3 C1 rulings (PR #7 at fd12039, DESIGN §8 'P3 C1 rulings'): unpriced samples need a machine-checkable reason (stale_pool with the
+last-swap age, no_pool, zero_reserves); stale_pool is re-derived from the pool_swap cache; GLTR gets a separate 5-block path probe at
+the GLTR/GHST pool's own swap blocks (thin tier, low, flagged). Offline: fake RPC (tests.test_pricing); DB cases use the unit DB."""
+import unittest
+from cryptopnl import pricing
+from cryptopnl.config import THIN_SWAP_WINDOW_BLOCKS as WIN
+from tests import test_pricing as tp
+from tests.test_pricing import FakeRPC, FakeAPI, market, w, bal, C, GHST, FUD, P_FUD, P_GHST, E18
+from tests.test_p3_rulings import thin_market, BN, GLTR
+P_GLTR = "0xa83b31d701633b8edcfba55b93ddbc202d8a4621"
+
+def gltr_market():   # GLTR/GHST v2: 1e9 GLTR / 1,000 GHST ($500 GHST side, thin); GHST = 0.5 USDC
+    m = market(); m[(P_GLTR, "0x0902f1ac")] = w(10 ** 9 * E18, 1_000 * E18, 0); m[bal(GHST, P_GLTR)] = w(1_000 * E18); return m
+
+class ReasonCodes(unittest.TestCase):
+    def why(self, m, asset, swaps=None, api=None):
+        pr = pricing.Pricer(C, FakeRPC(m), FakeAPI(api), swaps=swaps)
+        self.assertIsNone(pr.price(asset, BN, 0)); return pr.unpriced_reason(asset, BN)
+    def test_stale_pool_with_age(self):
+        r = self.why(thin_market(), FUD, {P_FUD: ([BN - WIN - 43_200], 33_200_000, BN)})
+        self.assertEqual((r["reason"], r["pool"], r["last_swap_block"], r["last_swap_age_blocks"]), ("stale_pool", P_FUD, BN - WIN - 43_200, WIN + 43_200))
+        self.assertEqual(r["last_swap_age_days"], 8.0)                      # (302,400 + 43,200) x 2 s / 86,400
+        self.assertIn(r["reason"], pricing.ACCEPTED_UNPRICED)
+    def test_stale_pool_exactly_7d_and_no_swap_in_scan(self):
+        self.assertEqual(self.why(thin_market(), FUD, {P_FUD: ([BN - WIN], 33_200_000, BN)})["last_swap_age_days"], 7.0)
+        r = self.why(thin_market(), FUD, {P_FUD: ([], 33_200_000, BN)})
+        self.assertEqual((r["reason"], r["last_swap_block"], r["last_swap_age_days"]), ("stale_pool", None, None))
+    def test_zero_reserves(self):
+        m = thin_market(); m[(P_FUD, "0x0902f1ac")] = w(0, 1_000 * E18, 0)
+        r = self.why(m, FUD, {P_FUD: ([BN - 10], 33_200_000, BN)}); self.assertEqual((r["reason"], r["pool"]), ("zero_reserves", P_FUD))
+        m = thin_market(); m[bal(GHST, P_FUD)] = w(0)                       # quote balance 0
+        self.assertEqual(self.why(m, FUD, {P_FUD: ([BN - 10], 33_200_000, BN)})["reason"], "zero_reserves")
+    def test_no_pool(self):
+        m = thin_market(); del m[(P_FUD, "0x0902f1ac")]                     # pool reverts / not deployed at the block
+        self.assertEqual(self.why(m, FUD, {})["reason"], "no_pool")
+        self.assertEqual(pricing.Pricer(C, FakeRPC(market()), FakeAPI()).unpriced_reason("0x" + "ab" * 20, BN), {"reason": "no_pool"})
+    def test_unaccepted_reasons_fail_c1(self):
+        r = self.why(thin_market(), FUD, {}); self.assertEqual(r["reason"], "swap_scan_gap")            # pool never scanned
+        r2 = self.why(thin_market(), FUD, {P_FUD: ([BN - 10], 33_200_000, BN - 1)}); self.assertEqual(r2["reason"], "swap_scan_gap")
+        m = thin_market(); del m[(P_GHST, "0x3850c7bd")]
+        self.assertEqual(self.why(m, FUD, {P_FUD: ([BN - 10], 33_200_000, BN)})["reason"], "quote_unpriced")
+        self.assertEqual(self.why(market(ghst_usdc_reserve=999), GHST, {})["reason"], "below_floor_no_api")
+        for x in (r, r2): self.assertNotIn(x["reason"], pricing.ACCEPTED_UNPRICED)
+    def test_flag_helper(self):
+        pr = pricing.Pricer(C, FakeRPC(thin_market()), FakeAPI(), swaps={P_FUD: ([BN - 10], 33_200_000, BN)})
+        self.assertEqual(pricing.price_flag_for(pr.price(FUD, BN, 0)), "low_confidence")
+        self.assertIsNone(pricing.price_flag_for(pr.price(GHST, BN, 0)))
+
+class CacheChecks(tp.LedgerPass):
+    def swaps(self, pool, blocks, frm, to):
+        self.c.execute("DELETE FROM pool_swap WHERE chain_id=%s AND pool=decode(%s,'hex')", (C, pool[2:]))
+        self.c.execute("DELETE FROM pool_swap_scan WHERE chain_id=%s AND pool=decode(%s,'hex')", (C, pool[2:]))
+        for b in blocks: self.c.execute("INSERT INTO pool_swap(chain_id,pool,block_number) VALUES (%s,decode(%s,'hex'),%s)", (C, pool[2:], b))
+        self.c.execute("INSERT INTO pool_swap_scan(chain_id,pool,from_block,scanned_to) VALUES (%s,decode(%s,'hex'),%s,%s)", (C, pool[2:], frm, to)); self.c.commit()
+    def tearDown(self):
+        self.c.execute("DELETE FROM pool_swap"); self.c.execute("DELETE FROM pool_swap_scan"); self.c.commit(); super().tearDown()
+    def test_verify_stale_rederives_from_sql(self):
+        self.swaps(P_FUD, [BN - WIN - 500, BN + 10], 33_200_000, BN + 100)
+        ok = pricing.verify_stale(self.c, C, P_FUD, BN, BN - WIN - 500)
+        self.assertEqual((ok["ok"], ok["sql_last_swap_block"], ok["age_blocks"]), (True, BN - WIN - 500, WIN + 500))
+        self.assertFalse(pricing.verify_stale(self.c, C, P_FUD, BN, BN - WIN - 400)["ok"])       # claimed last swap disagrees
+        self.swaps(P_FUD, [BN - 5], 33_200_000, BN + 100)
+        self.assertFalse(pricing.verify_stale(self.c, C, P_FUD, BN, BN - 5)["ok"])               # swap < 7 d: not stale
+        self.swaps(P_FUD, [BN - WIN - 500], 33_200_000, BN - 1)
+        self.assertFalse(pricing.verify_stale(self.c, C, P_FUD, BN, BN - WIN - 500)["ok"])       # scan does not reach the block
+    def test_gltr_probe_passes_5_of_5_from_cached_swaps(self):
+        blocks = [BN + i * 1000 for i in range(8)]; self.swaps(P_GLTR, blocks, 33_200_000, BN + 10_000)
+        pr = pricing.Pricer(C, FakeRPC(gltr_market()), FakeAPI(), swaps=pricing.load_swaps(self.c, C))
+        out = pricing.gltr_probe(self.c, C, pr, 5, 3, min_block=BN, log=lambda *_: None)
+        self.assertEqual((out["pass"], out["passed"], out["of"], out["candidates"], len(out["blocks"])), (True, 5, 5, 8, 5))
+        self.assertTrue(set(out["blocks"]) <= set(blocks))
+    def test_gltr_probe_fails_without_reserves_or_outside_min_block(self):
+        self.swaps(P_GLTR, [BN + i for i in range(6)], 33_200_000, BN + 10)
+        m = gltr_market(); del m[(P_GLTR, "0x0902f1ac")]
+        out = pricing.gltr_probe(self.c, C, pricing.Pricer(C, FakeRPC(m), FakeAPI(), swaps=pricing.load_swaps(self.c, C)), 5, 3, min_block=BN, log=lambda *_: None)
+        self.assertEqual((out["pass"], out["passed"]), (False, 0))
+        out2 = pricing.gltr_probe(self.c, C, pricing.Pricer(C, FakeRPC(gltr_market()), FakeAPI(), swaps=pricing.load_swaps(self.c, C)), 5, 3, min_block=BN + 3, log=lambda *_: None)
+        self.assertEqual((out2["pass"], out2["candidates"]), (False, 3))                        # fewer than 5 swap blocks -> fail
+
+if __name__ == "__main__": unittest.main()
