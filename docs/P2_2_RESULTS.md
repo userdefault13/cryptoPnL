@@ -130,3 +130,19 @@ Log: `logs/p2_2_rerun.log` (not committed). Evidence: `docs/evidence/p2_2_*`.
 - Base review queue: `0xccbfe04a6920793f7000b61d74e0da342e65252efe3e73170ec2f751c5bc58c0` ("DEX router, fungible out only: native leg not indexed (internal ETH gap)"). Sepolia: none.
 - Window bar met on every pass (≤ 5; the 10:02 run had 6). **Zero-429 bar NOT met: Base P2.2 had 1 × 429** (retried inside the window; the window stayed at 5). Status: FAIL on the 429 criterion, pending CoS/architect.
 - Unit suite: 75 tests OK (1 skipped) on cryptopnl_unit22.
+
+## Base P2.2 pass with the 429 rule (ENVIO_TOKEN_INDEXER.md v1.1), 2026-10-23 ~21:22–21:34 PT, at cae04b8
+Single pass: `scripts/p2_2_test.sh 8453` on a fresh `cryptopnl_p22_base` (from `cryptopnl_p11s_base`); log `logs/p2_2_base_gap.log` (not committed).
+Limiter: 5 / sliding 60 s, host-wide minimum 12 s gap between attempt starts (0bd5578), per-request outcome log (73d748f).
+
+| Check | Result | Bar |
+|---|---|---|
+| HyperSync attempts | 17 (ingest #1: 12, ingest #2: 5) | — |
+| Outcome log | status_200=17, 429s=0 | 0 × 429 (or 1 with Retry-After honoured) |
+| Busiest 60 s window | 5 (ending 21:28:13 PT) | ≤ 5 |
+| Smallest gap between attempt starts | 12.010 s | ≥ 12 s |
+| Classified / total | 833 / 834 (99.88%), review 1 (`0xccbfe04a6920793f7000b61d74e0da342e65252efe3e73170ec2f751c5bc58c0`) | > 98% |
+| Ledger md5 (classify #1 = #2) | 6b00ec3c509df6309bd7a65956c1eb0a (report c41ee59ece07e4bf45bdf0a9dda14ec8, review e7de420e6883071793eb2790cd85b3af) | unchanged |
+| Script | P2.2 PASS chain 8453 | — |
+
+**Result: PASS on the 429 rule.** Unit suite at cae04b8: 80 tests OK (1 skipped) on cryptopnl_unit22.
