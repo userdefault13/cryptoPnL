@@ -19,6 +19,7 @@ def bal(tok, pool): return (tok, "0x70a08231" + pool[2:].rjust(64, "0"))
 
 class FakeRPC:
     def __init__(self, m): self.m = m; self.n = 0
+    def block(self, n): return (n, "0x" + "00" * 32, 1_700_000_000 + 2 * n)   # (number, hash, timestamp) for the probe's API lookup
     def call(self, method, params):          # eth_getCode only (unpriced_reason no_pool check); default: no code
         if method == "eth_getCode": return self.m.get(("code", params[0]), "0x")
         raise RuntimeError("unsupported")

@@ -95,10 +95,25 @@ class CacheChecks(tp.LedgerPass):
         self.assertFalse(pricing.verify_stale(self.c, C, P_FUD, BN, BN - WIN - 500)["ok"])       # scan does not reach the block
     def test_gltr_probe_passes_5_of_5_from_cached_swaps(self):
         blocks = [BN + i * 1000 for i in range(8)]; self.swaps(P_GLTR, blocks, 33_200_000, BN + 10_000)
-        pr = pricing.Pricer(C, FakeRPC(gltr_market()), FakeAPI(), swaps=pricing.load_swaps(self.c, C))
-        out = pricing.gltr_probe(self.c, C, pr, 5, 3, min_block=BN, log=lambda *_: None)
+        pr = pricing.Pricer(C, FakeRPC(gltr_market()), FakeAPI({GHST: "0.505"}), swaps=pricing.load_swaps(self.c, C))
+        rows = []
+        out = pricing.gltr_probe(self.c, C, pr, 5, 3, min_block=BN, log=lambda x: rows.append(x))
         self.assertEqual((out["pass"], out["passed"], out["of"], out["candidates"], len(out["blocks"])), (True, 5, 5, 8, 5))
+        self.assertEqual((out["ghst_within_3pct"], out["ghst_outside_3pct"]), (5, []))
+        import json
+        g = [json.loads(r)["gltr_probe_block"]["ghst_vs_api"] for r in rows if "gltr_probe_block" in r]
+        self.assertEqual(len(g), 5)
+        self.assertEqual((g[0]["pool"], g[0]["dev_pct"], g[0]["pool_depth_usd"], g[0]["pool_usdc_balance"]), (P_GHST, -0.99, "10000.00", "10000"))
+        self.assertTrue(all(x["within_3pct"] and x["block_ts"] is not None for x in g))
         self.assertTrue(set(out["blocks"]) <= set(blocks))
+    def test_gltr_probe_fails_when_ghst_leg_misses_3pct(self):
+        self.swaps(P_GLTR, [BN + i * 1000 for i in range(8)], 33_200_000, BN + 10_000)
+        pr = pricing.Pricer(C, FakeRPC(gltr_market()), FakeAPI({GHST: "0.53"}), swaps=pricing.load_swaps(self.c, C))   # 0.5 vs 0.53: -5.66%
+        out = pricing.gltr_probe(self.c, C, pr, 5, 3, min_block=BN, log=lambda *_: None)
+        self.assertEqual((out["pass"], out["passed"], out["ghst_within_3pct"], len(out["ghst_outside_3pct"])), (False, 0, 0, 5))
+        self.assertEqual(out["ghst_outside_3pct"][0]["dev_pct"], -5.66)
+        pr2 = pricing.Pricer(C, FakeRPC(gltr_market()), FakeAPI(), swaps=pricing.load_swaps(self.c, C))                  # no API price: fails
+        self.assertFalse(pricing.gltr_probe(self.c, C, pr2, 5, 3, min_block=BN, log=lambda *_: None)["pass"])
     def test_gltr_probe_fails_without_reserves_or_outside_min_block(self):
         self.swaps(P_GLTR, [BN + i for i in range(6)], 33_200_000, BN + 10)
         m = gltr_market(); del m[(P_GLTR, "0x0902f1ac")]
@@ -193,3 +208,70 @@ class RpcErrorRun(tp.LedgerPass):
         self.assertEqual(g.detail["skipped_pools"], [{"pool": P_GHST, "why": "error"}])
         self.assertEqual(len(pr.fallthrough), 1); self.assertEqual(pr.fallthrough[0]["used_pool"], P2)
         self.assertEqual(len(pr.rpc_errors), 1)
+
+
+class Retry408(unittest.TestCase):
+    """Architect ruling on the d909779 rerun: HTTP 408 retried like 5xx (backoff, Retry-After honored), at most 3 attempts per call,
+    every attempt through the RPC limiter; still failing after 3 -> RuntimeError -> rpc_error (price-report gate unchanged)."""
+    def setUp(self):
+        import io, os, tempfile, urllib.error
+        from unittest import mock
+        from cryptopnl import net, sources
+        from cryptopnl.hostlimit import HostLimiter
+        self.io, self.err, self.net = io, urllib.error, net
+        d = tempfile.mkdtemp(); self.log = os.path.join(d, "r.log"); self.sleeps = []; self.waits = 0
+        lim = HostLimiter(10_000, 60.0, path=os.path.join(d, "rpc.lock"), min_gap=0)
+        real_wait = lim.wait
+        def wait():
+            self.waits += 1; return real_wait()
+        lim.wait = wait; lim.backoff = lambda d: None
+        self.rpc = sources.RPC("https://base.drpc.org/KEY", limiter=lim)
+        ps = [mock.patch.dict(os.environ, {"NET_REQLOG": self.log}),
+              mock.patch.object(sources, "post_json", lambda *a, **k: net.post_json(*a, _sleep=self.sleeps.append, **k))]
+        for p in ps: p.start()
+        self.addCleanup(lambda: [p.stop() for p in ps]); net.STATS.pop("rpc", None)
+    def run_with(self, responses):
+        from unittest import mock
+        it = iter(responses); self.calls = 0
+        def urlopen(req, timeout=None):
+            self.calls += 1; r = next(it)
+            if isinstance(r, tuple):
+                code, ra = r; raise self.err.HTTPError("u", code, "x", {"Retry-After": ra} if ra else {},
+                                                       self.io.BytesIO(b'{"error":{"message":"Request timeout on the free plan","code":30}}'))
+            return self.io.BytesIO(r)
+        with mock.patch.object(self.net.urllib.request, "urlopen", urlopen): return self.rpc.call("eth_blockNumber", [])
+    def test_408_then_success(self):
+        self.assertEqual(self.run_with([(408, "7"), b'{"jsonrpc":"2.0","id":1,"result":"0x1"}']), "0x1")
+        st = self.net.STATS["rpc"]
+        self.assertEqual((self.calls, self.waits, st["408"], st["retries"], st["retry_after_honored"]), (2, 2, 1, 1, 1))
+        self.assertIn(7.0, self.sleeps)                                      # Retry-After honored in full
+        with open(self.log) as f: att = [l for l in f if l.split()[2] == "attempt"]
+        self.assertEqual(len(att), 2)                                        # both attempts went through the limiter (logged)
+    def test_408_three_times_fails(self):
+        with self.assertRaises(RuntimeError) as cm:
+            self.run_with([(408, None), (408, None), (408, None), b'{"jsonrpc":"2.0","id":1,"result":"0x1"}'])
+        self.assertIn("408 after 3 attempts", str(cm.exception))
+        self.assertEqual((self.calls, self.waits, self.net.STATS["rpc"]["retries"]), (3, 3, 2))
+        self.assertEqual(len(self.sleeps), 2)                                # backoff between attempts, none after the last
+    def test_408_exhausted_is_rpc_error_in_pricer(self):
+        from unittest import mock
+        def urlopen(req, timeout=None):
+            raise self.err.HTTPError("u", 408, "x", {}, self.io.BytesIO(b'{"error":{"code":30}}'))
+        with mock.patch.object(self.net.urllib.request, "urlopen", urlopen):
+            pr = pricing.Pricer(C, self.rpc, FakeAPI(), swaps={P_FUD: ([BN - 10], 33_200_000, BN)})
+            self.assertIsNone(pr.price(FUD, BN, 0)); self.assertEqual(pr.unpriced_reason(FUD, BN)["reason"], "rpc_error")
+
+class PriceRunTimes(tp.LedgerPass):
+    def tearDown(self): self.c.execute("DELETE FROM price_run"); self.c.commit(); super().tearDown()
+    def test_started_and_finished_wall_clock(self):
+        from tests.test_pricing import W, X, ZERO, tx, e20
+        self.add(tx(W, X), e20(GHST, ZERO, W, 4 * E18), bn=BN); self.run_()
+        t0 = self.c.execute("SELECT clock_timestamp()").fetchone()[0]; self.c.commit()
+        class SlowRPC(FakeRPC):
+            def eth_call(self, *a):
+                import time; time.sleep(0.01); return super().eth_call(*a)
+        st = pricing.price_ledger(self.c, C, pricing.Pricer(C, SlowRPC(market()), FakeAPI()), log=lambda *_: None)
+        s, f, rr = self.c.execute("SELECT started_at, finished_at, rpc_retries FROM price_run ORDER BY id DESC LIMIT 1").fetchone()
+        self.assertTrue(t0 <= s < f); self.assertEqual((rr, st["rpc_retries"]), (0, 0))
+        pr = pricing.coverage(self.c, C)["price_run"]
+        self.assertEqual((pr["rpc_retries"], pr["started_at"] < pr["finished_at"]), (0, True))
