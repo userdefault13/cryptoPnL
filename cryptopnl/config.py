@@ -134,6 +134,18 @@ DEFILLAMA_URL = os.environ.get("DEFILLAMA_URL", "https://coins.llama.fi")
 DEFILLAMA_SEARCH_WIDTH = int(os.environ.get("DEFILLAMA_SEARCH_WIDTH", "3600"))   # observed GHST points 6-30 min apart
 API_RPS = float(os.environ.get("API_RPS", "1"))
 # Confidence label per source (proposal; OPEN QUESTION for the architect). Numbers via CONFIDENCE.
+# P3 rulings (architect, DESIGN §8): alchemica price order = trade-implied -> pool at block >= floor -> thin pool below the floor with
+# both reserves > 0 and a Swap log <= 7 days before the block (low confidence, flagged low_confidence) -> unpriced (no_price).
+# The swap check is a HyperSync Swap-log scan per thin pool (shared 5/min + 12 s bucket), cached in pool_swap.
+THIN_POOL_ASSETS = {8453: {"0x2028b4043e6722ea164946c82fe806c4a43a0ff4", "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58",
+                           "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"}}   # FUD FOMO ALPHA KEK
+THIN_SWAP_WINDOW_BLOCKS = int(os.environ.get("THIN_SWAP_WINDOW_BLOCKS", str(7 * 86400 // 2)))   # 7 d of 2 s Base blocks = 302,400
+AERO_V2_SWAP_TOPIC = "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b"   # keccak Swap(address,address,uint256,uint256,uint256,uint256)
+# GLTR (ruling 2): no free source (no DefiLlama price; no pool vs USDC/WETH/GHST on Aerodrome v2/Slipstream/Uniswap, read-only 2026-10-23).
+# Unpriced, flagged no_price, excluded from totals, never 0. Trade-implied prices still apply when the wallet trades it vs a priced token.
+NO_PRICE_SOURCE = {8453: {"0x4d140ce792bedc430498c2d219afbc33e2992c9d"}}
+# ±3% DEX-vs-API gate (ruling 4): only GHST high/medium DEX prices vs the API; everything else is reported, not gated.
+DEV_GATED_ASSETS = {8453: {"0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb"}}
 PRICE_LABEL = {"numeraire": "high", "trade_usdc": "high", "dex_direct": "high", "dex_routed": "medium", "defillama": "medium"}
 
 # ---- P2.2 Gotchiverse (DESIGN v1.3 §9). Addresses: allowlist (§7) + craft receipt 0x74f55051… (cost split recipients, RPC).
