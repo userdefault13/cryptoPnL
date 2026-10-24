@@ -254,7 +254,8 @@ def simulate_reorg(conn, chain, n=3):
 
 def ingest_tx_index(conn, chain, log=print):
     """P3: tx position for wallet txs that share a block with another wallet tx and have no tx_index yet. Read-only RPC
-    eth_getTransactionByHash (1 req/s, burst 3); zero HyperSync. Idempotent (only rows missing from tx_position)."""
+    eth_getTransactionByHash through the host RPC budget (30 req/min, >= 1.5 s gap); zero HyperSync (only the P3 Swap scan,
+    ingest_pool_swaps, uses HyperSync). Idempotent (only rows missing from tx_position)."""
     rpc = RPC(CHAINS[chain]["rpc"]); n = 0
     todo = conn.execute("""WITH t AS (SELECT DISTINCT tx_hash, block_number FROM ledger_entry WHERE chain_id=%s),
         multi AS (SELECT block_number FROM t GROUP BY 1 HAVING count(*) > 1)
