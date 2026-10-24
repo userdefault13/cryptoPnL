@@ -36,7 +36,7 @@ class RetryWindow(unittest.TestCase):
                 try: net.post_json("hypersync", self.lim, "http://x", {}, retries=6, _sleep=clk.sleep)
                 except RuntimeError: pass
                 clk.t += rnd.uniform(0, 2)
-        with open(self.reqlog) as f: return [float(l.split()[0]) for l in f if " hypersync " in l]
+        with open(self.reqlog) as f: return [float(l.split()[0]) for l in f if " hypersync attempt" in l]
 
     def test_no_429(self):
         ts = self.run_calls(30, 0.0, 1); self.assertEqual(len(ts), 30); self.assertLessEqual(busiest(ts), 5)
