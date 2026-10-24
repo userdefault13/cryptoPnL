@@ -48,6 +48,7 @@ class Pricer:
         self.tok = TOKENS.get(chain, {}); self.pools = PRICE_POOLS.get(chain, {}); self.num = NUMERAIRE.get(chain)
         self.weth = WETH.get(chain); self.memo = {}; self.calls = 0
         self.status = {}; self.rpc_errors = []; self.err_blocks = set()   # per (to, data, block): ok | revert | empty | error
+        self.fallthrough = []     # DEX prices taken from a later pool after an RPC error on an earlier pool (evidence, see dex())
     def dec(self, c): return self.tok[c][1]
     def _call(self, to, data, block):
         """eth_call or None. Only a JSON-RPC 'execution reverted' is a revert (pool not usable at the block). Any other error (JSON-RPC
@@ -101,13 +102,16 @@ class Pricer:
         res = None
         if asset == self.num: res = Price(1, "numeraire", PRICE_LABEL["numeraire"])
         elif _depth < 3:
+            skipped = []          # earlier pools that did not give a price, with the reason (status of the failing call)
             for kind, pool, quote in self.pools.get(asset, []):
+                sel = "0x3850c7bd" if kind == "v3" else "0x0902f1ac"
                 px = self.pool_price(kind, pool, asset, quote, block)
-                if px is None or px <= 0: continue
+                if px is None or px <= 0: skipped.append({"pool": pool, "why": self.status.get((pool, sel, block), "zero")}); continue
                 qp = Price(1, "numeraire", "high") if quote == self.num else self.dex(quote, block, _depth + 1)
-                if qp is None: continue
+                if qp is None: skipped.append({"pool": pool, "why": "quote_unpriced"}); continue
                 reserve = self.quote_reserve(pool, quote, block)
-                if reserve is None or reserve <= 0: continue
+                if reserve is None or reserve <= 0:
+                    skipped.append({"pool": pool, "why": self.status.get((quote, "0x70a08231" + a32(pool), block), "zero") if reserve is None else "zero"}); continue
                 qusd = reserve * qp.price
                 # pool USD depth: v2 (constant product) = 2 x quote-side reserve at spot; v3/Slipstream = quote-side balance (lower bound)
                 depth = qusd * 2 if kind == "v2" else qusd
@@ -115,6 +119,7 @@ class Pricer:
                       "pool_depth_usd": str(round(depth, 2)), "depth_method": "2x_quote_reserve" if kind == "v2" else "quote_balance",
                       "floor_usd": DEX_MIN_QUOTE_USD}
                 if qusd < Decimal(str(DEX_MIN_QUOTE_USD)) or asset in self.thin_only:      # liquidity floor (GLTR: thin tier only)
+                    skipped.append({"pool": pool, "why": "below_floor"})
                     if kind == "v3":                       # v3/Slipstream thin pool: both token balances must be > 0 (v2: getReserves)
                         ab = self.token_balance(asset, pool, block)
                         if ab is None or ab <= 0: continue
@@ -123,8 +128,11 @@ class Pricer:
                 direct = quote == self.num
                 lab = PRICE_LABEL["dex_direct"] if direct else min(PRICE_LABEL["dex_routed"], qp.label, key=lambda l: CONFIDENCE[l])
                 route = [pool] + ([] if direct else qp.detail.get("route", []))
-                res = Price(px * qp.price, "dex_slot0" if kind == "v3" else "dex_reserves", lab,
-                            dict(dd, route=route, direct=direct, quote_detail=None if direct else qp.detail))
+                det = dict(dd, route=route, direct=direct, quote_detail=None if direct else qp.detail)
+                if skipped: det["skipped_pools"] = skipped
+                res = Price(px * qp.price, "dex_slot0" if kind == "v3" else "dex_reserves", lab, det)
+                if any(x["why"] == "error" for x in skipped):
+                    self.fallthrough.append({"asset": asset, "block": block, "used_pool": pool, "skipped_pools": skipped})
                 break
         self.memo[k] = res; return res
 
@@ -310,7 +318,12 @@ def price_ledger(conn, chain, pricer, log=print):
             price_flag=%s WHERE id=%s""", (v.price, v.source, CONFIDENCE[v.label], v.label, pid, lf, eid))
         if lf: stats["by_flag"][lf] = stats["by_flag"].get(lf, 0) + 1
         stats["by_source"][v.source] = stats["by_source"].get(v.source, 0) + 1
-    conn.commit(); stats["rpc_calls"] = pricer.calls; stats["rpc_errors"] = len(pricer.rpc_errors); log(json.dumps({"chain": chain, "price_ledger": stats})); return stats
+    stats["rpc_calls"] = pricer.calls; stats["rpc_errors"] = len(pricer.rpc_errors)
+    stats["fallthrough_after_rpc_error"] = len(pricer.fallthrough)
+    conn.execute("""INSERT INTO price_run(chain_id,entries,rpc_calls,rpc_errors,fallthrough_after_rpc_error,detail) VALUES (%s,%s,%s,%s,%s,%s)""",
+                 (chain, stats["entries"], pricer.calls, len(pricer.rpc_errors), len(pricer.fallthrough),
+                  json.dumps({"rpc_errors": pricer.rpc_errors[:50], "fallthrough": pricer.fallthrough[:50]})))
+    conn.commit(); log(json.dumps({"chain": chain, "price_ledger": stats})); return stats
 
 def totals(conn, chain):
     """USDC value (|qty| in whole units x unit price) of priced, PnL-relevant entries (not spam/untracked/pnl_excluded, not fees).
@@ -338,7 +351,16 @@ def totals(conn, chain):
 def coverage(conn, chain):
     r = conn.execute("""SELECT count(*), count(*) FILTER (WHERE price_usdc IS NOT NULL), count(*) FILTER (WHERE price_flag IS NOT NULL),
         count(*) FILTER (WHERE price_usdc IS NULL AND price_flag IS NULL) FROM ledger_entry WHERE chain_id=%s""", (chain,)).fetchone()
-    return {"entries": r[0], "priced": r[1], "flagged": r[2], "neither": r[3], "pass": r[0] > 0 and r[3] == 0,
+    run = conn.execute("""SELECT id, finished_at, rpc_calls, rpc_errors, fallthrough_after_rpc_error, detail FROM price_run
+        WHERE chain_id=%s ORDER BY id DESC LIMIT 1""", (chain,)).fetchone()
+    pr = None if not run else {"id": run[0], "finished_at": str(run[1]), "rpc_calls": run[2], "rpc_errors": run[3],
+                               "fallthrough_after_rpc_error": run[4], "rpc_error_samples": run[5].get("rpc_errors", [])[:10],
+                               "fallthrough": run[5].get("fallthrough", [])[:10]}
+    fail = []
+    if r[3]: fail.append(f"{r[3]} entries have neither a price nor a flag")
+    if r[0] == 0: fail.append("no ledger entries")
+    if pr and pr["rpc_errors"]: fail.append(f"price run {pr['id']} hit {pr['rpc_errors']} RPC errors: unpriced entries may be RPC failures, not real no_price")
+    return {"entries": r[0], "priced": r[1], "flagged": r[2], "neither": r[3], "pass": not fail, "failures": fail, "price_run": pr,
             "by_source": dict(conn.execute("SELECT price_source, count(*) FROM ledger_entry WHERE chain_id=%s AND price_source IS NOT NULL GROUP BY 1", (chain,)).fetchall()),
             "by_flag": dict(conn.execute("SELECT price_flag, count(*) FROM ledger_entry WHERE chain_id=%s AND price_flag IS NOT NULL GROUP BY 1", (chain,)).fetchall()),
             "by_label": dict(conn.execute("SELECT price_confidence_label, count(*) FROM ledger_entry WHERE chain_id=%s AND price_usdc IS NOT NULL GROUP BY 1", (chain,)).fetchall()),
@@ -409,6 +431,7 @@ def sample(conn, chain, pricer, n=20, seed=3, extras=True, log=print):
     out = {"chain": chain, "blocks": blocks, "sample_start_block": start, "seed": seed, "assets": res,
            "c1_accepted_reasons": list(ACCEPTED_UNPRICED), "c1_failures": c1_bad,
            "c1_unpriced_by_reason": _count_reasons(res), "rpc_errors": len(pricer.rpc_errors), "rpc_error_samples": pricer.rpc_errors[:10],
+           "fallthrough_after_rpc_error": len(pricer.fallthrough), "fallthrough_samples": pricer.fallthrough[:10],
            "pass_c1": not c1_bad and len(blocks) == n,
            "pass_all_priced": all(v["priced"] == len(blocks) for v in res.values() if v["gated"]) and len(blocks) == n,
            "not_priced_at": [{"asset": k, "priced": v["priced"], "of": len(blocks), "unpriced_by_reason": v["unpriced_by_reason"]}

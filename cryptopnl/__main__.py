@@ -49,4 +49,5 @@ elif a.cmd in ("price", "price-sample"):
         rc = 0 if r["pass_c1"] and r["pass_dex_vs_api_3pct"] and g["pass"] else 1
 elif a.cmd == "price-report":
     r = pricing.coverage(conn, a.chain); print(json.dumps(r, default=str)); rc = 0 if r["pass"] else 1
+    if not r["pass"]: print("PRICE-REPORT FAIL: " + "; ".join(r["failures"]), file=sys.stderr); print(json.dumps({"price_report_fail": r["failures"]}))
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)
