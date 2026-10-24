@@ -23,7 +23,7 @@ Main (bed74e9) has NOT been merged in yet. A trial merge in a scratch worktree w
 - DESIGN v1.3 replaces v1.2 for P3. The plan must be re-read against v1.3 §2/§9 (craft/upgrade/refund pricing blocks).
 - Liquidity floor: the alchemica/GHST Aerodrome pools hold only $220–$1,300 of GHST reserve, so the proposed $1,000 floor rejects them at later blocks.
 - DefiLlama searchWidth (3600 s), the confidence-label mapping per source, and the price_point source names (dex_slot0/dex_reserves/numeraire).
-- GLTR: no pool vs USDC/WETH/GHST and no DefiLlama price.
+- GLTR: no DefiLlama price; Aerodrome v2 vAMM-GLTR/GHST 0xa83b31d7… exists (the 2026-10-23 "no pool" note was wrong, see the P3 rulings).
 
 ## Architect ruling (2026-10-17, 01:19 PDT): alchemica pricing order, recorded only, not implemented (P3 paused)
 Try each source in order and use the first that yields a price:
@@ -41,6 +41,7 @@ Try each source in order and use the first that yields a price:
 - **7-day swap check:** HyperSync Swap-log scan (topic0 0xb3e27736…f75b) of the thin pools through the shared 5/min + 12 s bucket, cached per pool in `pool_swap` / `pool_swap_scan` (migration 010). No scan coverage for a block → not thin-priced.
 - **Pool USD depth** is recorded with every DEX price (`price_point.detail.pool_depth_usd`, `quote_reserve_usd`, `depth_method`: v2 = 2 × quote-side reserve at spot, v3/Slipstream = quote-side balance).
 - **Totals:** `price-report` gives `value_usdc_all` (low-confidence included, with a count) and `value_usdc_excl_low`; unpriced entries are excluded and counted, never 0.
-- **GLTR:** unpriced, flagged `no_price`, excluded from totals, never 0 (no DefiLlama price; no pool vs USDC/WETH/GHST on Aerodrome v2, Slipstream or Uniswap, read-only 2026-10-23). Trade-implied prices still apply when the wallet trades GLTR against a priced token.
+- **GLTR (correction, architect 2026-10-23; reverses the earlier "GLTR unpriced" ruling):** priced GLTR → GHST → USDC through the Aerodrome v2 pool vAMM-GLTR/GHST `0xa83b31d701633b8edcfba55b93ddbc202d8a4621`, on the thin-pool tier only: `low` confidence, flagged `low_confidence`, and only when reserves > 0 and the pool had a swap within 7 days (HyperSync Swap-log scan); otherwise unpriced (`no_price`), never 0. Read-only verification at latest: factory `getPool(GLTR, GHST, false)` = that pool (either argument order), token0 = GLTR, token1 = GHST, `factory()` = 0x420dd381…, reserves 37,803,279,626.40 GLTR / 15,959.47 GHST. Trade-implied prices still come first.
+- **Why the pool was missed (root cause):** (1) 2026-10-17, `verify/p3_pools.py` carried the GLTR address with 41 hex digits, so the calldata did not encode GLTR and every getPool returned 0x0; (2) 2026-10-23, my ad-hoc re-check ran in zsh, where `set -- $pair` does not word-split, so the quote token was empty and every lookup asked for (GLTR, 0x0). Fix: `verify/p3_pools.py` now rejects any address that is not 20 non-zero bytes and builds calldata in `calls_for()`, covered by `tests/test_pool_discovery.py` (exact getPool(GLTR, GHST, false) calldata, bad-address rejection, every configured address is 20 bytes).
 - **±3% DEX vs API:** gated only for GHST high/medium DEX prices vs DefiLlama; every other pair is reported only.
-- **Amended pass criterion 1:** every fungible asset that has a price source is priced at 20 blocks; GLTR is documented as unpriced.
+- Pass criterion 1 is the original DESIGN §4 wording: every fungible asset, GLTR included, is priced at 20 sampled blocks (the earlier amendment is reverted).
