@@ -1,8 +1,10 @@
 """P3 pricing (DESIGN v1.3 §2 + §8 'P3 rulings'). price(asset, block): numeraire -> on-chain DEX at block (>= liquidity floor) ->
-alchemica: thin pool below the floor with a swap <= 7 d old (low, flagged) else unpriced; other assets: DefiLlama. Every price records
-the pool's USD depth (detail.pool_depth_usd). Trade-implied prices are applied
-per ledger trade group in price_ledger(). Read-only: eth_call at the tx block over the public RPC (1 req/s, burst 3) and DefiLlama GET
-(free, no key, 1 req/s). Zero HyperSync. Never invents a price: no source -> None -> ledger flag 'no_price'.
+thin-pool assets (alchemica, GLTR): thin pool below the floor with a swap <= 7 d old (low, flagged) -> else unpriced. There is NO API
+step in the price order (ruling, PR #7 review): DefiLlama is only the reference for the ±3% GHST check in sample(). Every DEX price
+records the pool's USD depth (detail.pool_depth_usd). Trade-implied prices are applied per ledger trade group in price_ledger().
+Read-only: eth_call at the block over the free public RPC through the host RPC budget (30 req/min, >= 1.5 s gap, shared 429 back-off)
+and DefiLlama GET (free, no key, 1 req/s). The thin-pool Swap scan (ingest.ingest_pool_swaps) uses HyperSync (5/min, 12 s gap); this
+module only reads its cache. Never invents a price: no source -> None -> ledger flag 'no_price'.
 Every price is a UNIT price in USDC per whole token (decimals applied)."""
 import json
 from decimal import Decimal, getcontext
@@ -45,12 +47,34 @@ class Pricer:
         self.thin_assets = THIN_POOL_ASSETS.get(chain, set()); self.thin_only = THIN_ONLY_ASSETS.get(chain, set()); self.thin_cand = {}
         self.tok = TOKENS.get(chain, {}); self.pools = PRICE_POOLS.get(chain, {}); self.num = NUMERAIRE.get(chain)
         self.weth = WETH.get(chain); self.memo = {}; self.calls = 0
+        self.status = {}; self.rpc_errors = []; self.err_blocks = set()   # per (to, data, block): ok | revert | empty | error
     def dec(self, c): return self.tok[c][1]
     def _call(self, to, data, block):
-        self.calls += 1
+        """eth_call or None. Only a JSON-RPC 'execution reverted' is a revert (pool not usable at the block). Any other error (JSON-RPC
+        errors arrive as HTTP 200 and raise RuntimeError in sources.RPC.call, e.g. rate/limit/upstream errors) is recorded in
+        rpc_errors / err_blocks so unpriced_reason() reports rpc_error (fails C1) instead of no_pool."""
+        self.calls += 1; k = (to, data, block)
         try: r = self.rpc.eth_call(to, data, block)
-        except RuntimeError: return None          # e.g. execution reverted / not deployed at this block
-        return r if r and r != "0x" and len(r) >= 66 else None
+        except RuntimeError as e:
+            if "execution reverted" in str(e).lower(): self.status[k] = "revert"; return None
+            self.status[k] = "error"; self.err_blocks.add(block)
+            self.rpc_errors.append({"to": to, "selector": data[:10], "block": block, "error": str(e)[:200]}); return None
+        if r and r != "0x" and len(r) >= 66: self.status[k] = "ok"; return r
+        self.status[k] = "empty"; return None
+    def _absent(self, to, data, block):
+        """Why a pool call gave no usable result: no_pool only on 'execution reverted' or when eth_getCode(pool) at the block is 0x;
+        rpc_error on any other RPC error; bad_response when the pool has code but returned nothing usable."""
+        st = self.status.get((to, data, block))
+        if st == "revert": return "no_pool"
+        if st == "error": return "rpc_error"
+        try: self.calls += 1; code = self.rpc.call("eth_getCode", [to, hex(block)])
+        except RuntimeError as e:
+            self.err_blocks.add(block); self.rpc_errors.append({"to": to, "selector": "getCode", "block": block, "error": str(e)[:200]})
+            return "rpc_error"
+        return "no_pool" if code in (None, "", "0x", "0x0") else "bad_response"
+    def token_balance(self, token, pool, block):
+        r = self._call(token, "0x70a08231" + a32(pool), block)
+        return None if r is None else Decimal(word(r, 0)) / 10 ** self.dec(token)
 
     def pool_price(self, kind, pool, asset, quote, block):
         """Price of 1 asset in quote units from pool state at block, or None. Tokens are sorted (token0 = lower address)."""
@@ -91,6 +115,9 @@ class Pricer:
                       "pool_depth_usd": str(round(depth, 2)), "depth_method": "2x_quote_reserve" if kind == "v2" else "quote_balance",
                       "floor_usd": DEX_MIN_QUOTE_USD}
                 if qusd < Decimal(str(DEX_MIN_QUOTE_USD)) or asset in self.thin_only:      # liquidity floor (GLTR: thin tier only)
+                    if kind == "v3":                       # v3/Slipstream thin pool: both token balances must be > 0 (v2: getReserves)
+                        ab = self.token_balance(asset, pool, block)
+                        if ab is None or ab <= 0: continue
                     self.thin_cand.setdefault((asset, block), (px * qp.price, kind, qp, dict(dd, below_floor=True)))
                     continue
                 direct = quote == self.num
@@ -124,31 +151,42 @@ class Pricer:
         """C1 ruling (PR #7, 2026-10-23): why (asset, block) is unpriced, after price() returned None (uses the dex() memo / thin
         candidates of that call). Accepted (machine-checkable) codes: stale_pool (thin pool, both reserves > 0, last Swap >= 7 d before
         the block per the cached scan; last_swap_block + age), no_pool (no configured pool, or the pool has no code / reverts at the block),
-        zero_reserves (a reserve or the quote balance is 0). Anything else (swap_scan_gap, quote_unpriced, below_floor_no_api,
-        unexplained) is NOT accepted and fails C1."""
+        zero_reserves (a reserve or a token balance is 0). no_pool needs 'execution reverted' or eth_getCode = 0x (see _absent).
+        Anything else (rpc_error, bad_response, swap_scan_gap, quote_unpriced, below_floor_not_thin_tier, unexplained) is NOT
+        accepted and fails C1. Any RPC error at the block while pricing -> rpc_error (conservative)."""
         a = self.weth if asset in (None, "native") else asset.lower()
         pools = self.pools.get(a, [])
         if not pools: return {"reason": "no_pool"}
+        if block in self.err_blocks:
+            return {"reason": "rpc_error", "errors": [e for e in self.rpc_errors if e["block"] == block][:5]}
         c = self.thin_cand.get((a, block))
         if c:
             dd = c[3]; pool = dd["pool"]
-            if a not in self.thin_assets: return {"reason": "below_floor_no_api", "pool": pool}
+            if a not in self.thin_assets: return {"reason": "below_floor_not_thin_tier", "pool": pool}
             sw = self.swaps.get(pool)
             if not sw or sw[2] < block or sw[1] > block - THIN_SWAP_WINDOW_BLOCKS:
                 return {"reason": "swap_scan_gap", "pool": pool, "scan": None if not sw else [sw[1], sw[2]]}
             i = bisect.bisect_right(sw[0], block); last = sw[0][i - 1] if i else None
             if last is not None and block - last < THIN_SWAP_WINDOW_BLOCKS: return {"reason": "unexplained", "pool": pool, "last_swap_block": last}
-            age = None if last is None else block - last
+            lb = last is None                      # no swap in the scanned range: age >= block - scan_from (a lower bound)
+            age = block - (sw[1] if lb else last)
             return {"reason": "stale_pool", "pool": pool, "last_swap_block": last, "last_swap_age_blocks": age,
-                    "last_swap_age_days": None if age is None else round(age * BLOCK_TIME_S / 86400, 2),
+                    "last_swap_age_days": round(age * BLOCK_TIME_S / 86400, 2), "age_is_lower_bound": lb,
                     "scan_from": sw[1], "window_blocks": THIN_SWAP_WINDOW_BLOCKS}
         found = []
         for kind, pool, quote in pools:
-            r = self._call(pool, "0x3850c7bd" if kind == "v3" else "0x0902f1ac", block)
-            if r is None: found.append({"reason": "no_pool", "pool": pool}); continue
+            sel = "0x3850c7bd" if kind == "v3" else "0x0902f1ac"
+            r = self._call(pool, sel, block)
+            if r is None: found.append({"reason": self._absent(pool, sel, block), "pool": pool}); continue
             if word(r, 0) == 0 or (kind != "v3" and word(r, 1) == 0): found.append({"reason": "zero_reserves", "pool": pool}); continue
-            q = self.quote_reserve(pool, quote, block)
-            if q is None or q <= 0: found.append({"reason": "zero_reserves", "pool": pool, "quote": quote}); continue
+            zero = None
+            for tkn in ([quote, a] if kind == "v3" else [quote]):        # v3: both token balances must be > 0
+                b = self.token_balance(tkn, pool, block)
+                if b is None:
+                    zero = {"reason": "rpc_error" if self.status.get((tkn, "0x70a08231" + a32(pool), block)) == "error" else "bad_response",
+                            "pool": pool, "token": tkn}; break
+                if b <= 0: zero = {"reason": "zero_reserves", "pool": pool, "token": tkn}; break
+            if zero: found.append(zero); continue
             if quote != self.num and self.dex(quote, block) is None: found.append({"reason": "quote_unpriced", "pool": pool, "quote": quote}); continue
             found.append({"reason": "unexplained", "pool": pool})
         bad = [f for f in found if f["reason"] not in ACCEPTED_UNPRICED]
@@ -158,18 +196,19 @@ class Pricer:
 
     def has_source(self, asset):
         a = self.weth if asset in (None, "native") else asset.lower()
-        return a == self.num or a in self.pools or (a not in NO_PRICE_SOURCE.get(self.chain, set()) and a not in self.thin_assets and self.api is not None and a in self.tok)
+        return a == self.num or (a in self.pools and a not in NO_PRICE_SOURCE.get(self.chain, set()))
 
     def price(self, asset, block, ts):
         """Resolution order without the trade step: numeraire, DEX at block (>= floor), then alchemica: thin pool (low) else None;
-        other assets: DefiLlama. GLTR: thin tier only (THIN_ONLY_ASSETS); NO_PRICE_SOURCE -> None, never 0. asset None = native ETH (= WETH)."""
+        other assets: None (no API step; DefiLlama is only the ±3% reference). GLTR: thin tier only (THIN_ONLY_ASSETS);
+        NO_PRICE_SOURCE -> None, never 0. asset None = native ETH (= WETH). ts is unused by the price order (kept for callers)."""
         a = self.weth if asset is None else asset.lower()
         if a == self.num: return Price(1, "numeraire", PRICE_LABEL["numeraire"])
         if a in NO_PRICE_SOURCE.get(self.chain, set()): return None
         d = self.dex(a, block)
         if d: return d
         if a in self.thin_assets: return self.thin(a, block)
-        return self.api_price(a, ts)
+        return None
 
 BLOCK_TIME_S = 2                     # Base / Base Sepolia: 2 s blocks (last-swap age in days = blocks x 2 / 86400)
 ACCEPTED_UNPRICED = ("stale_pool", "no_pool", "zero_reserves")
@@ -186,10 +225,11 @@ def verify_stale(conn, chain, pool, block, claimed_last):
                         (chain, pool[2:], block)).fetchone()[0]
     sc = conn.execute("SELECT from_block, scanned_to FROM pool_swap_scan WHERE chain_id=%s AND pool=decode(%s,'hex')", (chain, pool[2:])).fetchone()
     covered = bool(sc) and sc[0] <= block - THIN_SWAP_WINDOW_BLOCKS and sc[1] >= block
-    age = None if last is None else block - last
-    ok = covered and last == claimed_last and (age is None or age >= THIN_SWAP_WINDOW_BLOCKS)
+    lb = last is None                                   # no swap at/before the block in the scan: age >= block - scan_from
+    age = None if not sc else block - (sc[0] if lb else last)
+    ok = covered and last == claimed_last and age is not None and age >= THIN_SWAP_WINDOW_BLOCKS
     return {"sql_last_swap_block": last, "age_blocks": age, "age_days": None if age is None else round(age * BLOCK_TIME_S / 86400, 2),
-            "scan": None if not sc else [sc[0], sc[1]], "ok": ok}
+            "age_is_lower_bound": lb, "scan": None if not sc else [sc[0], sc[1]], "ok": ok}
 
 def load_swaps(conn, chain):
     """pool -> (sorted swap blocks, scanned_from, scanned_to) from the pool_swap cache (filled by ingest.ingest_pool_swaps)."""
@@ -263,14 +303,14 @@ def price_ledger(conn, chain, pricer, log=print):
         if v.source not in ("trade",):
             pid = conn.execute("""INSERT INTO price_point(asset_id,chain_id,block_number,ts,price_usdc,source,confidence,confidence_label,detail)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (asset_id,block_number,source) DO UPDATE SET price_usdc=EXCLUDED.price_usdc,
-                detail=EXCLUDED.detail RETURNING id""", (e["aid"], chain, e["bn"], e["ts"], v.price, v.source, CONFIDENCE[v.label], v.label,
+                confidence=EXCLUDED.confidence, confidence_label=EXCLUDED.confidence_label, detail=EXCLUDED.detail RETURNING id""", (e["aid"], chain, e["bn"], e["ts"], v.price, v.source, CONFIDENCE[v.label], v.label,
                 json.dumps(v.detail))).fetchone()[0]
         lf = price_flag_for(v)      # priced, badge; totals also reported without these
         conn.execute("""UPDATE ledger_entry SET price_usdc=%s, price_source=%s, price_confidence=%s, price_confidence_label=%s, price_id=%s,
             price_flag=%s WHERE id=%s""", (v.price, v.source, CONFIDENCE[v.label], v.label, pid, lf, eid))
         if lf: stats["by_flag"][lf] = stats["by_flag"].get(lf, 0) + 1
         stats["by_source"][v.source] = stats["by_source"].get(v.source, 0) + 1
-    conn.commit(); stats["rpc_calls"] = pricer.calls; log(json.dumps({"chain": chain, "price_ledger": stats})); return stats
+    conn.commit(); stats["rpc_calls"] = pricer.calls; stats["rpc_errors"] = len(pricer.rpc_errors); log(json.dumps({"chain": chain, "price_ledger": stats})); return stats
 
 def totals(conn, chain):
     """USDC value (|qty| in whole units x unit price) of priced, PnL-relevant entries (not spam/untracked/pnl_excluded, not fees).
@@ -368,6 +408,7 @@ def sample(conn, chain, pricer, n=20, seed=3, extras=True, log=print):
     g = [r for r in devs if r["dev_gated"]]
     out = {"chain": chain, "blocks": blocks, "sample_start_block": start, "seed": seed, "assets": res,
            "c1_accepted_reasons": list(ACCEPTED_UNPRICED), "c1_failures": c1_bad,
+           "c1_unpriced_by_reason": _count_reasons(res), "rpc_errors": len(pricer.rpc_errors), "rpc_error_samples": pricer.rpc_errors[:10],
            "pass_c1": not c1_bad and len(blocks) == n,
            "pass_all_priced": all(v["priced"] == len(blocks) for v in res.values() if v["gated"]) and len(blocks) == n,
            "not_priced_at": [{"asset": k, "priced": v["priced"], "of": len(blocks), "unpriced_by_reason": v["unpriced_by_reason"]}
@@ -376,6 +417,13 @@ def sample(conn, chain, pricer, n=20, seed=3, extras=True, log=print):
            "outside_3pct_report_only": [r for r in devs if not r["dev_gated"] and abs(r["dev_pct"]) > 3],
            "pass_dex_vs_api_3pct": bool(g) and all(abs(r["dev_pct"]) <= 3 for r in g), "rpc_calls": pricer.calls}
     log(json.dumps({"summary": out})); return out
+
+def _count_reasons(res):
+    out = {}
+    for v in res.values():
+        if not v["gated"]: continue
+        for k, n in v["unpriced_by_reason"].items(): out[k] = out.get(k, 0) + n
+    return out
 
 GLTR_BASE = "0x4d140ce792bedc430498c2d219afbc33e2992c9d"
 
