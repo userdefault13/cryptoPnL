@@ -33,14 +33,22 @@ class Rulings(unittest.TestCase):
     def test_thin_rule_is_alchemica_only(self):
         m = market(ghst_usdc_reserve=999)
         self.assertIsNone(self.pr(m, swaps={P_GHST: ([BN - 1], 0, BN)}).price(GHST, BN, 0))           # GHST below floor: API or nothing
-    def test_gltr_unpriced_never_zero(self):
-        pr = self.pr(api={GLTR: "0.00001"})
-        self.assertIsNone(pr.price(GLTR, BN, 0)); self.assertFalse(pr.has_source(GLTR)); self.assertTrue(pr.has_source(FUD))
+    def test_gltr_thin_tier_only(self):   # architect 2026-10-23: GLTR -> GHST -> USDC on the thin tier only (low, flagged)
+        m = market(); P_GLTR = "0xa83b31d701633b8edcfba55b93ddbc202d8a4621"
+        m[(P_GLTR, "0x0902f1ac")] = w(10 ** 9 * E18, 10_000 * E18, 0); m[bal(GHST, P_GLTR)] = w(10_000 * E18)   # $5,000 GHST side: above floor
+        sw = {P_GLTR: ([BN - 1_000], 33_200_000, BN)}
+        p = self.pr(m, swaps=sw).price(GLTR, BN, 0)
+        self.assertEqual((p.source, p.label, p.detail["pool"], p.detail["route"]), ("dex_reserves_thin", "low", P_GLTR, [P_GLTR, P_GHST]))
+        self.assertAlmostEqual(float(p.price), 5e-6, places=15)                 # 1e-5 GHST x 0.5
+        self.assertIsNone(self.pr(m).dex(GLTR, BN))                              # never on the >= floor tier
+        self.assertIsNone(self.pr(m, swaps={P_GLTR: ([BN - WIN - 1], 33_200_000, BN)}).price(GLTR, BN, 0))   # no swap <= 7 d -> unpriced
+        self.assertIsNone(self.pr(m, swaps={}).price(GLTR, BN, 0))               # not scanned -> unpriced, never 0
+        self.assertTrue(self.pr(m).has_source(GLTR))
 
 class RulingsLedger(tp.LedgerPass):
     def test_low_flag_totals_and_gltr(self):
         thin = self.add(tx(W, X), e20(FUD, ZERO, W, 1000 * E18), bn=BN)                       # income, thin pool -> low
-        gl = self.add(tx(W, X), e20(GLTR, ZERO, W, 500 * E18), bn=BN)                         # GLTR income -> unpriced
+        gl = self.add(tx(W, X), e20(GLTR, ZERO, W, 500 * E18), bn=BN)                         # GLTR income, pool not in the fake RPC -> unpriced
         tr = self.add(tx(W, X), e20(GHST, X, W, 10 * E18), e20(GLTR, W, X, 1000 * E18), bn=BN)  # GLTR traded vs GHST -> trade-implied
         gi = self.add(tx(W, X), e20(GHST, ZERO, W, 4 * E18), bn=BN)                           # GHST income, high
         self.run_()

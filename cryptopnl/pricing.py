@@ -7,7 +7,7 @@ Every price is a UNIT price in USDC per whole token (decimals applied)."""
 import json
 from decimal import Decimal, getcontext
 from .config import (NUMERAIRE, TOKENS, PRICE_POOLS, DEX_MIN_QUOTE_USD, DEFILLAMA_URL, DEFILLAMA_SEARCH_WIDTH, API_RPS,
-                     PRICE_LABEL, CONFIDENCE, WETH, gated, THIN_POOL_ASSETS, THIN_SWAP_WINDOW_BLOCKS, NO_PRICE_SOURCE, DEV_GATED_ASSETS)
+                     PRICE_LABEL, CONFIDENCE, WETH, gated, THIN_POOL_ASSETS, THIN_ONLY_ASSETS, THIN_SWAP_WINDOW_BLOCKS, NO_PRICE_SOURCE, DEV_GATED_ASSETS)
 import bisect
 from .net import Limiter, post_json
 getcontext().prec = 50
@@ -42,7 +42,7 @@ class Pricer:
     def __init__(self, chain, rpc, api=None, swaps=None):
         self.chain, self.rpc, self.api = chain, rpc, api
         self.swaps = swaps or {}                     # pool -> (sorted swap blocks, scanned_from, scanned_to) from pool_swap (HyperSync)
-        self.thin_assets = THIN_POOL_ASSETS.get(chain, set()); self.thin_cand = {}
+        self.thin_assets = THIN_POOL_ASSETS.get(chain, set()); self.thin_only = THIN_ONLY_ASSETS.get(chain, set()); self.thin_cand = {}
         self.tok = TOKENS.get(chain, {}); self.pools = PRICE_POOLS.get(chain, {}); self.num = NUMERAIRE.get(chain)
         self.weth = WETH.get(chain); self.memo = {}; self.calls = 0
     def dec(self, c): return self.tok[c][1]
@@ -90,7 +90,7 @@ class Pricer:
                 dd = {"pool": pool, "kind": kind, "quote": quote, "block": block, "quote_reserve_usd": str(round(qusd, 2)),
                       "pool_depth_usd": str(round(depth, 2)), "depth_method": "2x_quote_reserve" if kind == "v2" else "quote_balance",
                       "floor_usd": DEX_MIN_QUOTE_USD}
-                if qusd < Decimal(str(DEX_MIN_QUOTE_USD)):                                   # liquidity floor
+                if qusd < Decimal(str(DEX_MIN_QUOTE_USD)) or asset in self.thin_only:      # liquidity floor (GLTR: thin tier only)
                     self.thin_cand.setdefault((asset, block), (px * qp.price, kind, qp, dict(dd, below_floor=True)))
                     continue
                 direct = quote == self.num
@@ -126,7 +126,7 @@ class Pricer:
 
     def price(self, asset, block, ts):
         """Resolution order without the trade step: numeraire, DEX at block (>= floor), then alchemica: thin pool (low) else None;
-        other assets: DefiLlama. GLTR (NO_PRICE_SOURCE) -> None, never 0. asset None = native ETH (= WETH)."""
+        other assets: DefiLlama. GLTR: thin tier only (THIN_ONLY_ASSETS); NO_PRICE_SOURCE -> None, never 0. asset None = native ETH (= WETH)."""
         a = self.weth if asset is None else asset.lower()
         if a == self.num: return Price(1, "numeraire", PRICE_LABEL["numeraire"])
         if a in NO_PRICE_SOURCE.get(self.chain, set()): return None

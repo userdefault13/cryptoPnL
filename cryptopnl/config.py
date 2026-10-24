@@ -126,7 +126,10 @@ PRICE_POOLS = {8453: {
     "0x2028b4043e6722ea164946c82fe806c4a43a0ff4": [("v2", "0xeae2fb93e291c2eb69195851813de24f97f1ce71", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")],
     "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58": [("v2", "0x62ab7d558a011237f8a57ac0f97601a764e85b88", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")],
     "0x15e7cac885e3730ce6389447bc0f7ac032f31947": [("v2", "0x0ba2a49aedf9a409dbb0272db7cdf98aeb1e1837", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")],
-    "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5": [("v2", "0x699b4eb36b95cdf62c74f6322aaa140e7958dc9f", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")]}}
+    "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5": [("v2", "0x699b4eb36b95cdf62c74f6322aaa140e7958dc9f", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")],
+    # GLTR: Aerodrome v2 vAMM-GLTR/GHST (architect 2026-10-23; read-only: getPool(GLTR, GHST, false) = this pool, token0 GLTR, token1 GHST,
+    # factory() = 0x420dd381…, reserves 37,803,279,626.40 GLTR / 15,959.47 GHST at latest). Thin tier only (THIN_ONLY_ASSETS).
+    "0x4d140ce792bedc430498c2d219afbc33e2992c9d": [("v2", "0xa83b31d701633b8edcfba55b93ddbc202d8a4621", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")]}}
 # Reject a pool at a block when its quote-side reserve is worth less than this (DESIGN §2 "liquidity threshold"; value = OPEN QUESTION).
 DEX_MIN_QUOTE_USD = float(os.environ.get("DEX_MIN_QUOTE_USD", "1000"))
 # DefiLlama: free, no key. searchWidth (s) = max distance of the API point from the tx time (OPEN QUESTION; conservative default).
@@ -138,12 +141,14 @@ API_RPS = float(os.environ.get("API_RPS", "1"))
 # both reserves > 0 and a Swap log <= 7 days before the block (low confidence, flagged low_confidence) -> unpriced (no_price).
 # The swap check is a HyperSync Swap-log scan per thin pool (shared 5/min + 12 s bucket), cached in pool_swap.
 THIN_POOL_ASSETS = {8453: {"0x2028b4043e6722ea164946c82fe806c4a43a0ff4", "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58",
-                           "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5"}}   # FUD FOMO ALPHA KEK
+                           "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5",   # FUD FOMO ALPHA KEK
+                           "0x4d140ce792bedc430498c2d219afbc33e2992c9d"}}                                               # GLTR
+# GLTR is priced on the thin-pool tier only (architect 2026-10-23): GLTR -> GHST -> USDC, low confidence, flagged, only with reserves > 0
+# and a swap <= 7 d; never via the >= floor tier, otherwise unpriced.
+THIN_ONLY_ASSETS = {8453: {"0x4d140ce792bedc430498c2d219afbc33e2992c9d"}}
 THIN_SWAP_WINDOW_BLOCKS = int(os.environ.get("THIN_SWAP_WINDOW_BLOCKS", str(7 * 86400 // 2)))   # 7 d of 2 s Base blocks = 302,400
 AERO_V2_SWAP_TOPIC = "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b"   # keccak Swap(address,address,uint256,uint256,uint256,uint256)
-# GLTR (ruling 2): no free source (no DefiLlama price; no pool vs USDC/WETH/GHST on Aerodrome v2/Slipstream/Uniswap, read-only 2026-10-23).
-# Unpriced, flagged no_price, excluded from totals, never 0. Trade-implied prices still apply when the wallet trades it vs a priced token.
-NO_PRICE_SOURCE = {8453: {"0x4d140ce792bedc430498c2d219afbc33e2992c9d"}}
+NO_PRICE_SOURCE = {8453: set()}   # assets with no free price source at all (none since the GLTR/GHST pool was found, 2026-10-23)
 # ±3% DEX-vs-API gate (ruling 4): only GHST high/medium DEX prices vs the API; everything else is reported, not gated.
 DEV_GATED_ASSETS = {8453: {"0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb"}}
 PRICE_LABEL = {"numeraire": "high", "trade_usdc": "high", "dex_direct": "high", "dex_routed": "medium", "defillama": "medium"}
