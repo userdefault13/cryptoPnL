@@ -192,7 +192,7 @@ def sample(conn, chain, pricer, n=20, seed=3, extras=True, log=print):
     cand = [r[0] for r in conn.execute("SELECT DISTINCT block_number FROM ledger_entry WHERE chain_id=%s AND block_number >= %s ORDER BY 1", (chain, start))]
     blocks = sorted(random.Random(seed).sample(cand, min(n, len(cand))))
     ts = dict(conn.execute("SELECT number, ts FROM block WHERE chain_id=%s AND number = ANY(%s)", (chain, blocks)).fetchall())
-    extra = [c for c in (WETH.get(chain), "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf", "0x4d140ce792bedc430498c2d219aafbc33e2992c9d") if c not in assets] if extras else []
+    extra = [c for c in (WETH.get(chain), "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf", "0x4d140ce792bedc430498c2d219afbc33e2992c9d") if c not in assets] if extras else []
     sym = lambda c: "ETH" if c == "native" else pricer.tok.get(c, (c,))[0]
     res, devs = {}, []
     for bn in blocks:

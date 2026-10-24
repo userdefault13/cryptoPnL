@@ -113,7 +113,7 @@ TOKENS = {8453: {   # contract -> (symbol, decimals); decimals read on-chain (de
     "0x4200000000000000000000000000000000000006": ("WETH", 18), "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": ("cbBTC", 8),
     "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb": ("GHST", 18), "0x2028b4043e6722ea164946c82fe806c4a43a0ff4": ("FUD", 18),
     "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58": ("FOMO", 18), "0x15e7cac885e3730ce6389447bc0f7ac032f31947": ("ALPHA", 18),
-    "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5": ("KEK", 18), "0x4d140ce792bedc430498c2d219aafbc33e2992c9d": ("GLTR", 18)}}
+    "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5": ("KEK", 18), "0x4d140ce792bedc430498c2d219afbc33e2992c9d": ("GLTR", 18)}}
 # asset -> ordered pools [(kind, pool, quote)]. kind: v3 (Uniswap V3 / Aerodrome Slipstream slot0) | v2 (Aerodrome getReserves).
 # WETH/cbBTC: Uni V3 0.05% USDC pool (DESIGN §2, decided). GHST: deepest USDC pools, then GHST/WETH (routed). Alchemica: their only
 # pools (Aerodrome v2 vs GHST; routed via GHST). GLTR: no pool vs USDC/WETH/GHST on these factories -> API or no_price.
