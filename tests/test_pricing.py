@@ -19,6 +19,9 @@ def bal(tok, pool): return (tok, "0x70a08231" + pool[2:].rjust(64, "0"))
 
 class FakeRPC:
     def __init__(self, m): self.m = m; self.n = 0
+    def call(self, method, params):          # eth_getCode only (unpriced_reason no_pool check); default: no code
+        if method == "eth_getCode": return self.m.get(("code", params[0]), "0x")
+        raise RuntimeError("unsupported")
     def eth_call(self, to, data, block):
         self.n += 1; r = self.m.get((to, data))
         if r is None: raise RuntimeError("execution reverted")
@@ -41,9 +44,9 @@ class PricerMath(unittest.TestCase):
     def test_usdbc_never_par(self):
         """Architect ruling (KNOWN_GAPS #16): only native USDC is the numeraire. USDbC has no pool here and no API price -> None."""
         self.assertIsNone(self.pr().price(USDBC, 1, 0))
-        p = self.pr(api={USDBC: "0.9903"}).price(USDBC, 1, 0)      # with an API price it gets that price, never 1
-        self.assertEqual((p.price, p.source), (Decimal("0.9903"), "defillama"))
-        self.assertNotEqual(p.source, "numeraire")
+        pr = self.pr(api={USDBC: "0.9903"})                         # no API step in the price order (PR #7 ruling): still None, never 1
+        self.assertIsNone(pr.price(USDBC, 1, 0))
+        self.assertEqual(pr.api_price(USDBC, 0).price, Decimal("0.9903"))   # DefiLlama stays available as the ±3% reference only
     def test_v3_slot0_both_orientations(self):
         pr = self.pr()
         self.assertAlmostEqual(float(pr.price(WETH, 1, 0).price), 2000.0, places=6)     # WETH is token0
@@ -57,8 +60,7 @@ class PricerMath(unittest.TestCase):
     def test_liquidity_floor_rejects_thin_pool(self):
         m = market(ghst_usdc_reserve=999)        # $999 < DEX_MIN_QUOTE_USD (1000); other GHST pools absent -> no DEX price
         self.assertIsNone(self.pr(m).dex(GHST, 1))
-        p = self.pr(m, api={GHST: "0.49"}).price(GHST, 1, 0)
-        self.assertEqual((p.source, p.label), ("defillama", "medium"))
+        self.assertIsNone(self.pr(m, api={GHST: "0.49"}).price(GHST, 1, 0))   # no API fallback (PR #7 ruling 2)
     def test_no_source_is_none_not_invented(self):
         self.assertIsNone(self.pr(m={}).price(GHST, 1, 0))
 

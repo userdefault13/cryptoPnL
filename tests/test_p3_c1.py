@@ -22,9 +22,12 @@ class ReasonCodes(unittest.TestCase):
         self.assertEqual(r["last_swap_age_days"], 8.0)                      # (302,400 + 43,200) x 2 s / 86,400
         self.assertIn(r["reason"], pricing.ACCEPTED_UNPRICED)
     def test_stale_pool_exactly_7d_and_no_swap_in_scan(self):
-        self.assertEqual(self.why(thin_market(), FUD, {P_FUD: ([BN - WIN], 33_200_000, BN)})["last_swap_age_days"], 7.0)
-        r = self.why(thin_market(), FUD, {P_FUD: ([], 33_200_000, BN)})
-        self.assertEqual((r["reason"], r["last_swap_block"], r["last_swap_age_days"]), ("stale_pool", None, None))
+        r0 = self.why(thin_market(), FUD, {P_FUD: ([BN - WIN], 33_200_000, BN)})
+        self.assertEqual((r0["last_swap_age_days"], r0["age_is_lower_bound"]), (7.0, False))
+        r = self.why(thin_market(), FUD, {P_FUD: ([], 33_200_000, BN)})        # no swap in the scanned range: lower bound
+        self.assertEqual((r["reason"], r["last_swap_block"], r["last_swap_age_blocks"], r["age_is_lower_bound"]),
+                         ("stale_pool", None, BN - 33_200_000, True))
+        self.assertEqual(r["last_swap_age_days"], round((BN - 33_200_000) * 2 / 86400, 2))
     def test_zero_reserves(self):
         m = thin_market(); m[(P_FUD, "0x0902f1ac")] = w(0, 1_000 * E18, 0)
         r = self.why(m, FUD, {P_FUD: ([BN - 10], 33_200_000, BN)}); self.assertEqual((r["reason"], r["pool"]), ("zero_reserves", P_FUD))
@@ -39,8 +42,30 @@ class ReasonCodes(unittest.TestCase):
         r2 = self.why(thin_market(), FUD, {P_FUD: ([BN - 10], 33_200_000, BN - 1)}); self.assertEqual(r2["reason"], "swap_scan_gap")
         m = thin_market(); del m[(P_GHST, "0x3850c7bd")]
         self.assertEqual(self.why(m, FUD, {P_FUD: ([BN - 10], 33_200_000, BN)})["reason"], "quote_unpriced")
-        self.assertEqual(self.why(market(ghst_usdc_reserve=999), GHST, {})["reason"], "below_floor_no_api")
+        mg = market(ghst_usdc_reserve=999); mg[bal(GHST, P_GHST)] = w(1_000 * E18)      # v3: both balances > 0, below the floor
+        self.assertEqual(self.why(mg, GHST, {}, api={GHST: "0.49"})["reason"], "below_floor_not_thin_tier")   # API price present: still unpriced
         for x in (r, r2): self.assertNotIn(x["reason"], pricing.ACCEPTED_UNPRICED)
+    def test_empty_result_uses_getcode(self):
+        m = thin_market(); m[(P_FUD, "0x0902f1ac")] = "0x"                  # empty eth_call result
+        self.assertEqual(self.why(m, FUD, {})["reason"], "no_pool")          # eth_getCode = 0x -> no_pool
+        m[("code", P_FUD)] = "0x6080"
+        r = self.why(m, FUD, {}); self.assertEqual(r["reason"], "bad_response"); self.assertNotIn(r["reason"], pricing.ACCEPTED_UNPRICED)
+    def test_v3_thin_pool_needs_both_balances(self):
+        P_V3 = "0x" + "77" * 20
+        def pr(m, sw):
+            x = pricing.Pricer(C, FakeRPC(m), FakeAPI(), swaps=sw); x.pools = {FUD: [("v3", P_V3, tp.USDC)]}; x.thin_assets = {FUD}; return x
+        m = market(); m[(P_V3, "0x3850c7bd")] = w(tp.sqrtp(0.0005, 18, 6), 0); m[bal(tp.USDC, P_V3)] = w(500 * 10 ** 6)   # $500 < floor
+        sw = {P_V3: ([BN - 10], 33_200_000, BN)}
+        m[bal(FUD, P_V3)] = w(0)
+        x = pr(m, sw); self.assertIsNone(x.price(FUD, BN, 0))
+        self.assertEqual((x.unpriced_reason(FUD, BN)["reason"], x.unpriced_reason(FUD, BN)["token"]), ("zero_reserves", FUD))
+        m[bal(FUD, P_V3)] = w(1_000_000 * E18)
+        p = pr(m, sw).price(FUD, BN, 0)
+        self.assertEqual((p.source, p.label), ("dex_reserves_thin", "low")); self.assertAlmostEqual(float(p.price), 0.0005, places=9)
+    def test_summary_counts_by_reason(self):
+        res = {"FUD": {"gated": True, "unpriced_by_reason": {"stale_pool": 3, "rpc_error": 1}},
+               "KEK": {"gated": True, "unpriced_by_reason": {"stale_pool": 1}}, "WETH": {"gated": False, "unpriced_by_reason": {"no_pool": 9}}}
+        self.assertEqual(pricing._count_reasons(res), {"stale_pool": 4, "rpc_error": 1})
     def test_flag_helper(self):
         pr = pricing.Pricer(C, FakeRPC(thin_market()), FakeAPI(), swaps={P_FUD: ([BN - 10], 33_200_000, BN)})
         self.assertEqual(pricing.price_flag_for(pr.price(FUD, BN, 0)), "low_confidence")
@@ -59,6 +84,11 @@ class CacheChecks(tp.LedgerPass):
         ok = pricing.verify_stale(self.c, C, P_FUD, BN, BN - WIN - 500)
         self.assertEqual((ok["ok"], ok["sql_last_swap_block"], ok["age_blocks"]), (True, BN - WIN - 500, WIN + 500))
         self.assertFalse(pricing.verify_stale(self.c, C, P_FUD, BN, BN - WIN - 400)["ok"])       # claimed last swap disagrees
+        self.swaps(P_FUD, [BN + 10], 33_200_000, BN + 100)                                   # no swap at/before: lower bound
+        lb = pricing.verify_stale(self.c, C, P_FUD, BN, None)
+        self.assertEqual((lb["ok"], lb["age_blocks"], lb["age_is_lower_bound"]), (True, BN - 33_200_000, True))
+        self.swaps(P_FUD, [], BN - WIN + 1, BN + 100)
+        self.assertFalse(pricing.verify_stale(self.c, C, P_FUD, BN, None)["ok"])                # lower bound < 7 d: not provably stale
         self.swaps(P_FUD, [BN - 5], 33_200_000, BN + 100)
         self.assertFalse(pricing.verify_stale(self.c, C, P_FUD, BN, BN - 5)["ok"])               # swap < 7 d: not stale
         self.swaps(P_FUD, [BN - WIN - 500], 33_200_000, BN - 1)
@@ -78,3 +108,41 @@ class CacheChecks(tp.LedgerPass):
         self.assertEqual((out2["pass"], out2["candidates"]), (False, 3))                        # fewer than 5 swap blocks -> fail
 
 if __name__ == "__main__": unittest.main()
+
+
+class RpcErrors(unittest.TestCase):
+    """PR #7 review blocker: JSON-RPC errors arrive as HTTP 200 and raise RuntimeError in sources.RPC.call; they must surface as
+    rpc_error (fails C1), never as no_pool. Only 'execution reverted' (or eth_getCode = 0x) is no_pool."""
+    def rpc_with_body(self, body):
+        import io, os, tempfile
+        from unittest import mock
+        from cryptopnl import net, sources
+        from cryptopnl.hostlimit import HostLimiter
+        d = tempfile.mkdtemp(); lim = HostLimiter(10_000, 60.0, path=os.path.join(d, "rpc.lock"), min_gap=0)
+        def urlopen(req, timeout=None): return io.BytesIO(body)            # HTTP 200, JSON body
+        ctx = [mock.patch.dict(os.environ, {"NET_REQLOG": os.path.join(d, "r.log")}), mock.patch.object(net.urllib.request, "urlopen", urlopen)]
+        for c in ctx: c.start()
+        self.addCleanup(lambda: [c.stop() for c in ctx])
+        return sources.RPC("https://base.drpc.org/KEY", limiter=lim)
+    def test_http200_jsonrpc_error_is_rpc_error_not_no_pool(self):
+        rpc = self.rpc_with_body(b'{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"upstream rate limit exceeded"}}')
+        with self.assertRaises(RuntimeError): rpc.eth_call(P_FUD, "0x0902f1ac", BN)        # sources.py raises on "error"
+        pr = pricing.Pricer(C, rpc, FakeAPI(), swaps={P_FUD: ([BN - 10], 33_200_000, BN)})
+        self.assertIsNone(pr.price(FUD, BN, 0))
+        r = pr.unpriced_reason(FUD, BN)
+        self.assertEqual(r["reason"], "rpc_error"); self.assertNotIn("rpc_error", pricing.ACCEPTED_UNPRICED)
+        self.assertIn("rate limit", r["errors"][0]["error"]); self.assertGreaterEqual(len(pr.rpc_errors), 1)
+    def test_http200_execution_reverted_is_no_pool(self):
+        rpc = self.rpc_with_body(b'{"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted"}}')
+        pr = pricing.Pricer(C, rpc, FakeAPI(), swaps={})
+        self.assertIsNone(pr.price(FUD, BN, 0))
+        self.assertEqual((pr.unpriced_reason(FUD, BN)["reason"], pr.rpc_errors), ("no_pool", []))
+
+class UpsertConfidence(tp.LedgerPass):
+    def test_price_point_upsert_updates_confidence(self):
+        from tests.test_pricing import W, X, ZERO, tx, e20
+        h = self.add(tx(W, X), e20(GHST, ZERO, W, 4 * E18), bn=BN); self.run_()
+        pricing.price_ledger(self.c, C, pricing.Pricer(C, FakeRPC(market()), FakeAPI()), log=lambda *_: None)
+        self.c.execute("UPDATE price_point SET confidence=0.1, confidence_label='low' WHERE source='dex_slot0'"); self.c.commit()
+        pricing.price_ledger(self.c, C, pricing.Pricer(C, FakeRPC(market()), FakeAPI()), log=lambda *_: None)
+        self.assertEqual(self.c.execute("SELECT DISTINCT confidence_label FROM price_point WHERE source='dex_slot0'").fetchall(), [("high",)])
