@@ -10,6 +10,11 @@ HYPERSYNC_MIN_GAP_S = float(os.environ.get("HYPERSYNC_MIN_GAP_S", "12"))   # arc
 HYPERSYNC_RPM = float(os.environ.get("HYPERSYNC_RPM", "5"))   # architect (PR #3 approval): 5/min for all runs
 RPC_RPS = float(os.environ.get("RPC_RPS", "1"))               # architect (PR #1): RPC 1 req/s, burst 3
 RPC_BURST = int(os.environ.get("RPC_BURST", "3"))
+# P3: host-wide RPC budget (2026-10-17 run: 238 x 429 in 1444 attempts at 1 req/s, burst 3, per process). Conservative default:
+# 30 starts / sliding 60 s and >= 1.5 s between starts, all processes on the host (hostlimit.rpc_limiter). Free RPC only.
+RPC_RPM = float(os.environ.get("RPC_RPM", "30"))
+RPC_MIN_GAP_S = float(os.environ.get("RPC_MIN_GAP_S", "1.5"))
+RPC_LOCK_PATH = os.path.expanduser(os.environ.get("RPC_LOCK_PATH", "~/.cache/cryptopnl/rpc.lock"))
 REORG_CHECK_BLOCKS = 64                                     # max stored blocks re-checked per run
 REORG_WINDOW = int(os.environ.get("REORG_WINDOW", "10000"))  # only blocks within cursor-WINDOW can still reorg (Base finalizes << 10k blocks)
 

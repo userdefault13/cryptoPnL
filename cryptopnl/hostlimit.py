@@ -75,3 +75,14 @@ def hypersync_limiter():
         from .config import HYPERSYNC_RPM, HYPERSYNC_MIN_GAP_S
         _HS = HostLimiter(HYPERSYNC_RPM, 60.0, min_gap=HYPERSYNC_MIN_GAP_S)
     return _HS
+
+_RPC = None
+def rpc_limiter():
+    """Host-wide budget for the free public Base RPC (base.drpc.org), same pattern as HyperSync: every attempt (retries included)
+    takes a slot from one flock-guarded sliding window shared by all processes, plus a minimum gap between starts; 429/5xx back-off
+    is host-wide (Retry-After in full). Own lock file (RPC_LOCK_PATH, default ~/.cache/cryptopnl/rpc.lock), separate from HyperSync."""
+    global _RPC
+    if _RPC is None:
+        from .config import RPC_RPM, RPC_MIN_GAP_S, RPC_LOCK_PATH
+        _RPC = HostLimiter(RPC_RPM, 60.0, path=RPC_LOCK_PATH, min_gap=RPC_MIN_GAP_S)
+    return _RPC
