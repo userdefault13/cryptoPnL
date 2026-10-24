@@ -255,6 +255,8 @@ def price_ledger(conn, chain, pricer, log=print):
     """Idempotent: recomputes price columns / price_flag for every ledger entry of the chain; caches in price_point.
     Never writes fifo_lot (pending basis stays pending: P4 excludes it from mark and basis)."""
     allow = gated(chain); num = NUMERAIRE.get(chain); tsec = lambda ts: int(ts.timestamp())
+    from . import net
+    started = conn.execute("SELECT clock_timestamp()").fetchone()[0]; r0 = net.STATS.get("rpc", {}).get("retries", 0)
     conn.execute("""UPDATE ledger_entry SET price_usdc=NULL, price_source=NULL, price_confidence=NULL, price_confidence_label=NULL,
                     price_id=NULL, price_flag=NULL WHERE chain_id=%s""", (chain,))
     rows = conn.execute("""SELECT l.id, l.asset_id, a.standard, '0x'||encode(a.contract,'hex'), l.qty, l.category, l.trade_group,
@@ -320,8 +322,10 @@ def price_ledger(conn, chain, pricer, log=print):
         stats["by_source"][v.source] = stats["by_source"].get(v.source, 0) + 1
     stats["rpc_calls"] = pricer.calls; stats["rpc_errors"] = len(pricer.rpc_errors)
     stats["fallthrough_after_rpc_error"] = len(pricer.fallthrough)
-    conn.execute("""INSERT INTO price_run(chain_id,entries,rpc_calls,rpc_errors,fallthrough_after_rpc_error,detail) VALUES (%s,%s,%s,%s,%s,%s)""",
-                 (chain, stats["entries"], pricer.calls, len(pricer.rpc_errors), len(pricer.fallthrough),
+    stats["rpc_retries"] = net.STATS.get("rpc", {}).get("retries", 0) - r0
+    conn.execute("""INSERT INTO price_run(chain_id,started_at,finished_at,entries,rpc_calls,rpc_errors,rpc_retries,fallthrough_after_rpc_error,detail)
+                    VALUES (%s,%s,clock_timestamp(),%s,%s,%s,%s,%s,%s)""",
+                 (chain, started, stats["entries"], pricer.calls, len(pricer.rpc_errors), stats["rpc_retries"], len(pricer.fallthrough),
                   json.dumps({"rpc_errors": pricer.rpc_errors[:50], "fallthrough": pricer.fallthrough[:50]})))
     conn.commit(); log(json.dumps({"chain": chain, "price_ledger": stats})); return stats
 
@@ -351,10 +355,10 @@ def totals(conn, chain):
 def coverage(conn, chain):
     r = conn.execute("""SELECT count(*), count(*) FILTER (WHERE price_usdc IS NOT NULL), count(*) FILTER (WHERE price_flag IS NOT NULL),
         count(*) FILTER (WHERE price_usdc IS NULL AND price_flag IS NULL) FROM ledger_entry WHERE chain_id=%s""", (chain,)).fetchone()
-    run = conn.execute("""SELECT id, finished_at, rpc_calls, rpc_errors, fallthrough_after_rpc_error, detail FROM price_run
+    run = conn.execute("""SELECT id, finished_at, rpc_calls, rpc_errors, fallthrough_after_rpc_error, detail, started_at, rpc_retries FROM price_run
         WHERE chain_id=%s ORDER BY id DESC LIMIT 1""", (chain,)).fetchone()
-    pr = None if not run else {"id": run[0], "finished_at": str(run[1]), "rpc_calls": run[2], "rpc_errors": run[3],
-                               "fallthrough_after_rpc_error": run[4], "rpc_error_samples": run[5].get("rpc_errors", [])[:10],
+    pr = None if not run else {"id": run[0], "started_at": str(run[6]), "finished_at": str(run[1]), "rpc_calls": run[2], "rpc_errors": run[3],
+                               "rpc_retries": run[7], "fallthrough_after_rpc_error": run[4], "rpc_error_samples": run[5].get("rpc_errors", [])[:10],
                                "fallthrough": run[5].get("fallthrough", [])[:10]}
     fail = []
     if r[3]: fail.append(f"{r[3]} entries have neither a price nor a flag")
@@ -455,7 +459,9 @@ def gltr_probe(conn, chain, pricer, n=5, seed=3, min_block=None, log=print):
     pool's own cached Swap blocks (pool_swap; no new HyperSync calls) at/after min_block (the C1 sample start, so GHST/USDC is on its
     >= floor tier) and inside the scanned range. Each block must price GLTR -> GHST -> USDC on the thin tier: source dex_reserves_thin,
     label low, flag low_confidence, pool = the GLTR/GHST pool, quote GHST, GHST priced against the USDC numeraire, last swap = a swap
-    at/before the block per the SQL cache (age < 7 d)."""
+    at/before the block per the SQL cache (age < 7 d). GHST leg (architect ruling 2026-10-24): the GHST/USDC price used at each probe block
+    must be within ±3% of DefiLlama at the block timestamp (eth_getBlockByNumber); a missing API price or a miss fails the block. The
+    GHST pool, its token balances and USD depth are reported per block. Pricing is not changed by this check."""
     import random
     num = NUMERAIRE.get(chain)
     pools = [p for k, p, q in PRICE_POOLS.get(chain, {}).get(GLTR_BASE, []) if k == "v2"]
@@ -482,7 +488,23 @@ def gltr_probe(conn, chain, pricer, n=5, seed=3, min_block=None, log=print):
                                                  "pool_depth_usd": qd.get("pool_depth_usd"), "quote": qd.get("quote")},
                "checks": checks, "pass": all(checks.values())}
         if p is None: row["unpriced_reason"] = pricer.unpriced_reason(GLTR_BASE, bn)
+        # GHST leg vs DefiLlama (±3%), with the GHST pool's balances and depth
+        gp = qd.get("pool"); ts = None; api = None; dev = None
+        try: ts = pricer.rpc.block(bn)[2]
+        except Exception as e: row["ghst_ts_error"] = str(e)[:200]
+        if ts is not None: api = pricer.api_price(ghst, ts)
+        qprice = det.get("quote_price")
+        if api is not None and qprice is not None: dev = float(round((Decimal(qprice) / api.price - 1) * 100, 3))
+        bal_g = pricer.token_balance(ghst, gp, bn) if gp else None
+        bal_q = pricer.token_balance(qd.get("quote"), gp, bn) if gp and qd.get("quote") else None
+        row["ghst_vs_api"] = {"pool": gp, "kind": qd.get("kind"), "ghst_price": qprice, "api": None if api is None else str(api.price),
+                              "api_ts": None if api is None else api.detail.get("api_ts"), "block_ts": ts, "dev_pct": dev,
+                              "pool_ghst_balance": None if bal_g is None else str(bal_g), "pool_usdc_balance": None if bal_q is None else str(bal_q),
+                              "pool_depth_usd": qd.get("pool_depth_usd"), "within_3pct": dev is not None and abs(dev) <= 3}
+        checks["ghst_within_3pct"] = row["ghst_vs_api"]["within_3pct"]; row["pass"] = all(checks.values())
         rows.append(row); log(json.dumps({"gltr_probe_block": row}))
     out = {"pool": pool, "blocks": blocks, "candidates": len(cand), "min_block": min_block, "passed": sum(r["pass"] for r in rows),
+           "ghst_within_3pct": sum(r["checks"]["ghst_within_3pct"] for r in rows),
+           "ghst_outside_3pct": [{"block": r["block"], **r["ghst_vs_api"]} for r in rows if not r["checks"]["ghst_within_3pct"]],
            "of": n, "pass": len(rows) == n and all(r["pass"] for r in rows), "rpc_calls": pricer.calls}
     log(json.dumps({"gltr_probe": out})); return out
