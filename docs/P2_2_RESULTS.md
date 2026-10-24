@@ -116,3 +116,17 @@ DESIGN.md in the repo is now the architect's v1.3, copied verbatim (e2abb9e, sha
   The failed-run logs are kept on the Mac in `logs/failed_2026-10-22/`.
 - Note: branch `p2.2-r10b` / PR #6 (an earlier speculative R10b, 2026-10-19) used gauge = `transfer_internal` and had no remove-liquidity or rewards rules. It is superseded by this rule.
   Its uncommitted local doc edits on the Mac (an "ack 2026-10-20" for gauge = `transfer_internal`) are saved in `git stash` on the Mac and not committed.
+
+## Full rerun on omarchywin, 2026-10-23 20:18–20:36 PT, at 394533f (host limiter fix 19d0867)
+Log: `logs/p2_2_rerun.log` (not committed). Evidence: `docs/evidence/p2_2_*`.
+
+| Pass | classified / total | review | ledger md5 (classify #1 = #2) | HyperSync requests | busiest 60 s window | 429s | script result |
+|---|---|---|---|---|---|---|---|
+| Base 8453 P2.2 | 833 / 834 (99.88%) | 1 | 6b00ec3c509df6309bd7a65956c1eb0a (report c41ee59ece07e4bf45bdf0a9dda14ec8, review e7de420e6883071793eb2790cd85b3af) | 18 | 5 (ending 20:19:48 PT) | **1** (first ingest: 13 requests, 12 ok) | PASS |
+| Base 8453 P2 | 833 / 834 (99.88%) | 1 | report c41ee59ece07e4bf45bdf0a9dda14ec8 | 10 | 5 (ending 20:26:11 PT) | 0 | PASS |
+| Sepolia 84532 P2.2 | 126 / 126 (100.0%) | 0 | 9f9beb2dd9da4aafd78cbfde889beec5 (report f4a81e5d4948f29677aa7db4de84d43f) | 4 | 2 (ending 20:30:21 PT) | 0 | PASS |
+| Sepolia 84532 P2 | 126 / 126 (100.0%) | 0 | report f4a81e5d4948f29677aa7db4de84d43f | 2 | 2 (ending 20:34:12 PT) | 0 | PASS |
+
+- Base review queue: `0xccbfe04a6920793f7000b61d74e0da342e65252efe3e73170ec2f751c5bc58c0` ("DEX router, fungible out only: native leg not indexed (internal ETH gap)"). Sepolia: none.
+- Window bar met on every pass (≤ 5; the 10:02 run had 6). **Zero-429 bar NOT met: Base P2.2 had 1 × 429** (retried inside the window; the window stayed at 5). Status: FAIL on the 429 criterion, pending CoS/architect.
+- Unit suite: 75 tests OK (1 skipped) on cryptopnl_unit22.
