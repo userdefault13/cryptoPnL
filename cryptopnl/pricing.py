@@ -118,7 +118,43 @@ class Pricer:
         last = bl[i - 1] if i else None
         if last is None or block - last >= THIN_SWAP_WINDOW_BLOCKS: return None
         return Price(px, "dex_reserves_thin", "low", dict(dd, last_swap_block=last, swap_window_blocks=THIN_SWAP_WINDOW_BLOCKS,
-                     route=[dd["pool"]] + qp.detail.get("route", []), quote_detail=qp.detail))
+                     route=[dd["pool"]] + qp.detail.get("route", []), quote_detail=qp.detail, quote_price=str(qp.price)))
+
+    def unpriced_reason(self, asset, block):
+        """C1 ruling (PR #7, 2026-10-23): why (asset, block) is unpriced, after price() returned None (uses the dex() memo / thin
+        candidates of that call). Accepted (machine-checkable) codes: stale_pool (thin pool, both reserves > 0, last Swap >= 7 d before
+        the block per the cached scan; last_swap_block + age), no_pool (no configured pool, or the pool has no code / reverts at the block),
+        zero_reserves (a reserve or the quote balance is 0). Anything else (swap_scan_gap, quote_unpriced, below_floor_no_api,
+        unexplained) is NOT accepted and fails C1."""
+        a = self.weth if asset in (None, "native") else asset.lower()
+        pools = self.pools.get(a, [])
+        if not pools: return {"reason": "no_pool"}
+        c = self.thin_cand.get((a, block))
+        if c:
+            dd = c[3]; pool = dd["pool"]
+            if a not in self.thin_assets: return {"reason": "below_floor_no_api", "pool": pool}
+            sw = self.swaps.get(pool)
+            if not sw or sw[2] < block or sw[1] > block - THIN_SWAP_WINDOW_BLOCKS:
+                return {"reason": "swap_scan_gap", "pool": pool, "scan": None if not sw else [sw[1], sw[2]]}
+            i = bisect.bisect_right(sw[0], block); last = sw[0][i - 1] if i else None
+            if last is not None and block - last < THIN_SWAP_WINDOW_BLOCKS: return {"reason": "unexplained", "pool": pool, "last_swap_block": last}
+            age = None if last is None else block - last
+            return {"reason": "stale_pool", "pool": pool, "last_swap_block": last, "last_swap_age_blocks": age,
+                    "last_swap_age_days": None if age is None else round(age * BLOCK_TIME_S / 86400, 2),
+                    "scan_from": sw[1], "window_blocks": THIN_SWAP_WINDOW_BLOCKS}
+        found = []
+        for kind, pool, quote in pools:
+            r = self._call(pool, "0x3850c7bd" if kind == "v3" else "0x0902f1ac", block)
+            if r is None: found.append({"reason": "no_pool", "pool": pool}); continue
+            if word(r, 0) == 0 or (kind != "v3" and word(r, 1) == 0): found.append({"reason": "zero_reserves", "pool": pool}); continue
+            q = self.quote_reserve(pool, quote, block)
+            if q is None or q <= 0: found.append({"reason": "zero_reserves", "pool": pool, "quote": quote}); continue
+            if quote != self.num and self.dex(quote, block) is None: found.append({"reason": "quote_unpriced", "pool": pool, "quote": quote}); continue
+            found.append({"reason": "unexplained", "pool": pool})
+        bad = [f for f in found if f["reason"] not in ACCEPTED_UNPRICED]
+        if bad: return dict(bad[0], pools=found)
+        z = [f for f in found if f["reason"] == "zero_reserves"]
+        return dict((z or found)[0], pools=found)
 
     def has_source(self, asset):
         a = self.weth if asset in (None, "native") else asset.lower()
@@ -134,6 +170,26 @@ class Pricer:
         if d: return d
         if a in self.thin_assets: return self.thin(a, block)
         return self.api_price(a, ts)
+
+BLOCK_TIME_S = 2                     # Base / Base Sepolia: 2 s blocks (last-swap age in days = blocks x 2 / 86400)
+ACCEPTED_UNPRICED = ("stale_pool", "no_pool", "zero_reserves")
+
+def price_flag_for(p):
+    """Ledger/probe flag of a priced value: low-confidence prices carry the badge flag (totals are also shown without them)."""
+    return "low_confidence" if p is not None and p.label == "low" else None
+
+def verify_stale(conn, chain, pool, block, claimed_last):
+    """Independent re-derivation for a stale_pool sample, straight from the pool_swap / pool_swap_scan cache (not the Pricer's copy):
+    the last Swap at or before the block must equal the claimed one and be >= THIN_SWAP_WINDOW_BLOCKS (7 d) before it, and the scan
+    must cover (block - 7 d, block]."""
+    last = conn.execute("SELECT max(block_number) FROM pool_swap WHERE chain_id=%s AND pool=decode(%s,'hex') AND block_number <= %s",
+                        (chain, pool[2:], block)).fetchone()[0]
+    sc = conn.execute("SELECT from_block, scanned_to FROM pool_swap_scan WHERE chain_id=%s AND pool=decode(%s,'hex')", (chain, pool[2:])).fetchone()
+    covered = bool(sc) and sc[0] <= block - THIN_SWAP_WINDOW_BLOCKS and sc[1] >= block
+    age = None if last is None else block - last
+    ok = covered and last == claimed_last and (age is None or age >= THIN_SWAP_WINDOW_BLOCKS)
+    return {"sql_last_swap_block": last, "age_blocks": age, "age_days": None if age is None else round(age * BLOCK_TIME_S / 86400, 2),
+            "scan": None if not sc else [sc[0], sc[1]], "ok": ok}
 
 def load_swaps(conn, chain):
     """pool -> (sorted swap blocks, scanned_from, scanned_to) from the pool_swap cache (filled by ingest.ingest_pool_swaps)."""
@@ -209,7 +265,7 @@ def price_ledger(conn, chain, pricer, log=print):
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (asset_id,block_number,source) DO UPDATE SET price_usdc=EXCLUDED.price_usdc,
                 detail=EXCLUDED.detail RETURNING id""", (e["aid"], chain, e["bn"], e["ts"], v.price, v.source, CONFIDENCE[v.label], v.label,
                 json.dumps(v.detail))).fetchone()[0]
-        lf = "low_confidence" if v.label == "low" else None      # priced, badge; totals also reported without these
+        lf = price_flag_for(v)      # priced, badge; totals also reported without these
         conn.execute("""UPDATE ledger_entry SET price_usdc=%s, price_source=%s, price_confidence=%s, price_confidence_label=%s, price_id=%s,
             price_flag=%s WHERE id=%s""", (v.price, v.source, CONFIDENCE[v.label], v.label, pid, lf, eid))
         if lf: stats["by_flag"][lf] = stats["by_flag"].get(lf, 0) + 1
@@ -250,26 +306,28 @@ def coverage(conn, chain):
             "totals": totals(conn, chain)}
 
 def sample(conn, chain, pricer, n=20, seed=3, extras=True, log=print):
-    """P3 pass checks 1 and 2 (DESIGN v1.3 §4 as amended by the P3 rulings). Assets = tracked fungibles with non-excluded ledger
-    entries (+ WETH, cbBTC as report-only extras). Criterion 1 is gated for every asset that HAS a price source (GLTR is documented as
-    unpriced, reported, not gated). Each (asset, block) gets the full price order (numeraire / DEX >= floor / thin pool / API) and,
-    independently, the DEX (>= floor) and API prices. Criterion 2: |dex/api-1| <= 3% gated only for GHST high/medium DEX prices;
-    every other pair is reported only. Blocks = n distinct ledger blocks (fixed seed) at/after the first block where every gated
-    asset has ledger activity."""
+    """P3 pass checks C1 and C2 (DESIGN v1.3 §4; §8 P3 rulings and P3 C1 rulings, PR #7). Assets = the tracked fungibles that have
+    non-excluded Base ledger entries (C1 scope), plus WETH and cbBTC as report-only extras. Blocks = n distinct ledger blocks (fixed seed)
+    at/after the first block where every C1 asset has ledger activity. Each (asset, block) gets the full price order (numeraire /
+    DEX >= floor / thin pool / API) and, independently, the DEX (>= floor) and API prices.
+    C1 (amended): every sample is priced, or unpriced with an accepted machine-checkable reason (stale_pool with the last-swap age,
+    no_pool, zero_reserves). Each stale_pool sample is re-derived from the pool_swap cache by verify_stale(). Unpriced = excluded and
+    flagged, never 0. GLTR has no Base ledger entries, so it is not in C1; see gltr_probe().
+    C2: |dex/api - 1| <= 3%, gated only for GHST high/medium DEX prices; every other pair is report only."""
     import random
     allow = gated(chain); num = NUMERAIRE.get(chain); dev_gate = DEV_GATED_ASSETS.get(chain, set())
     firsts = conn.execute("""SELECT CASE WHEN a.standard='native' THEN 'native' ELSE '0x'||encode(a.contract,'hex') END, min(l.block_number)
         FROM ledger_entry l JOIN asset a ON a.id=l.asset_id WHERE l.chain_id=%s AND NOT l.pnl_excluded AND a.standard IN ('native','erc20')
         GROUP BY 1""", (chain,)).fetchall()
     assets = sorted(c for c, _ in firsts if c == "native" or c in allow)
-    gated_assets = [c for c in assets if pricer.has_source(c)]
+    gated_assets = list(assets)
     start = max(b for c, b in firsts if c in gated_assets)
     cand = [r[0] for r in conn.execute("SELECT DISTINCT block_number FROM ledger_entry WHERE chain_id=%s AND block_number >= %s ORDER BY 1", (chain, start))]
     blocks = sorted(random.Random(seed).sample(cand, min(n, len(cand))))
     ts = dict(conn.execute("SELECT number, ts FROM block WHERE chain_id=%s AND number = ANY(%s)", (chain, blocks)).fetchall())
     extra = [c for c in (WETH.get(chain), "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf") if c not in assets] if extras else []
     sym = lambda c: "ETH" if c == "native" else pricer.tok.get(c, (c,))[0]
-    res, devs = {}, []
+    res, devs, c1_bad = {}, [], []
     for bn in blocks:
         t = int(ts[bn].timestamp())
         for c in assets + extra:
@@ -280,24 +338,80 @@ def sample(conn, chain, pricer, n=20, seed=3, extras=True, log=print):
             det = p.detail if p else {}
             row = {"block": bn, "ts": t, "asset": sym(c), "gated": c in gated_assets, "priced": p is not None,
                    "price": None if not p else str(p.price), "source": p.source if p else None, "label": p.label if p else None,
-                   "pool": det.get("pool"), "pool_depth_usd": det.get("pool_depth_usd"), "last_swap_block": det.get("last_swap_block"),
-                   "api_ts": det.get("api_ts"), "dex": None if not d else str(d.price), "dex_label": d.label if d else None,
-                   "api": None if not api else str(api.price)}
+                   "flag": price_flag_for(p), "pool": det.get("pool"), "pool_depth_usd": det.get("pool_depth_usd"),
+                   "last_swap_block": det.get("last_swap_block"), "api_ts": det.get("api_ts"), "dex": None if not d else str(d.price),
+                   "dex_label": d.label if d else None, "api": None if not api else str(api.price)}
+            if p is None:
+                why = pricer.unpriced_reason(a, bn); row["flag"] = "no_price"; row["unpriced_reason"] = why
+                ok = why["reason"] in ACCEPTED_UNPRICED
+                if why["reason"] == "stale_pool":
+                    chk = verify_stale(conn, chain, why["pool"], bn, why["last_swap_block"]); row["stale_check"] = chk; ok = ok and chk["ok"]
+                row["c1_ok"] = ok
+            else: row["c1_ok"] = True
+            if c in gated_assets and not row["c1_ok"]: c1_bad.append({"asset": sym(c), "block": bn, "unpriced_reason": row.get("unpriced_reason")})
             if d and api:
                 row["dev_pct"] = float(round((d.price / api.price - 1) * 100, 3))
                 row["dev_gated"] = a in dev_gate and d.label in ("high", "medium"); devs.append(row)
             log(json.dumps({"sample": row}))
-            r = res.setdefault(sym(c), {"gated": c in gated_assets, "has_source": pricer.has_source(c), "priced": 0, "by_source": {},
+            r = res.setdefault(sym(c), {"gated": c in gated_assets, "has_source": pricer.has_source(c), "priced": 0, "unpriced": 0,
+                                        "unpriced_by_reason": {}, "stale_age_days": [], "c1_ok": 0, "by_source": {},
                                         "dex": 0, "api": 0, "both": 0, "max_abs_dev_pct": None})
-            r["priced"] += row["priced"]; r["dex"] += bool(d); r["api"] += bool(api); r["both"] += "dev_pct" in row
+            r["priced"] += row["priced"]; r["c1_ok"] += row["c1_ok"]; r["dex"] += bool(d); r["api"] += bool(api); r["both"] += "dev_pct" in row
             if p: r["by_source"][p.source] = r["by_source"].get(p.source, 0) + 1
+            else:
+                k = row["unpriced_reason"]["reason"]; r["unpriced"] += 1; r["unpriced_by_reason"][k] = r["unpriced_by_reason"].get(k, 0) + 1
+                if k == "stale_pool": r["stale_age_days"].append(row["unpriced_reason"]["last_swap_age_days"])
             if "dev_pct" in row: r["max_abs_dev_pct"] = max(r["max_abs_dev_pct"] or 0, abs(row["dev_pct"]))
+    for v in res.values():
+        a_ = [x for x in v.pop("stale_age_days") if x is not None]
+        v["stale_age_days_min_max"] = [min(a_), max(a_)] if a_ else None
     g = [r for r in devs if r["dev_gated"]]
     out = {"chain": chain, "blocks": blocks, "sample_start_block": start, "seed": seed, "assets": res,
-           "unpriced_by_ruling": [sym(c) for c in assets if c not in gated_assets],
+           "c1_accepted_reasons": list(ACCEPTED_UNPRICED), "c1_failures": c1_bad,
+           "pass_c1": not c1_bad and len(blocks) == n,
            "pass_all_priced": all(v["priced"] == len(blocks) for v in res.values() if v["gated"]) and len(blocks) == n,
-           "not_priced_at": [{"asset": k, "priced": v["priced"], "of": len(blocks)} for k, v in res.items() if v["gated"] and v["priced"] < len(blocks)],
+           "not_priced_at": [{"asset": k, "priced": v["priced"], "of": len(blocks), "unpriced_by_reason": v["unpriced_by_reason"]}
+                             for k, v in res.items() if v["gated"] and v["priced"] < len(blocks)],
            "pairs_with_both": len(devs), "gated_pairs": len(g), "outside_3pct_gated": [r for r in g if abs(r["dev_pct"]) > 3],
            "outside_3pct_report_only": [r for r in devs if not r["dev_gated"] and abs(r["dev_pct"]) > 3],
            "pass_dex_vs_api_3pct": bool(g) and all(abs(r["dev_pct"]) <= 3 for r in g), "rpc_calls": pricer.calls}
     log(json.dumps({"summary": out})); return out
+
+GLTR_BASE = "0x4d140ce792bedc430498c2d219afbc33e2992c9d"
+
+def gltr_probe(conn, chain, pricer, n=5, seed=3, min_block=None, log=print):
+    """P3 C1 ruling (2): GLTR path probe, a pass/fail line separate from the C1 count. n blocks drawn (fixed seed) from the GLTR/GHST
+    pool's own cached Swap blocks (pool_swap; no new HyperSync calls) at/after min_block (the C1 sample start, so GHST/USDC is on its
+    >= floor tier) and inside the scanned range. Each block must price GLTR -> GHST -> USDC on the thin tier: source dex_reserves_thin,
+    label low, flag low_confidence, pool = the GLTR/GHST pool, quote GHST, GHST priced against the USDC numeraire, last swap = a swap
+    at/before the block per the SQL cache (age < 7 d)."""
+    import random
+    num = NUMERAIRE.get(chain)
+    pools = [p for k, p, q in PRICE_POOLS.get(chain, {}).get(GLTR_BASE, []) if k == "v2"]
+    if not pools: out = {"pass": False, "error": "no GLTR pool configured"}; log(json.dumps({"gltr_probe": out})); return out
+    pool = pools[0]; ghst = PRICE_POOLS[chain][GLTR_BASE][0][2]
+    sc = conn.execute("SELECT from_block, scanned_to FROM pool_swap_scan WHERE chain_id=%s AND pool=decode(%s,'hex')", (chain, pool[2:])).fetchone()
+    cand = [r[0] for r in conn.execute("""SELECT DISTINCT block_number FROM pool_swap WHERE chain_id=%s AND pool=decode(%s,'hex')
+        AND block_number >= %s AND block_number <= %s ORDER BY 1""", (chain, pool[2:], min_block or 0, sc[1] if sc else -1))]
+    blocks = sorted(random.Random(seed).sample(cand, min(n, len(cand))))
+    rows = []
+    for bn in blocks:
+        p = pricer.price(GLTR_BASE, bn, None); det = p.detail if p else {}; qd = det.get("quote_detail") or {}
+        sql_last = conn.execute("SELECT max(block_number) FROM pool_swap WHERE chain_id=%s AND pool=decode(%s,'hex') AND block_number <= %s",
+                                (chain, pool[2:], bn)).fetchone()[0]
+        checks = {"priced": p is not None, "thin_tier": bool(p) and p.source == "dex_reserves_thin", "low": bool(p) and p.label == "low",
+                  "flagged": price_flag_for(p) == "low_confidence", "pool": det.get("pool") == pool, "quote_ghst": det.get("quote") == ghst,
+                  "ghst_to_usdc": qd.get("quote") == num and qd.get("pool") is not None,
+                  "swap_recent": sql_last is not None and det.get("last_swap_block") == sql_last and bn - sql_last < THIN_SWAP_WINDOW_BLOCKS}
+        row = {"block": bn, "asset": "GLTR", "price": None if not p else str(p.price), "source": p.source if p else None,
+               "label": p.label if p else None, "flag": price_flag_for(p) if p else "no_price", "pool": det.get("pool"),
+               "pool_depth_usd": det.get("pool_depth_usd"), "quote_reserve_usd": det.get("quote_reserve_usd"),
+               "last_swap_block": det.get("last_swap_block"), "route": det.get("route"),
+               "ghst_usdc": None if not qd else {"pool": qd.get("pool"), "kind": qd.get("kind"), "price": det.get("quote_price"),
+                                                 "pool_depth_usd": qd.get("pool_depth_usd"), "quote": qd.get("quote")},
+               "checks": checks, "pass": all(checks.values())}
+        if p is None: row["unpriced_reason"] = pricer.unpriced_reason(GLTR_BASE, bn)
+        rows.append(row); log(json.dumps({"gltr_probe_block": row}))
+    out = {"pool": pool, "blocks": blocks, "candidates": len(cand), "min_block": min_block, "passed": sum(r["pass"] for r in rows),
+           "of": n, "pass": len(rows) == n and all(r["pass"] for r in rows), "rpc_calls": pricer.calls}
+    log(json.dumps({"gltr_probe": out})); return out

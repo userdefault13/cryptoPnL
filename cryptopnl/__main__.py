@@ -44,7 +44,9 @@ elif a.cmd in ("price", "price-sample"):
     pr = pricing.Pricer(a.chain, RPC(CHAINS[a.chain]["rpc"]), pricing.DefiLlama(), swaps=pricing.load_swaps(conn, a.chain))
     if a.cmd == "price": pricing.price_ledger(conn, a.chain, pr); print(json.dumps(pricing.coverage(conn, a.chain), default=str))
     else:
-        r = pricing.sample(conn, a.chain, pr, a.samples, a.seed); rc = 0 if r["pass_all_priced"] and r["pass_dex_vs_api_3pct"] else 1
+        r = pricing.sample(conn, a.chain, pr, a.samples, a.seed)
+        g = pricing.gltr_probe(conn, a.chain, pr, 5, a.seed, min_block=r["sample_start_block"])
+        rc = 0 if r["pass_c1"] and r["pass_dex_vs_api_3pct"] and g["pass"] else 1
 elif a.cmd == "price-report":
     r = pricing.coverage(conn, a.chain); print(json.dumps(r, default=str)); rc = 0 if r["pass"] else 1
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)
