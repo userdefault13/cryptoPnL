@@ -284,11 +284,32 @@ class GV(unittest.TestCase):
         self.assertEqual(self.rows(stake), [("untracked", "wallet", POOL, -100 * E18, f"gauge:{FARM}")])
         self.assertEqual(self.rows(unstake), [("income", "wallet", GLTR, 50 * E18, f"gauge:{FARM}:reward"), ("untracked", "wallet", POOL, 100 * E18, f"gauge:{FARM}")])
         self.assertEqual(self.rows(reward_junk), [("untracked", "wallet", AERO, E18, f"gauge:{FARM}:reward")])
-        self.assertEqual(self.cats(other_lp), ["untracked"])
+        self.assertEqual(self.rows(other_lp), [("untracked", "wallet", LP2, -100 * E18, f"gauge:{FARM}")])   # farm path (PR #5 review)
         self.assertEqual(self.rows(remove), [("swap", "wallet", FUD, 90 * E18, f"lp_remove:{POOL}"), ("swap", "wallet", GHST, E18, f"lp_remove:{POOL}"),
                                              ("untracked", "wallet", POOL, -7 * E18, f"lp_remove:{POOL}")])
         self.assertIn("pool", self.review(onesided)); self.assertIn("pool", self.review(lp_away))
         self.assertTrue(self.c.execute("SELECT bool_and(pnl_excluded) FROM ledger_entry WHERE category='untracked'").fetchone()[0])
+
+    def test_farm_path_other_lp_plus_gltr(self):   # architect PR #5 review at 55974bb: every fungible counterparty is the farm
+        FARM = "0xab449dca14413a6ae0bcea9ea210b57ace280d2c"; GLTR = "0x4d140ce792bedc430498c2d219afbc33e2992c9d"
+        LP2 = "0x62ab7d558a011237f8a57ac0f97601a764e85b88"; AERO = "0x940181a94a35a4569e4529a3cdfb74e38fd98631"
+        dep = self.add(tx(W, FARM, selector="0xe2bbb158"), e20(LP2, W, FARM, 100 * E18), e20(GLTR, FARM, W, 30 * E18))   # deposit + harvest
+        wd = self.add(tx(W, FARM), e20(LP2, FARM, W, 100 * E18), e20(GLTR, FARM, W, 20 * E18))                          # withdraw + GLTR
+        junk = self.add(tx(W, FARM), e20(LP2, FARM, W, E18), e20(AERO, FARM, W, E18))                                    # non-allowlisted reward
+        ghst_in = self.add(tx(W, FARM), e20(GHST, W, FARM, E18))                                                         # allowlisted non-LP sent
+        mixed = self.add(tx(W, FARM), e20(LP2, W, FARM, E18), e20(GLTR, X, W, E18))                                      # not every cp is the farm
+        s = self.run_(); self.assertEqual(s["review"], 2)
+        for h, gltr in ((dep, 30 * E18), (wd, 20 * E18)):
+            r = {(x[2], x[0], x[4]) for x in self.rows(h)}
+            self.assertIn((LP2, "untracked", f"gauge:{FARM}"), r); self.assertNotIn((LP2, "untracked", f"gauge:{FARM}:reward"), r)
+            self.assertIn(("income", "wallet", GLTR, gltr, f"gauge:{FARM}:reward"), self.rows(h))
+        self.assertEqual(sorted(self.rows(dep)), sorted([("untracked", "wallet", LP2, -100 * E18, f"gauge:{FARM}"),
+                                                         ("income", "wallet", GLTR, 30 * E18, f"gauge:{FARM}:reward")]))
+        self.assertEqual(sorted(self.rows(wd)), sorted([("untracked", "wallet", LP2, 100 * E18, f"gauge:{FARM}"),
+                                                        ("income", "wallet", GLTR, 20 * E18, f"gauge:{FARM}:reward")]))
+        self.assertEqual(sorted(self.rows(junk)), sorted([("untracked", "wallet", LP2, E18, f"gauge:{FARM}"),
+                                                          ("untracked", "wallet", AERO, E18, f"gauge:{FARM}:reward")]))
+        self.assertIn("allowlisted non-LP token sent", self.review(ghst_in)); self.assertIn("not every fungible counterparty", self.review(mixed))
 
     def test_parcel_bundle_cleared_when_parcel_leaves(self):
         self.add(tx(W, REALM), e1155(INST, W, REALM, 10, 1), gv(INST, "TransferToParent", (REALM, 42, 10), (1,)))

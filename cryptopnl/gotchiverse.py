@@ -61,15 +61,19 @@ def r10_pool(g, w, tx, sent, to, sel, legs, fung, nfts, market, esc, items, cost
                 and (to_pool or from_pool) and any(tracked(l) for l in other):
             ref = f"pool_swap:{pool}"
             return "swap", [L(l, "swap" if tracked(l) else "untracked", ref=ref) for l in other], []
-    # gauge legs: the pool's LP staked/unstaked (untracked) and rewards from the gauge (income if allowlisted, else untracked)
+    # farm path (architect, PR #5 review at 55974bb): EVERY fungible counterparty is the farm -> per leg:
+    #   any pool's LP (pricing pools + g["farm_lp_tokens"], or a non-allowlisted token sent to the farm), in or out -> untracked, ref gauge:<farm>
+    #   allowlisted token received from the farm -> income, ref gauge:<farm>:reward; non-allowlisted token received -> untracked (:reward)
+    #   allowlisted non-LP token sent to the farm -> review
     if sent and gauge_hit and len(fung) == len(legs) and all(l.get("cp") in gauges for l in fung):
-        rewards = [l for l in other if l["qty"] > 0]
-        if not pool_hit and len(rewards) != len(other): return None   # another LP token staked (e.g. 0x89d68cf4…): normal rules
-        if pool_hit and len(rewards) != len(other): raise Review(f"{what}: non-LP token sent to the GLTR staking farm (DESIGN §9 R10)")
-        out = [L(l, "untracked", ref=f"gauge:{l['cp']}") for l in lp]
-        out += [L(l, "income" if tracked(l) else "untracked", ref=f"gauge:{l['cp']}:reward") for l in rewards]
-        return ("income" if any(tracked(l) for l in rewards) else "untracked"), out, []
-    if not pool_hit: return None
+        lps = pools | set(g.get("farm_lp_tokens", ())); out = []; inc = False
+        for l in fung:
+            if l["contract"] in lps: out.append(L(l, "untracked", ref=f"gauge:{l['cp']}"))
+            elif l["qty"] > 0: inc |= tracked(l); out.append(L(l, "income" if tracked(l) else "untracked", ref=f"gauge:{l['cp']}:reward"))
+            elif tracked(l): raise Review(f"{what}: allowlisted non-LP token sent to the GLTR staking farm (DESIGN §9 R10)")
+            else: out.append(L(l, "untracked", ref=f"gauge:{l['cp']}"))   # another pool's LP staked
+        return ("income" if inc else "untracked"), out, []
+    if not pool_hit: raise Review(f"{what}: tx touches the farm but not every fungible counterparty is the farm (DESIGN §9 R10)")
     raise Review(f"Aerodrome {what}: not add/remove-liquidity, a swap or a GLTR staking farm move (DESIGN §9 R10)")
 
 # R1: NFT received as listing recipient (ExecutedToRecipient, recipient = wallet, buyer != wallet) with no wallet payment -> gift_in
