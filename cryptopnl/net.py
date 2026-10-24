@@ -40,10 +40,14 @@ def _outlog(name, url, attempt, status, retry_after, err=None):
     with open(f, "a") as fh:
         fh.write(f"{time.time():.3f} {name} outcome host={u.hostname or '-'} endpoint={ep} status={status} retry_after={ra} attempt={attempt}"
                  + (f" err={err}" if err else "") + "\n")
+MAX_408_ATTEMPTS = 3   # architect ruling (PR #7, 2026-10-24): HTTP 408 retried like 5xx, at most 3 attempts per call
+
 def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sleep=time.sleep):
     st = STATS.setdefault(name, {"requests": 0, "ok": 0, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0})
+    st.setdefault("408", 0); st.setdefault("retries", 0); n408 = 0
     _T0.setdefault(name, time.monotonic())
     for attempt in range(retries):
+        if attempt: st["retries"] += 1            # every retry goes back through the limiter (budget + min gap)
         t = limiter.wait(); st["requests"] += 1
         _reqlog(name, "attempt", t if isinstance(t, float) else None)   # host limiter: log the gate's own start time
         req = urllib.request.Request(url, None if body is None else json.dumps(body).encode(),   # body None -> GET (P3 price APIs)
@@ -55,6 +59,11 @@ def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sl
         except urllib.error.HTTPError as e:
             if e.code == 429: st["429"] += 1
             elif e.code >= 500: st["5xx"] += 1
+            elif e.code == 408:                       # request timeout (free RPC plan): retried like 5xx, max 3 attempts
+                st["408"] += 1; n408 += 1
+                if n408 >= MAX_408_ATTEMPTS:
+                    st["errors"] += 1; _outlog(name, url, attempt + 1, e.code, None)
+                    raise RuntimeError(f"{name} HTTP 408 after {n408} attempts: {e.read()[:200]!r}")
             else: st["errors"] += 1; _outlog(name, url, attempt + 1, e.code, None); raise RuntimeError(f"{name} HTTP {e.code}: {e.read()[:200]!r}")
             delay = _retry_after(e); _outlog(name, url, attempt + 1, e.code, delay)
             if delay is not None: st["retry_after_honored"] += 1
