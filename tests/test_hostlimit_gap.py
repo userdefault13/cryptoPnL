@@ -76,4 +76,23 @@ class OutcomeLog(unittest.TestCase):
         self.assertIn("requests=2", out); self.assertIn("429s=1", out); self.assertIn("busiest_60s_window=2", out)
         self.assertIn("status=429 retry_after=9 attempt=1", out)
 
+class ReviewNits(unittest.TestCase):   # architect PR #5 review nits (2)-(4)
+    def test_rpc_endpoint_redacted_and_json_error_logged(self):
+        d = tempfile.mkdtemp(); log = os.path.join(d, "r.log"); clk = Clock(); n = [0]
+        def urlopen(req, timeout=None):
+            n[0] += 1
+            return io.BytesIO(b"<html>" if n[0] == 1 else b"{}")
+        lim = net.Limiter(1000, 10)
+        with mock.patch.dict(os.environ, {"NET_REQLOG": log}), mock.patch.object(net.urllib.request, "urlopen", urlopen):
+            net.post_json("rpc", lim, "https://rpc.example/v2/KEYINPATH", {}, _sleep=lambda s: None)
+        with open(log) as f: txt = f.read()
+        self.assertNotIn("KEYINPATH", txt); self.assertIn("host=rpc.example endpoint=<redacted>", txt)
+        self.assertIn("status=200 retry_after=- attempt=1 err=JSONDecodeError", txt); self.assertIn("status=200 retry_after=- attempt=2\n", txt)
+
+    def test_long_retry_after_warns(self):
+        d = tempfile.mkdtemp(); clk = Clock(); lim = HostLimiter(5, 60.0, path=os.path.join(d, "l"), _clock=clk, _sleep=clk.sleep)
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            lim.backoff(301); self.assertIn("> 300s", err.getvalue())
+            lim.backoff(300); self.assertEqual(err.getvalue().count("WARNING"), 1)
+
 if __name__ == "__main__": unittest.main()
