@@ -38,7 +38,7 @@ def meta(frm, to, sel): return ("tx_meta", {"from": frm, "to": to, "selector": s
 class T(unittest.TestCase):
     def setUp(self):
         self.c = db.connect(); db.migrate(self.c)
-        for t in ("manual_basis", "ledger_entry", "review_queue", "raw_event", "block", "sync_cursor", "sync_cursor_global", "asset", "wallet"):
+        for t in ("manual_basis", "ledger_entry", "review_queue", "raw_event", "block", "sync_cursor", "sync_cursor_global", "asset", "wallet", "gotchi_escrow", "craft_type_cost"):
             self.c.execute(f"DELETE FROM {t}")
         for a in (W, W2): self.c.execute("INSERT INTO wallet(chain_id,address,wallet_group) VALUES (%s,%s,'g')", (C, b(a)))
         self.c.commit(); self.n = 0
@@ -204,6 +204,16 @@ class T(unittest.TestCase):
         self.assertEqual(self.rows(refund), [("escrow_return", esc, -100, "gbm:auction:9"), ("escrow_return", "wallet", 100, "gbm:auction:9"),
                                              ("income", "wallet", 5, "gbm:auction:9")])
         self.assertEqual(self.rows(win), [("auction", esc, -70, "gbm:auction:10"), ("auction", "wallet", 1, None)])
+        self.assertEqual(self.open_escrow(), {esc: 0})
+
+    def test_gbm_cancelled_auction_refunds_bid(self):
+        esc = "escrow:" + GBM
+        self.add(tx(W, GBM), e20(GHST, W, GBM, 100), bid(5613, W, 100))
+        cancel = self.add(tx(X, GBM), e20(GHST, GBM, W, 105),             # shape of real 0x9248c703… (AuctionCancelled, refund + incentive)
+                          ("gv_AuctionCancelled", {"contract": GBM, "event": "AuctionCancelled", "topics": ["0xdb9c", t32(5613)], "data": t32(8)}))
+        self.run_()
+        self.assertEqual(self.rows(cancel), [("escrow_return", esc, -100, "gbm:auction:5613"), ("escrow_return", "wallet", 100, "gbm:auction:5613"),
+                                             ("income", "wallet", 5, "gbm:auction:5613")])
         self.assertEqual(self.open_escrow(), {esc: 0})
 
     def test_bridged_mint_pending_then_manual(self):

@@ -8,6 +8,8 @@ import hashlib, json, uuid
 from decimal import Decimal, InvalidOperation
 from .config import gated, DEX_ROUTERS, ESCROW, BUYORDER_PLACE_SELECTORS, MIGRATION_REMINT, MANUAL_CONFIDENCE, CCTP, CCTP_TOKENS, CONFIDENCE, NUMERAIRE
 from .db import b, hx
+from .gotchiverse import gv_rule
+from .config import GV
 
 ZERO = "0x" + "0" * 40
 GBM = {"0x80320a0000c7a6a34086e2acad6915ff57ffda31"}
@@ -26,7 +28,7 @@ def legs_of(w, rows):
     for li, kind, p in rows:
         if kind == "tx": tx = p; continue
         if kind == "tx_meta": meta = p; continue
-        if kind.startswith("market_"): market.append({**p, "li": li}); continue
+        if kind.startswith("market_") or kind.startswith("gv_"): market.append({**p, "li": li}); continue
         if kind not in TRANSFER_KINDS: continue
         f, t = p["from"], p["to"]
         if w not in (f, t) or f == t: continue
@@ -64,9 +66,16 @@ def words(data):
 class Escrow:
     """Open escrow per (diamond, token): FIFO list of {ref, qty, ids(ledger rows of the placement)}. Mutations are staged
     per tx (begin/commit/rollback) so a tx that ends in review leaves the state untouched."""
-    def __init__(self): self.open = {}; self._snap = None
-    def begin(self): self._snap = {k: [dict(e, ids=list(e["ids"])) for e in v] for k, v in self.open.items()}
-    def rollback(self): self.open = self._snap
+    def __init__(self, pockets=None):   # P2.2: NFT std per escrow key; items per parcel; gotchi escrow -> id; gotchis owned (wallet + lent)
+        self.open = {}; self._snap = None; self.std = {}; self.parcels = {}; self.pockets = pockets or {}; self.gotchis = {}
+        self.type_cost = {}; self.bn = None   # (contract, type, block) -> alchemicaCost[4]; block of the tx being planned
+    def track_gotchis(self, out, canonical):
+        """After a classified tx: owned gotchis = wallet + lent:* legs of the canonical ERC721, never untracked (borrowed) ones."""
+        for l in out:
+            if l["contract"] == canonical and l["std"] == "erc721" and not l["spam"] and (l["loc"] == "wallet" or l["loc"].startswith("lent:")):
+                t = int(l["token_id"]); self.gotchis[t] = self.gotchis.get(t, 0) + int(l["qty"])
+    def begin(self): self._snap = ({k: [dict(e, ids=list(e["ids"])) for e in v] for k, v in self.open.items()}, dict(self.std), dict(self.parcels))
+    def rollback(self): self.open, self.std, self.parcels = self._snap
     def put(self, d, tok, ref, qty):
         e = dict(ref=ref, qty=qty, ids=[]); self.open.setdefault((d, tok), []).append(e); return e
     def linked(self, d, tok, ref):
@@ -101,6 +110,8 @@ def escrow_rule(chain, w, tx, legs, market, esc):
         if len(g_out) + len(g_in) + len(g_nft) != len(legs): raise Review("gbm escrow legs mixed with other legs")
         bids_w = sorted({t_int(m, 1) for m in ev("Auction_BidPlaced", gbm) if t_addr(m, 2) == w})
         bid_any = {t_int(m, 1) for m in ev("Auction_BidPlaced", gbm)}
+        # a cancelled auction refunds its highest bid (+ incentive): real 0x9248c703… (AuctionCancelled 5613, 0.5 GHST bid + 0.025)
+        bid_any |= {t_int(m, 1) for m in ev("AuctionCancelled", gbm)}
         claims = sorted({t_int(m, 1) for m in ev("Auction_ItemClaimed", gbm)})
         out, cat = [], None
         for l in g_in:                                  # refunds first: they release the previous (own) bid
@@ -142,8 +153,9 @@ def escrow_rule(chain, w, tx, legs, market, esc):
             raise Review("buy-order fill with non-NFT or outgoing wallet legs")
         out, upd = [L(l, "nft_buy") for l in legs], []
         for m in fills:
-            if m["event"] != "ERC1155BuyOrderExecute": raise Review("erc721 buy-order fill: event layout not verified")
-            wd = words(m["data"]); price, pay = wd[3], wd[3] * wd[4]   # (seller, token, id, priceInWei, quantity, time)
+            wd = words(m["data"])
+            if m["event"] == "ERC1155BuyOrderExecute": price, pay = wd[3], wd[3] * wd[4]   # (seller, token, id, priceInWei, quantity, time)
+            else: price = pay = wd[3]   # P2.2 R1: ERC721BuyOrderExecuted data = (seller, token, tokenId, priceInWei, time); qty 1
             ref = f"baazaar:buyorder:{t_int(m, 1)}"
             toks = sorted({k[1] for k in esc.open if k[0] == bz})
             # B2 (architect, 3c8b056): match by order id.
@@ -245,6 +257,7 @@ def decide(chain, w, tx, legs, market, group):
 
 def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
     """Returns (category, out_legs, ref_updates) or raises Review."""
+    esc.bn = bn
     sent = bool(tx) and tx["from"] == w
     info = tx or meta
     if tx and str(tx.get("status")) == "0":
@@ -263,8 +276,10 @@ def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
     # a non-allowlisted mint in a self-sent tx is untracked/pnl_excluded by the normal rules, never income.
     if sent and tx.get("to") == w and (tx.get("selector") or "0x") != "0x" and any(l["contract"] in allow for l in mints):
         raise Review("EIP-7702 execute wrapper with mint from 0x0: inner call not decoded")
+    r = gv_rule(chain, w, tx, legs, market, esc, L, Review)   # P2.2 Gotchiverse (DESIGN v1.3 §9) before the escrow rules
+    if r: return bundle_tag(chain, r, esc)
     r = escrow_rule(chain, w, tx, legs, market, esc) or migration_rule(chain, w, info, legs, bn, warn) or bridge_rule(chain, w, info, legs, sent)
-    if r: return r
+    if r: return bundle_tag(chain, r, esc)
     # allowlisted mint from 0x0 in a tx the wallet neither sent nor received, with no usable RPC tx lookup -> review, not income
     if not tx and mints and len(mints) == len(legs) and all(l["contract"] in allow for l in legs) and (not meta or meta.get("lookup_null")):
         raise Review("allowlisted mint from 0x0 without tx metadata (RPC lookup null)")
@@ -286,7 +301,20 @@ def plan(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
         out = [L(l, "spam" if junk(l) else cat, spam=junk(l)) for l in legs]
         return ("spam" if all(junk(l) for l in legs) else cat), out, []
     if why: raise Review(why)
-    return cat, [L(l, cat) for l in legs], []
+    return bundle_tag(chain, (cat, [L(l, cat) for l in legs], []), esc)
+
+def bundle_tag(chain, r, esc):
+    """R6 (DESIGN v1.3 §9): a REALM parcel leaving the wallet in a trade while items are equipped on it is one bundle disposal:
+    the parcel leg is tagged bundle:parcel:<id> (escrow_ref) for P4; the items stay at location parcel:<id>."""
+    g = GV.get(chain)
+    if not g: return r
+    for l in r[1]:
+        if l["contract"] != g["realm"] or l["qty"] >= 0 or l["cat"] == "escrow_out": continue   # into GBM escrow: still a bundle at the claim
+        pid = int(l["token_id"])
+        if l["cat"] in TRADE_CATS and esc.parcels.get(pid, 0) > 0:
+            tag = f"bundle:parcel:{pid}"; l["ref"] = f"{l['ref']};{tag}" if l["ref"] else tag
+        esc.parcels.pop(pid, None)   # the parcel left: its equipped items left with it (PR #5 nit)
+    return r
 
 def asset_id(conn, cache, chain, std, contract, token_id):
     k = (std, contract, token_id)
@@ -330,6 +358,10 @@ def classify(conn, chain, log=print):
     wallets = conn.execute("SELECT id, '0x'||encode(address,'hex'), wallet_group FROM wallet WHERE chain_id=%s ORDER BY id", (chain,)).fetchall()
     cache, stats = {}, {"txs": 0, "classified": 0, "review": 0, "by_category": {}, "review_reasons": {}, "entries": 0, "warnings": []}
     origin = MIGRATION_REMINT.get(chain, {}).get("chain_origin")
+    pockets = {hx(e): int(i) for i, e in conn.execute("SELECT gotchi_id, escrow FROM gotchi_escrow WHERE chain_id=%s", (chain,))}
+    type_cost = {(hx(c), int(t), int(bn)): [int(x) for x in cost] for c, t, bn, cost in
+                 conn.execute("SELECT contract, type_id, block_number, cost FROM craft_type_cost WHERE chain_id=%s", (chain,))}
+    canonical = GV.get(chain, {}).get("aavegotchi")
     for wid, w, grp in wallets:
         group = {a for _, a, g in wallets if g == grp and a != w}
         txh = [r[0] for r in conn.execute("""SELECT DISTINCT tx_hash FROM raw_event WHERE chain_id=%s AND
@@ -343,7 +375,7 @@ def classify(conn, chain, log=print):
             rows.setdefault(bytes(th), {"bn": bn, "ts": ts, "rows": []})["rows"].append((li, kind, p))
         missing = len(txh) - len(rows)
         if missing: raise RuntimeError(f"{missing} wallet txs have no block row (ts unknown); re-run ingest")
-        esc = Escrow()
+        esc = Escrow(pockets); esc.type_cost = type_cost
         # P3: within a block, txs are ordered by tx index (HyperSync transaction_index on new 'tx' rows, else tx_position from RPC);
         # txs without a known index fall back to their first log index (log indexes are block-wide, so this is tx order too).
         txi = {bytes(h): i for h, i in conn.execute("SELECT tx_hash, tx_index FROM tx_position WHERE chain_id=%s AND tx_hash = ANY(%s)", (chain, txh))}
@@ -371,6 +403,7 @@ def classify(conn, chain, log=print):
                                                       "market": [m["event"] for m in market], "selector": (tx or meta or {}).get("selector"),
                                                       "block_number": d["bn"]})))
             if not why:
+                esc.track_gotchis(out, canonical)
                 stats["classified"] += 1; stats["by_category"][cat] = stats["by_category"].get(cat, 0) + 1
             tg = str(uuid.UUID(bytes=hashlib.sha256(b"%d:" % chain + th + b":%d" % wid).digest()[:16])) if cat in TRADE_CATS else None
             if tx and tx["from"] == w and int(tx["fee"]):   # gas: a fact, recorded even for txs in review
@@ -415,9 +448,9 @@ def checksum(conn, chain):
     return {"ledger_rows": r[0], "ledger_md5": r[1], "review_rows": q[0], "review_md5": q[1]}
 
 def totals(conn, chain, include_spam=False):
-    """Net wallet-location qty per asset_id from the ledger. Spam rows (pnl_excluded) are excluded unless include_spam;
+    """Net wallet + gotchi-pocket qty per asset_id from the ledger (holdings include pockets, DESIGN v1.3 §9). Spam rows (pnl_excluded) are excluded unless include_spam;
     this is the input set for every PnL total (DESIGN §8)."""
-    return {a: int(q) for a, q in conn.execute("""SELECT asset_id, sum(qty) FROM ledger_entry WHERE chain_id=%s AND location='wallet'
+    return {a: int(q) for a, q in conn.execute("""SELECT asset_id, sum(qty) FROM ledger_entry WHERE chain_id=%s AND (location='wallet' OR location LIKE 'pocket:%%')
         AND (%s OR NOT pnl_excluded) GROUP BY 1 HAVING sum(qty) <> 0""", (chain, include_spam))}
 
 def basis_totals(conn, chain):
@@ -436,7 +469,7 @@ def report(conn, chain):
     nrev = sum(rev.values())
     # per-tx category: priority order (a trade/custody category wins over its incidental legs), else fee
     cats = dict(conn.execute("""SELECT c, count(*) FROM (SELECT tx_hash, wallet_id, (array_agg(category ORDER BY array_position(
-        ARRAY['nft_buy','nft_sale','auction','swap','migration_in','bridge_in','escrow_out','escrow_return','transfer_internal','income','deposit','withdrawal','untracked','spam','fee'], category)))[1] c
+        ARRAY['nft_buy','nft_sale','auction','swap','migration_in','bridge_in','escrow_out','escrow_return','craft','craft_pending','upgrade','destroy_refund','gift_in','spend','transfer_internal','income','deposit','withdrawal','untracked','spam','fee'], category)))[1] c
         FROM ledger_entry WHERE chain_id=%s AND (wallet_id, tx_hash) NOT IN (SELECT wallet_id, tx_hash FROM review_queue WHERE chain_id=%s)
         GROUP BY 1,2) t GROUP BY 1""", (chain, chain)).fetchall())
     rows = dict(conn.execute("SELECT category, count(*) FROM ledger_entry WHERE chain_id=%s GROUP BY 1", (chain,)).fetchall())

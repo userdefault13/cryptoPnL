@@ -1,7 +1,9 @@
-# cryptoPnL: Design Document (v1.0, draft for approval)
+# cryptoPnL: Design Document (v1.3, draft for approval)
 
 Owner: user_default · Repo: github.com/userdefault13/cryptoPnL (empty, `main`) · Status: **design only, no build until approved**
 
+Changelog: v1.2 (2026-10-16): PR #3 (P2 classification) decisions recorded in §8: buy-order escrow as custody, a spam category, and migration basis (user_default chose carry-over of the Polygon basis, with a manual low-confidence fallback). §5 Q5 resolved.
+v1.1 (2026-10-16): PR #1 (083d012) review decisions recorded in §7: balance-check scope, wearables P1.1 custody rule, Sepolia finality caveat, rates (HyperSync 7/min, RPC 1/s), and a verified Base allowlist (+5 contracts). Sepolia mismatches traced to Installation-type diamonds, not wearables.
 Changelog: v1.0 (2026-10-16): **No Goldsky** (user_default). S1b Goldsky failover is replaced by Baazaar/GBM sales from **HyperSync logs** of the Aavegotchi Diamond and GBM Baazaar diamond (§1.4). AarcadeGh$t is used for **point lookups only** (paging broken: 1 row per list query). P1 bulk ingest = HyperSync, 15/min total (M1 8 + omarchywin 7, approved). The free RPC is now **base.drpc.org** (archive `eth_call`; `getLogs` ≤ 100 blocks), with mainnet.base.org as secondary. All Goldsky references are removed.
 Changelog: v0.9 (2026-10-15): Added §6, an **option, not a decision**: self-hosted Base node options compared. Verdict: nothing fits omarchywin, because its disk is a 1.8 TB **HDD** and it has 11 GiB RAM, against Reth's Base minimums of 2 TB TLC NVMe and 128 GB RAM even for a full node.
 Changelog: v0.8 (2026-10-15): **No paid RPC, no Alchemy, no Etherscan** (v2 deferred). S2 becomes the free public RPC `mainnet.base.org` (at-block `eth_call` tested OK, no archive guarantee, debug/trace rejected), used for `slot0`, `balanceOf`, receipts and ENS/Basename lookups, never for log history. S3 Etherscan is removed, and all history comes via HyperSync. Internal ETH is a known gap. See ENVIO_TOKEN_INDEXER.md §5c.
@@ -158,7 +160,7 @@ FIFO rules: lots are ordered by (open_block, log_index). Transfers between own w
 2. **Pending with user_default:** the AarcadeGh$t bot API key for cryptoPnL (portal-issued). ~~Wallet list~~ is resolved in v0.5: wallets are dynamic (§1.3). Still to confirm: do transfers between wallets in the same group keep their basis? (Proposed: yes.)
 3. Contract addresses and liquid DEX pools on Base for GHST, FUD, FOMO, ALPHA and KEK. Alchemica coverage on DefiLlama/CoinGecko is unverified.
 4. ~~RPC provider / Etherscan key~~ **Resolved v0.8:** free public RPC only. No Etherscan (deferred). Remaining risk: public at-block state availability (fallbacks in ENVIO §5c).
-5. **Polygon pre-migration basis (still open):** nothing indexes Polygon. Should Polygon history be pulled via RPC plus explorer, or should migrated assets enter at fair value on migration day (2025-07-25)?
+5. ~~Polygon pre-migration basis~~ **Resolved v1.2 (user_default, 2026-10-16):** carry over the original Polygon basis. Bridged re-mints are custody moves (`migration_in`), never income. Fallback is in §8.
 6. Treatment of channeled or claimed alchemica, rewards and staking: income at fair market value (proposed) or zero cost?
 7. Gas: capitalize it into basis or record it as a separate expense? Should gas ETH be a FIFO disposal?
 8. NFT marking method (last sale, floor, or comparables), and are low-confidence values included in totals?
@@ -188,3 +190,95 @@ FIFO rules: lots are ordered by (open_block, log_index). Transfers between own w
 
 **Verdict: no self-hosted node fits omarchywin.** The disk is a spinning HDD (Base and Reth both specify NVMe SSD), smaller than even the full-node floor (≥ 2 TB), and RAM is about a tenth of Reth's Base figure. Only an **archive** node closes the internal-ETH gap (historical tracing needs historical state). The minimal hardware for that, per the sources, is ≥ 4.1 TB (now likely more) TLC NVMe + 128 GB RAM + 6+ fast cores, plus L1 RPC and beacon access. **Lightest useful option today: Helios** in front of `mainnet.base.org`, to verify at-block reads (integrity only, no new capability). Otherwise keep the v0.8 design (HyperSync + public RPC + internal-ETH gap with reconciliation). Revisit if user_default gets NVMe hardware of about 5 TB with ≥ 64–128 GB RAM, or allows paid traces / Etherscan.
 **Open:** current snapshot sizes (snapshots.base.org); whether free L1 RPC and beacon endpoints sustain a Base node; Helios at-block reads against the public RPC (needs `eth_getProof` at old blocks, untested).
+
+
+## 7. PR #1 decisions (v1.1)
+
+**Balance scope.** The gate compares replayed balances with `balanceOf` at 4 sampled blocks, only for the fungible tracked tokens the wallet touched (Base: 7 assets × 4 = 28/28 passed). Untracked contracts are reported, not gated. ERC-1155/721 diamonds are reported, not gated, until P1.1.
+
+**Wearables custody rule (P1.1).** A wearable equipped on a gotchi moves owner→gotchi via `TransferToParent` (0xe8281009…43d3) and back via `TransferFromParent` (0x4b287e36…c6d), emitted by the Aavegotchi Diamond. Effective holdings = wallet `balanceOf` + items held by gotchis the wallet owns. Equip/unequip is a custody move, never a disposal, so no FIFO lot closes. The same rule applies to installations/tiles on REALM parcels once their parent events are confirmed.
+
+**Sepolia finality caveat.** "Pruned / 4444" state errors may be read as final only on chain 84532 (Base Sepolia test data). On Base 8453 the indexer must fail closed: safe tag, else head−64, plus a hash check.
+
+**Rates.** HyperSync 7/min per host (omarchywin's share of the 15/min account total; the M1 keeps 8). Any other host must share a quota, not add to it. RPC 1 req/s, burst 3; Retry-After honored up to 120 s. No Goldsky, no paid RPC.
+
+**Allowlist (Base 8453).** Every entry was checked with getCode/name/uri on base.drpc.org on 2026-10-14.
+
+| Asset | Address | Status |
+|---|---|---|
+| GHST | 0xcD2F22236DD9Dfe2356D7C543161D4d260FD9BcB | in PR |
+| FUD | 0x2028b4043e6722Ea164946c82fe806c4a43a0fF4 | in PR |
+| FOMO | 0xA32137bfb57d2b6A9Fd2956Ba4B54741a6D54b58 | in PR |
+| ALPHA | 0x15e7CaC885e3730ce6389447BC0f7AC032f31947 | in PR |
+| KEK | 0xE52b9170fF4ece4C35E796Ffd74B57Dec68Ca0e5 | in PR |
+| GLTR | 0x4D140CE792bEdc430498c2d219AfBC33e2992c9D | in PR |
+| USDC | 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 | in PR |
+| WETH | 0x4200000000000000000000000000000000000006 | in PR |
+| cbBTC | 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf | in PR |
+| Aavegotchi Diamond | 0xA99c4B08201F2913Db8D28e71d020c4298F29dBF | in PR |
+| Wearable Diamond ("Aavegotchi Items") | 0x052e6c114a166B0e91C2340370d72D4C33752B4b | **add** |
+| Forge Diamond | 0x50aF2d63b839aA32b4166FD1Cb247129b715186C | **add** |
+| REALM Parcels | 0x4B0040c3646D3c44B8a28Ad7055cfCF536c05372 | **add** |
+| Installations | 0xebba5b725A2889f7f089a6cAE0246A32cad4E26b | **add** |
+| Tiles | 0x617fdB8093b309e4699107F48812b407A7c37938 | **add** |
+
+The GBM diamond 0x80320A0000C7A6a34086E2ACAD6915Ff57FfDA31 stays a marketplace log source (§1.4), not a held asset.
+
+**Sepolia mismatches.** 0x4773f06f…ff64b and 0xb2d52be3…554a1 are 7-facet diamonds with owner 0x2fdb4b22…2db6 and `uri(1)` = metadata/installation/1. They are Installation-type diamonds, not wearables, and they are not the README's Sepolia Installation diamond 0x5Aefdc52…7609 (which shares no facets with them). Mismatch cause unverified: sepolia.base.org rejects wide getLogs (413).
+
+## 8. PR #3 (P2 classification) decisions (v1.2)
+
+**Buy-order escrow.** Placing a Baazaar buy order moves GHST from the wallet into diamond escrow. Classify it as `escrow_out`: a custody move with no FIFO disposal, and the lots stay open, tagged escrowed. On a **fill**, those escrowed GHST lots are disposed at the fill block's GHST/USDC price (§2 order). The NFT's basis equals that USDC value (`nft_buy` with the escrow as its payment leg). On a **cancel or refund**, `escrow_return` puts the lots back unchanged. That is a custody move, never a `deposit`, and there is no PnL. A partial fill disposes only the filled portion.
+
+**Spam.** A new category, `spam`, covers unsolicited fake or airdropped tokens, zero-value address-poisoning transfers, and pass-through tokens. These rows stay in the ledger flagged, are never priced, are excluded from every PnL total, and are hidden in the UI by default (user_default can toggle them on). They are never `deposit`/`withdrawal`/`review`.
+
+**Migration basis (user_default's decision: carry over).** `mintAavegotchiBridged` and other bridged re-mints are `migration_in`: a custody move, never income. Each migrated asset inherits its Polygon lots, meaning the original basis_usdc, acquisition time, and price_source, with `chain_origin = 137`. Holding period starts at the Polygon acquisition, not the re-mint.
+Basis resolution, in order:
+1. **Polygon carry-over:** basis from the Polygon FIFO ledger, once the Polygon phase (P6) ingests that history from free sources. `confidence` comes from the original price.
+2. **Manual entry:** user_default enters the basis in USDC (optionally with an acquisition date). Stored with `price_source = manual` and `confidence = low`. Always shown with a low-confidence badge.
+3. **Unresolved:** `basis_status = pending`. The lot exists (holdings are correct), but its basis is **unknown, not zero**. Lots with unknown basis are excluded from realized/unrealized totals, so they are not counted as 100% gain, and are listed in the UI with a count of unresolved lots. This follows the rule never to invent prices. A sell from a pending lot produces proceeds and a pending realized PnL that is resolved once basis arrives.
+A later Polygon carry-over replaces a manual entry only if user_default confirms it; the manual value is kept in history.
+
+**Schema deltas (P2).** `tx_class` enum += `escrow_out`, `escrow_return`, `spam`, `migration_in`. `lot` += `basis_status` (resolved|pending|manual), `chain_origin`, `escrow_ref` (order id). `lot_disposal` += `payment_for` (the NFT acquisition the escrow paid for).
+
+**Required tests.** Escrow place→fill, place→cancel, and partial fill. The bridged mint gives migration_in with pending basis, then manual low-confidence. Spam rows are excluded from totals. Net retry does not retry permanent errors such as SSL certificate failures.
+
+**P2 follow-ups (v1.2, 2026-10-16).**
+- *Migration rule.* `migration_in` = tx from bridge sender 0xf52398257A254D541F392667600901f710a006eD **and** a mint from 0x0 to the wallet **and** an allowlisted Aavegotchi target **and** a selector in the config list (Diamond 0xf55b061c, wearables 0xfd7499bd, Forge 0x506ccb27, REALM 0x0d51a188, Installations 0x9110d148, Tiles 0x91b06c6e). A selector not on the list goes to review. Block range 33,200,000–34,000,138 is a warning assertion only. Carry-over basis applies to every asset type, and ERC1155 lots are kept per (contract, id). (Builder-reported. The selectors were not independently verified by me.)
+- *Untracked.* Self-sent txs are never spam. Non-allowlisted assets (e.g. Aarcade Cartridges, LINK legs of swaps) are `untracked`: no lot, excluded from PnL. Tracked legs of the same tx are valued at the tracked asset's own POB/S price, never via the untracked leg.
+- *Bridge-in USDC.* A USDC mint from 0x0 where tx `to` = a CCTP MessageTransmitter on Base (V1 0xAD09780d193884d503182aD4588450C416D6F9D4, or V2; TokenMessengers excluded, since they are the burn side) is `bridge_in` (custody), with basis at par. Known gap: the emitter can't be verified (logs are wallet-scoped).
+- *Confidence.* Stored as label plus number: high=1.0, medium=0.6, low=0.2.
+- *HyperSync.* The per-host lock (≤ 7/min) must merge before any further backfill. Until then, no back-to-back or parallel runs.
+- *Escrow catch-all (PR #3 re-review).* GHST moving to or from the Baazaar or GBM diamond that no escrow or market rule claims → `review`, never withdrawal or deposit (the wallet is EIP-7702 delegated, so selectors and senders vary). Fill matching order: an entry already linked to the order id, then exactly one unlinked open entry with amount = price × qty. If several could match → review.
+- *P4 requirements.* Realized and unrealized totals filter `basis_status <> 'pending'` on both mark and basis. Report counts of pending lots and pending disposals. Write `lot_disposal.payment_for`. User-entered data (manual_basis) never sits under ON DELETE CASCADE from ledger_entry. Pending lots carry a NULL price source until resolved.
+- *FAKE Gotchis (in scope).* 0xab59ca4a16925b0a4bac5026c94beb20a29df479 joins the Base allowlist once its getCode/name check passes. Selector 0x5e41ee65 (mintBatch) counts as migration_in only on that contract. (Builder-reported: the bridge sender created it. Not independently verified by me.)
+- *Partial-fill fallback.* An unlinked first fill matches only if exactly one open escrow placed before the fill is an exact integer multiple of the unit price, leaves a remaining balance ≥ 0, and no other entry carries that order id. Otherwise → review.
+- *Rate note.* One Sepolia 429 at about 3/min (cause unverified). If it recurs on Base, omarchywin drops to 5/min.
+- *Mints without tx details.* A mint from 0x0 of an allowlisted contract whose tx lookup failed, or that comes through a wallet EIP-7702 `execute` wrapper with an inner call that can't be decoded → review, never income.
+- *7702 rule narrowed.* The review rule applies only to mints of allowlisted contracts. A non-allowlisted mint inside an `execute` wrapper is untracked, and the rest of the tx classifies normally (e.g. 0x4a5a7c6c…f697 → swap, USDC leg at par).
+- *FAKE Gotchi Cards.* 0xe46b8902dad841476d9fee081f1d62ae317206a9 (ERC1155, created by the bridge sender per the Builder) is in scope for P2.1, once its getCode/name check passes.
+- *Rate change (2026-10-16).* Base gave two 429s at about 6.9/min, so omarchywin's HyperSync budget drops to **5/min** (the M1 keeps 8, 13 total). This supersedes §7 Rates.
+- *PR #3 approved* at ae42130, on condition of the 7702 narrowing and its test.
+- *USDC numeraire.* Native USDC (Base 0x8335…2913, and Polygon native in P6) is priced 1.0, high confidence, because it is the unit of account. Bridged or wrapped USDC (USDbC, USDC.e) uses pool prices, never par. Confirms KNOWN_GAPS #16.
+
+## 9. Gotchiverse coverage (v1.3, 2026-10-17)
+Source: read-only audit of main at bed74e9, aavegotchi-realm-diamond at b152ce2, aavegotchi-contracts at 301d04f, plus Base RPC and receipts. [F] = fact, [I] = inference. Full findings are in the review notes. **Covered today:** Baazaar listings (ERC721/1155), ERC1155 buy orders, GBM buyer side, instant paid crafts, normal alchemica claims and channeling (income), and REALM parcel migration.
+
+**Rules (all new, P2.2 unless noted)**
+1. **ERC721 buy orders (parcels):** add placement selector 0x6feecbb5 ([I] from the facet lookup; signature unverified), decode the fill price from ERC721BuyOrderExecuted data word 3, and ingest BuyOrderAdd plus the `…ExecutedToRecipient` topics (0x0f52fde6…, 0x6d10597e…). An NFT received as recipient with no wallet payment → `gift_in` (basis 0, flagged), not nft_buy.
+2. **GBM seller side:** NFT into GBM at auction creation → `escrow_out` (custody). Claim → disposal of that lot with proceeds = GHST received at the claim block. A cancel → `escrow_return`. Buy-now without BidPlaced → nft_buy with the GHST paid as payment (verify the event first; otherwise review).
+3. **Craft:** a new category `craft`. Alchemica, GLTR and GHST inputs are FIFO disposals at the craft block, and the NFT's basis = the USDC value of the inputs (P3 prices, P4 basis). Free crafts → basis 0, **not income**. Queued crafts: the craft tx is `craft_pending` (inputs disposed, cost held in a pending-basis bucket keyed by queue id), and the claim (QueueClaimed) mints the NFT with that basis. Installation quantity comes from `MintInstallations` (the TransferSingle amount is always 1 per the source bug, [F] source, unverified on Base). Every cost leg follows the 35/30/30/5 split to REALM, Pixelcraft, the DAO and 0xFFfF; all of them count as cost.
+4. **Upgrade:** a new category `upgrade`. Alchemica and GLTR spent (GLTR goes to 0xFFfF, not 0x0) are disposals at the upgrade-tx block, and their value is added to the installation's basis. Finalize burns the old id from REALM and mints the new id to the owner, then re-equips it. The old lot closes **without realized PnL**, and the new id's lot = old basis + upgrade cost, still at location parcel:<id>. Link via UpgradeQueued / UpgradeQueueFinalized (owner topic) or same-tx finalize. reduceUpgradeTime GLTR adds to the queued upgrade's cost.
+5. **Equip/unequip on parcels:** custody, like wearables. Ingest TransferToParent/FromParent **from the Installation and Tile diamonds** (topic1 = REALM, topic2 = parcel id), and set location `parcel:<id>`. Holdings = wallet + items equipped on the wallet's parcels. Unequip refund type 1 → custody back. **Refund type 0 → the installation is destroyed**: dispose its lot with proceeds = the USDC value of the 50% alchemica refund at that block, and acquire the refunded alchemica at that same value.
+6. **Parcel sale with equipped items** [I: the items stay children of the parcel and move with it]: dispose the parcel and its equipped items as **one bundle**. Bundle basis = parcel basis + the equipped items' bases. Proceeds = the sale price. Realized PnL is reported on the parcel row, with the items listed beneath it. Revisit if user_default prefers otherwise.
+7. **Income edge paths:** a claim or channel paid from the REALM diamond's balance (the Great Portal-capacity path) on the claim/channel selectors → income, not deposit. Lending revenue splits from the gotchi escrow → income.
+8. **Gotchi lending:** the gotchi going out to the borrower, and back, is custody (location `lent:<borrower>`), never a sale. The upfront GHST is income. Wearables move with the gotchi. Parcel access rights move no tokens and are ignored.
+9. **Bounce gates:** GLTR/alchemica sent to 0xFFfF via createEvent → `spend` (a disposal at market value, an expense with no acquired asset).
+10. **Non-Gotchiverse items that touch alchemica:** router 0xeae2fb93… (FUD/GHST addLiquidity) → add it to DEX_ROUTERS or review (LP token untracked, alchemica disposed at its price). FUD depositERC20 to 0x728f0baf… → identify it (pocket-style custody?) before classifying; send to review until then.
+
+**Phasing:** P2.2 covers classification for rules 1–10. P3 prices alchemica and GLTR at the craft, upgrade or refund blocks. P4 handles basis carry for craft and upgrade, bundle disposal and holdings by location. Test wallet impact today: 4 crafts (3 free ones currently wrongly labelled income), 5 alchemica income txs (correct), and tile buys (correct). None of the upgrade, equip, lending or GBM-seller flows appear in this wallet, so those rules are synthetic-test-only until a wallet exercises them.
+**Unverified:** that the deployed facets match the GitHub source, the 0x6feecbb5 signature, GBM seller/buy-now events, the quantity-1 bug on Base, the Great Portal payout, lending topic0s, and on-chain samples of upgrade, equip and bounce-gate txs.
+- *8b. Borrower side (accepted 2026-10-17).* A borrowed gotchi is untracked/pnl_excluded. Upfront GHST paid → `spend`. Revenue share and channeled alchemica while borrowing → income at FMV.
+- *Gotchi pocket (confirmed).* [F, RPC gotchiEscrow(3033)] 0x728f0baf79ebdfa336978c90f244324a0ba7bcff is gotchi 3033's escrow, and the owner is the test wallet. So depositERC20 into an owned gotchi's escrow and batchTransferEscrow out are custody at `pocket:<gotchiId>`, and holdings include pockets.
+- *P3 thin pools.* Price order: trade-implied → pool at block, if ≥ the liquidity floor (high/med) → Gotchi-Trader daily candle (med) → thin pool below the floor with reserves > 0 and a swap ≤ 7 days old (low, flagged) → unpriced (excluded, flagged). Store the pool's USD depth with each price. Totals are shown both with and without low-confidence prices.
+- *§9 corrections (PR #5 review, 2026-10-17).* Rule 3: [F] the TransferSingle "always 1" bug is NOT on Base (re-mint 0x14f28eea, amounts equal MintInstallations), so a MintInstallations mismatch → review. Batch selectors batchCraftInstallations 0xe9332638 and batchCraftTiles 0xfdc6d919 are live and count as craft. Queue refs are per leg and contract-scoped. reduceCraftTime GLTR burned to 0x0 is craft cost. Rule 2: a real buy-now emits both BoughtNow and ItemClaimed, so auctions are de-duplicated. Rule 7: borrower or operator revenue claims → income for the lender, matched via the lending state, not wallet topics. Rule 9: bounce-gate updates (GLTR to 0xFFfF) are also spend. Rule 10: 0xeae2fb93 is the Aerodrome FUD/GHST **pool**, not a router; add-liquidity disposes the inputs at the block price and the LP token is untracked.

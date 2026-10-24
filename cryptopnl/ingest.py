@@ -1,7 +1,7 @@
 import json, os, datetime
 from .db import b, hx
-from .sources import RPC, HyperSyncWalletTxs, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
-from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES
+from .sources import RPC, HyperSyncWalletGV, HyperSyncWalletTxs, HyperSyncWalletLogs, HyperSyncContractLogs, HyperSyncParentTransfers, T_TO_PARENT, T_FROM_PARENT, TRANSFER, T1155S, T1155B, h2i
+from .config import CHAINS, REORG_CHECK_BLOCKS, REORG_WINDOW, MARKETPLACE, MARKET_TOPICS, WEARABLES, GV, GV_TOPICS, GOTCHI_ESCROW_SEL, TYPE_COST_GETTER
 
 def addr_of(topic): return "0x" + topic[-40:].lower()
 def words(data):
@@ -270,3 +270,81 @@ def ingest_tx_index(conn, chain, log=print):
         conn.execute("INSERT INTO tx_position(chain_id,tx_hash,block_number,tx_index) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
                      (chain, th, bn, h2i(t["transactionIndex"]))); n += 1
     conn.commit(); log(json.dumps({"chain": chain, "source": "rpc_txindex", "candidates": len(todo), "fetched": n}))
+
+def ingest_gv(conn, chain, address, log=print):
+    """P2.2: Gotchiverse/lending/marketplace-recipient logs for the wallet (HyperSyncWalletGV). Only logs whose topic0 is in GV_TOPICS
+    are stored, as raw_event kind 'gv_<Event>' with the real log_index (transfers and market_* rows of the same log already exist and
+    win on the (tx, log_index) key). Aavegotchi-diamond TransferTo/FromParent (wearables) stay with ingest_parent_transfers.
+    Cursor: sync_cursor(source hypersync_gv, wallet). Idempotent."""
+    gv = GV.get(chain)
+    if not gv: log(json.dumps({"chain": chain, "gv": "none configured"})); return
+    cfg = CHAINS[chain]; rpc = RPC(cfg["rpc"]); src = HyperSyncWalletGV(cfg["hypersync"])
+    wid = wallet_id(conn, chain, address); reorg_check(conn, chain, rpc, log)
+    cur = conn.execute("SELECT last_block FROM sync_cursor WHERE source=%s AND wallet_id=%s", (src.name, wid)).fetchone()
+    frm = (cur[0] + 1) if cur else gv["start_block"]; to = rpc.safe_head(); seen = inserted = 0
+    if frm <= to:
+        for logs, blocks in src.fetch(address, frm, to, gv, GV_TOPICS):
+            store_blocks(conn, chain, blocks)
+            for l in logs:
+                ev = GV_TOPICS.get(l.get("topic0"))
+                if not ev or h2i(l["block_number"]) > to: continue
+                if ev in ("TransferToParent", "TransferFromParent") and l["address"].lower() == gv["aavegotchi"]: continue
+                seen += 1
+                payload = {"contract": l["address"].lower(), "event": ev,
+                           "topics": [l.get(k) for k in ("topic0", "topic1", "topic2", "topic3") if l.get(k)], "data": l.get("data")}
+                inserted += conn.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                    (chain, b(l["transaction_hash"]), h2i(l["log_index"]), h2i(l["block_number"]), b(l["block_hash"]), src.name,
+                     "gv_" + ev, json.dumps(payload))).rowcount
+            if src.covered >= frm:
+                n, h, _ = rpc.block(src.covered)
+                conn.execute("""INSERT INTO sync_cursor(source,wallet_id,last_block,last_block_hash,updated_at) VALUES (%s,%s,%s,%s,now())
+                    ON CONFLICT (source,wallet_id) DO UPDATE SET last_block=EXCLUDED.last_block, last_block_hash=EXCLUDED.last_block_hash, updated_at=now()""",
+                    (src.name, wid, n, b(h)))
+            conn.commit()
+        if src.covered < to: log(json.dumps({"warn": "hypersync gv scan stopped early", "requested_to": to, "covered_to": src.covered}))
+    log(json.dumps({"chain": chain, "wallet_id": wid, "source": src.name, "from": frm, "to": to, "logs_seen": seen, "inserted": inserted}))
+    ingest_gotchi_escrows(conn, chain, address, rpc, gv, log)
+    ingest_craft_type_costs(conn, chain, address, rpc, gv, log)
+
+def ingest_craft_type_costs(conn, chain, address, rpc, gv, log=print):
+    """KNOWN_GAPS #27: for wallet-sent craft txs that both mint (Installation/Tile from 0x0) and queue (AddedToQueue), read each involved
+    type's alchemicaCost at the tx block (eth_call, read-only) and cache it in craft_type_cost. Only those txs, so RPC use stays light."""
+    w = address.lower(); kind = {gv["installation"]: "installation", gv["tile"]: "tile"}; calls = added = 0
+    rows = conn.execute("""SELECT q.tx_hash, q.block_number, q.payload->>'contract', q.payload->'topics'->>2 FROM raw_event q
+        JOIN raw_event t ON t.chain_id=q.chain_id AND t.tx_hash=q.tx_hash AND t.kind='tx' AND t.payload->>'from'=%s
+        WHERE q.chain_id=%s AND q.kind='gv_AddedToQueue'""", (w, chain)).fetchall()
+    need = {}
+    for th, bn, c, item in rows:
+        if c not in kind: continue
+        mints = conn.execute("""SELECT payload->>'contract', payload->>'token_id' FROM raw_event WHERE chain_id=%s AND tx_hash=%s
+            AND kind LIKE 'erc1155%%' AND payload->>'from'=%s AND payload->>'to'=%s""", (chain, th, "0x" + "0" * 40, w)).fetchall()
+        mints = [(mc, int(t)) for mc, t in mints if mc in kind]
+        if not mints: continue                       # queue-only craft: no split needed
+        for key in mints + [(c, int(item, 16))]: need.setdefault((key[0], key[1], bn), True)
+    have = {(hx(c), int(t), int(bn)) for c, t, bn in conn.execute("SELECT contract, type_id, block_number FROM craft_type_cost WHERE chain_id=%s", (chain,))}
+    for c, t, bn in sorted(need):
+        if (c, t, bn) in have: continue
+        sel, i0 = TYPE_COST_GETTER[kind[c]]
+        d = rpc.eth_call(c, sel + format(t, "064x"), bn)[2:]; calls += 1
+        wd = [int(d[j:j + 64], 16) for j in range(0, len(d), 64)]
+        if not wd or wd[0] != 0x20: raise RuntimeError(f"type cost getter: unexpected return layout for {c} type {t}")
+        added += conn.execute("INSERT INTO craft_type_cost VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                              (chain, b(c), t, bn, [str(x) for x in wd[i0:i0 + 4]])).rowcount
+    conn.commit()
+    log(json.dumps({"chain": chain, "source": "rpc_craft_type_cost", "mixed_craft_types": len(need), "eth_calls": calls, "added": added}))
+
+def ingest_gotchi_escrows(conn, chain, address, rpc, gv, log=print):
+    """Gotchi pocket cache (DESIGN v1.3 §9): gotchiEscrow(id) for every gotchi the wallet has held, resolved once (RPC eth_call, read-only)
+    and stored in gotchi_escrow; classify reads the cache and never calls RPC. A zero address (no escrow yet) is not cached."""
+    ids = gotchis_ever(conn, chain, address.lower(), gv["aavegotchi"])
+    have = {r[0] for r in conn.execute("SELECT gotchi_id FROM gotchi_escrow WHERE chain_id=%s", (chain,))}
+    head = rpc.safe_head(); added = 0
+    for i in ids:
+        if i in have: continue
+        a = "0x" + rpc.eth_call(gv["aavegotchi"], GOTCHI_ESCROW_SEL + format(i, "064x"), head)[-40:]
+        if int(a, 16) == 0: continue
+        added += conn.execute("INSERT INTO gotchi_escrow(chain_id,gotchi_id,escrow,resolved_block) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                              (chain, i, b(a), head)).rowcount
+    conn.commit()
+    log(json.dumps({"chain": chain, "source": "rpc_gotchi_escrow", "gotchis": len(ids), "cached_before": len(have), "added": added}))
