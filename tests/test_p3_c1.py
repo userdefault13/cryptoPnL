@@ -146,3 +146,50 @@ class UpsertConfidence(tp.LedgerPass):
         self.c.execute("UPDATE price_point SET confidence=0.1, confidence_label='low' WHERE source='dex_slot0'"); self.c.commit()
         pricing.price_ledger(self.c, C, pricing.Pricer(C, FakeRPC(market()), FakeAPI()), log=lambda *_: None)
         self.assertEqual(self.c.execute("SELECT DISTINCT confidence_label FROM price_point WHERE source='dex_slot0'").fetchall(), [("high",)])
+
+
+class RpcErrorRun(tp.LedgerPass):
+    """PR #7 approval note: an RPC error in price_ledger must fail price-report (C3), and GHST failing over from its first pool after an
+    RPC error must be visible (price detail skipped_pools, pricer.fallthrough, price_run.fallthrough_after_rpc_error)."""
+    def tearDown(self): self.c.execute("DELETE FROM price_run"); self.c.commit(); super().tearDown()
+    def test_rpc_error_fails_price_report(self):
+        from tests.test_pricing import W, X, ZERO, tx, e20
+        self.add(tx(W, X), e20(FUD, ZERO, W, 1000 * E18), bn=BN); self.run_()
+        class ErrRPC(FakeRPC):
+            def eth_call(self, to, data, block):
+                if to == P_FUD: raise RuntimeError("rpc eth_call: {'code': -32005, 'message': 'upstream limit exceeded'}")
+                return super().eth_call(to, data, block)
+        st = pricing.price_ledger(self.c, C, pricing.Pricer(C, ErrRPC(market()), FakeAPI()), log=lambda *_: None)
+        self.assertGreaterEqual(st["rpc_errors"], 1)
+        cov = pricing.coverage(self.c, C)
+        self.assertEqual(cov["neither"], 0)                                 # C3's old check alone would pass (no_price flag)
+        self.assertFalse(cov["pass"]); self.assertTrue(any("RPC errors" in f for f in cov["failures"]))
+        self.assertGreaterEqual(cov["price_run"]["rpc_errors"], 1)
+        pricing.price_ledger(self.c, C, pricing.Pricer(C, FakeRPC(market()), FakeAPI()), log=lambda *_: None)
+        cov2 = pricing.coverage(self.c, C)                                   # a clean later run passes again
+        self.assertTrue(cov2["pass"]); self.assertEqual((cov2["price_run"]["rpc_errors"], cov2["failures"]), (0, []))
+    def test_price_report_cli_exit_code(self):
+        import json, os, subprocess, sys
+        from tests.test_pricing import W, X, ZERO, tx, e20
+        self.add(tx(W, X), e20(GHST, ZERO, W, 4 * E18), bn=BN); self.run_()
+        pricing.price_ledger(self.c, C, pricing.Pricer(C, FakeRPC(market()), FakeAPI()), log=lambda *_: None)
+        self.c.execute("UPDATE price_run SET rpc_errors=2 WHERE id=(SELECT max(id) FROM price_run)"); self.c.commit()
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        p = subprocess.run([sys.executable, "-m", "cryptopnl", "price-report", "--chain", str(C)], cwd=root, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("PRICE-REPORT FAIL", p.stderr)
+        self.assertIn("price_report_fail", p.stdout)
+        self.assertFalse(json.loads(p.stdout.splitlines()[0])["pass"])
+    def test_ghst_fallthrough_after_rpc_error_on_first_pool(self):
+        P2 = pricing.PRICE_POOLS[C][GHST][1][1]
+        m = market(); m[(P2, "0x3850c7bd")] = m[(P_GHST, "0x3850c7bd")]; m[bal(tp.USDC, P2)] = w(10_000 * 10 ** 6)
+        class ErrRPC(FakeRPC):
+            def eth_call(self, to, data, block):
+                if to == P_GHST: raise RuntimeError("rpc eth_call: {'code': -32603, 'message': 'internal error'}")
+                return super().eth_call(to, data, block)
+        pr = pricing.Pricer(C, ErrRPC(m), FakeAPI())
+        g = pr.price(GHST, BN, 0)
+        self.assertEqual((g.source, g.detail["pool"]), ("dex_slot0", P2))
+        self.assertEqual(g.detail["skipped_pools"], [{"pool": P_GHST, "why": "error"}])
+        self.assertEqual(len(pr.fallthrough), 1); self.assertEqual(pr.fallthrough[0]["used_pool"], P2)
+        self.assertEqual(len(pr.rpc_errors), 1)
