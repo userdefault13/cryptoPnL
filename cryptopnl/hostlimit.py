@@ -5,7 +5,7 @@ request only if fewer than `cap` starts fall in the last `window` seconds; other
 leaves the window, and tries again. So across all processes using the same lock path, no `window`-second span ever holds more than `cap`
 request starts (retries included: net.post_json calls wait() before every attempt). Default: HYPERSYNC_RPM (5) per 60 s.
 Paths: HYPERSYNC_LOCK_PATH (default ~/.cache/cryptopnl/hypersync.lock); the window log is <lock>.log next to it."""
-import fcntl, os, time
+import fcntl, os, sys, time
 
 DEFAULT_LOCK = os.path.join(os.path.expanduser("~"), ".cache", "cryptopnl", "hypersync.lock")
 
@@ -50,6 +50,7 @@ class HostLimiter:
     def backoff(self, seconds):
         """After a 429/5xx: push the host-wide not-before time out by `seconds` (never pulls it in). Uses no slot; the
         retry still goes through wait() and takes its own slot inside the sliding window."""
+        if float(seconds) > 300: print(f"hostlimit WARNING: Retry-After/back-off {float(seconds):g}s > 300s", file=sys.stderr)
         with open(self.path, "a+") as lk:
             fcntl.flock(lk, fcntl.LOCK_EX)
             try:
