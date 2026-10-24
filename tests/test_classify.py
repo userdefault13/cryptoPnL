@@ -188,7 +188,7 @@ class T(unittest.TestCase):
         self.run_()
         self.assertEqual(self.cats(ok), [("bridge_in", 5_000_000)])
         lot = self.c.execute("SELECT basis_usdc, basis_price_source, basis_confidence, basis_confidence_label, basis_status FROM fifo_lot").fetchall()
-        self.assertEqual([(float(a), b_, round(c, 2), d, e) for a, b_, c, d, e in lot], [(5.0, "par", 1.0, "high", "resolved")])
+        self.assertEqual([(float(a), b_, round(c, 2), d, e) for a, b_, c, d, e in lot], [(5.0, "numeraire", 1.0, "high", "resolved")])
         self.assertEqual(self.review(bad), "USDC mint not via Circle CCTP (tx.to unverified)")
         self.assertEqual(self.review(nometa), "USDC mint not via Circle CCTP (tx.to unverified)")
         rep = classify.report(self.c, C); json.dumps(rep)                                 # report must serialise (Decimal basis)
@@ -345,7 +345,7 @@ class T(unittest.TestCase):
                               WHERE tx_hash=%s AND category<>'fee' ORDER BY log_index""", (h,)).fetchall()
         self.assertEqual([(c, int(q), p, None if u is None else int(u), ps, cl) for c, q, p, u, ps, cl in r],
                          [("untracked", 5024135863, True, None, None, None), ("untracked", -9478318086722626, True, None, None, None),
-                          ("swap", 25856803, False, 1, "par", "high")])
+                          ("swap", 25856803, False, 1, "numeraire", "high")])
         self.assertEqual(classify.report(self.c, C)["txs_by_category"].get("swap"), 1)
 
     def test_fake_gotchi_cards_massmint_migration_lots_per_id(self):   # P2.1

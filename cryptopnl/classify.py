@@ -6,7 +6,7 @@ Escrow is a pseudo-location ('escrow:<diamond>'): escrow_out = wallet -X & escro
 Wearable TransferToParent/FromParent rows are custody (P1.1) and never produce ledger legs."""
 import hashlib, json, uuid
 from decimal import Decimal, InvalidOperation
-from .config import gated, DEX_ROUTERS, ESCROW, BUYORDER_PLACE_SELECTORS, MIGRATION_REMINT, MANUAL_CONFIDENCE, CCTP, CCTP_TOKENS, CONFIDENCE
+from .config import gated, DEX_ROUTERS, ESCROW, BUYORDER_PLACE_SELECTORS, MIGRATION_REMINT, MANUAL_CONFIDENCE, CCTP, CCTP_TOKENS, CONFIDENCE, NUMERAIRE
 from .db import b, hx
 from .gotchiverse import gv_rule
 from .config import GV
@@ -376,7 +376,15 @@ def classify(conn, chain, log=print):
         missing = len(txh) - len(rows)
         if missing: raise RuntimeError(f"{missing} wallet txs have no block row (ts unknown); re-run ingest")
         esc = Escrow(pockets); esc.type_cost = type_cost
-        order = lambda h: (rows[h]["bn"], min([li for li, _, _ in rows[h]["rows"] if li >= 0] or [10**9]), h)
+        # P3: within a block, txs are ordered by tx index (HyperSync transaction_index on new 'tx' rows, else tx_position from RPC);
+        # txs without a known index fall back to their first log index (log indexes are block-wide, so this is tx order too).
+        txi = {bytes(h): i for h, i in conn.execute("SELECT tx_hash, tx_index FROM tx_position WHERE chain_id=%s AND tx_hash = ANY(%s)", (chain, txh))}
+        for h, d in rows.items():
+            t = next((p for _, k, p in d["rows"] if k == "tx"), None)
+            if t and t.get("tx_index") is not None: txi.setdefault(h, int(t["tx_index"]))
+            d["txi"] = txi.get(h)
+        order = lambda h: (rows[h]["bn"], rows[h]["txi"] if rows[h]["txi"] is not None else 10**9,
+                           min([li for li, _, _ in rows[h]["rows"] if li >= 0] or [10**9]), h)
         for th in sorted(rows, key=order):           # chain order: escrow placement precedes fill/refund
             d = rows[th]; stats["txs"] += 1
             tx, legs, market, meta = legs_of(w, d["rows"])
@@ -402,24 +410,25 @@ def classify(conn, chain, log=print):
                 out = out + [dict(li=-1, std="native", contract=None, token_id=None, qty=-int(tx["fee"]), cat="fee", loc="wallet", ref=None, spam=False)]
             ids = []
             for l in out:
-                # tracked Circle USDC legs are priced at par (unit price 1 USDC, source 'par', high); everything else is priced in P3
-                par = l["contract"] in CCTP_TOKENS.get(chain, {}) and not l["spam"]
+                # native Circle USDC = numeraire (unit price 1, high; architect ruling on KNOWN_GAPS #16). USDbC / bridged USDC never
+                # gets par: it is priced from pools in P3 (cryptopnl price). Everything else is priced by the P3 pass.
+                par = l["contract"] == NUMERAIRE.get(chain) and not l["spam"]
                 eid = conn.execute("""INSERT INTO ledger_entry(wallet_id,asset_id,chain_id,tx_hash,log_index,block_number,ts,qty,category,
-                    trade_group,location,escrow_ref,pnl_excluded,price_usdc,price_source,price_confidence,price_confidence_label)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                    trade_group,location,escrow_ref,pnl_excluded,price_usdc,price_source,price_confidence,price_confidence_label,tx_index)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                     (wid, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), chain, th, l["li"], d["bn"], d["ts"],
                      l["qty"], l["cat"], tg if l["cat"] in TRADE_CATS else None, l["loc"], l["ref"], l["spam"],
-                     1 if par else None, "par" if par else None, CONFIDENCE["high"] if par else None, "high" if par else None)).fetchone()[0]
+                     1 if par else None, "numeraire" if par else None, CONFIDENCE["high"] if par else None, "high" if par else None, d["txi"])).fetchone()[0]
                 ids.append(eid); stats["entries"] += 1
                 if l["cat"] == "migration_in":
                     lot = conn.execute("""INSERT INTO fifo_lot(wallet_group,asset_id,open_entry_id,opened_at,open_block,qty_open,qty_remaining,
                         basis_usdc,basis_price_source,basis_status,chain_origin) VALUES (%s,%s,%s,NULL,%s,%s,%s,NULL,NULL,'pending',%s)
                         RETURNING id""", (grp, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), eid, d["bn"], l["qty"], l["qty"], origin)).fetchone()[0]
                     apply_manual(conn, lot)   # pending: basis and source unknown (NULL) until P6 or a manual entry
-                elif l["cat"] == "bridge_in":   # Circle-minted USDC: basis at par (1 USDC = 1 USD), high confidence
+                elif l["cat"] == "bridge_in":   # Circle-minted USDC: basis = qty at the numeraire (1 USDC), high confidence
                     dec = CCTP_TOKENS[chain][l["contract"]]
                     conn.execute("""INSERT INTO fifo_lot(wallet_group,asset_id,open_entry_id,opened_at,open_block,qty_open,qty_remaining,
-                        basis_usdc,basis_price_source,basis_confidence,basis_confidence_label,basis_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'par',%s,'high','resolved')""",
+                        basis_usdc,basis_price_source,basis_confidence,basis_confidence_label,basis_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'numeraire',%s,'high','resolved')""",
                         (grp, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), eid, d["ts"], d["bn"], l["qty"], l["qty"],
                          Decimal(l["qty"]) / (10 ** dec), CONFIDENCE["high"]))
             # remember placement rows so a later fill/cancel can stamp the order id on them

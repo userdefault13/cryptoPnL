@@ -1,0 +1,6 @@
+source=hypersync requests=3
+outcomes status_200=3 429s=0
+  2026-10-23 22:44 PDT: 2
+  2026-10-23 22:45 PDT: 1
+busiest_60s_window=3 (ending 22:45:01 PDT) limit=5 -> OK
+min_gap_s=12.010

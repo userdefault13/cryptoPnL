@@ -10,6 +10,11 @@ HYPERSYNC_MIN_GAP_S = float(os.environ.get("HYPERSYNC_MIN_GAP_S", "12"))   # arc
 HYPERSYNC_RPM = float(os.environ.get("HYPERSYNC_RPM", "5"))   # architect (PR #3 approval): 5/min for all runs
 RPC_RPS = float(os.environ.get("RPC_RPS", "1"))               # architect (PR #1): RPC 1 req/s, burst 3
 RPC_BURST = int(os.environ.get("RPC_BURST", "3"))
+# P3: host-wide RPC budget (2026-10-17 run: 238 x 429 in 1444 attempts at 1 req/s, burst 3, per process). Conservative default:
+# 30 starts / sliding 60 s and >= 1.5 s between starts, all processes on the host (hostlimit.rpc_limiter). Free RPC only.
+RPC_RPM = float(os.environ.get("RPC_RPM", "30"))
+RPC_MIN_GAP_S = float(os.environ.get("RPC_MIN_GAP_S", "1.5"))
+RPC_LOCK_PATH = os.path.expanduser(os.environ.get("RPC_LOCK_PATH", "~/.cache/cryptopnl/rpc.lock"))
 REORG_CHECK_BLOCKS = 64                                     # max stored blocks re-checked per run
 REORG_WINDOW = int(os.environ.get("REORG_WINDOW", "10000"))  # only blocks within cursor-WINDOW can still reorg (Base finalizes << 10k blocks)
 
@@ -98,6 +103,56 @@ CCTP_TOKENS = {8453: {"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6}}   # USDC
 CONFIDENCE = {"high": 1.0, "medium": 0.6, "low": 0.2}   # label -> number (architect, PR #3)
 MANUAL_CONFIDENCE = 0.2   # = CONFIDENCE["low"] (DESIGN §8 manual basis)
 
+# ---- P3 pricing (DESIGN v1.2 §2). Pools found by read-only factory calls (verify/p3_pools.py, docs/evidence/p3_pools_latest.jsonl).
+# Numeraire (architect ruling on KNOWN_GAPS #16): native Circle USDC only. USDbC / any bridged or wrapped USDC is NOT par.
+NUMERAIRE = {8453: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"}   # P6: Polygon native USDC also numeraire; USDC.e = pool price
+USDBC = {8453: "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca"}       # bridged USDbC: pool/API price, never par (test)
+WETH = {8453: "0x4200000000000000000000000000000000000006"}
+TOKENS = {8453: {   # contract -> (symbol, decimals); decimals read on-chain (decimals()) during pool discovery / DefiLlama metadata
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": ("USDC", 6), "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca": ("USDbC", 6),
+    "0x4200000000000000000000000000000000000006": ("WETH", 18), "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": ("cbBTC", 8),
+    "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb": ("GHST", 18), "0x2028b4043e6722ea164946c82fe806c4a43a0ff4": ("FUD", 18),
+    "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58": ("FOMO", 18), "0x15e7cac885e3730ce6389447bc0f7ac032f31947": ("ALPHA", 18),
+    "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5": ("KEK", 18), "0x4d140ce792bedc430498c2d219afbc33e2992c9d": ("GLTR", 18)}}
+# asset -> ordered pools [(kind, pool, quote)]. kind: v3 (Uniswap V3 / Aerodrome Slipstream slot0) | v2 (Aerodrome getReserves).
+# WETH/cbBTC: Uni V3 0.05% USDC pool (DESIGN §2, decided). GHST: deepest USDC pools, then GHST/WETH (routed). Alchemica: their only
+# pools (Aerodrome v2 vs GHST; routed via GHST). GLTR: thin tier only, via Aerodrome v2 vAMM-GLTR/GHST 0xa83b31d7… (THIN_ONLY_ASSETS);
+# no API step in the price order.
+PRICE_POOLS = {8453: {
+    "0x4200000000000000000000000000000000000006": [("v3", "0xd0b53d9277642d899df5c87a3966a349a798f224", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913")],
+    "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": [("v3", "0xfbb6eed8e7aa03b138556eedaf5d271a5e1e43ef", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913")],
+    "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb": [("v3", "0x41d4934322f2bd6fe1dbe4124070fe61651a2067", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"),
+                                                   ("v3", "0x56c11053159a24c0731b4b12356bc1f0578fb474", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"),
+                                                   ("v2", "0x0dfb9cb66a18468850d6216fcc691aa20ad1e091", "0x4200000000000000000000000000000000000006")],
+    "0x2028b4043e6722ea164946c82fe806c4a43a0ff4": [("v2", "0xeae2fb93e291c2eb69195851813de24f97f1ce71", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")],
+    "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58": [("v2", "0x62ab7d558a011237f8a57ac0f97601a764e85b88", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")],
+    "0x15e7cac885e3730ce6389447bc0f7ac032f31947": [("v2", "0x0ba2a49aedf9a409dbb0272db7cdf98aeb1e1837", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")],
+    "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5": [("v2", "0x699b4eb36b95cdf62c74f6322aaa140e7958dc9f", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")],
+    # GLTR: Aerodrome v2 vAMM-GLTR/GHST (architect 2026-10-23; read-only: getPool(GLTR, GHST, false) = this pool, token0 GLTR, token1 GHST,
+    # factory() = 0x420dd381…, reserves 37,803,279,626.40 GLTR / 15,959.47 GHST at latest). Thin tier only (THIN_ONLY_ASSETS).
+    "0x4d140ce792bedc430498c2d219afbc33e2992c9d": [("v2", "0xa83b31d701633b8edcfba55b93ddbc202d8a4621", "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb")]}}
+# Reject a pool at a block when its quote-side reserve is worth less than this (DESIGN §2 "liquidity threshold"; value = OPEN QUESTION).
+DEX_MIN_QUOTE_USD = float(os.environ.get("DEX_MIN_QUOTE_USD", "1000"))
+# DefiLlama: free, no key. searchWidth (s) = max distance of the API point from the tx time (OPEN QUESTION; conservative default).
+DEFILLAMA_URL = os.environ.get("DEFILLAMA_URL", "https://coins.llama.fi")
+DEFILLAMA_SEARCH_WIDTH = int(os.environ.get("DEFILLAMA_SEARCH_WIDTH", "3600"))   # observed GHST points 6-30 min apart
+API_RPS = float(os.environ.get("API_RPS", "1"))
+# Confidence label per source (proposal; OPEN QUESTION for the architect). Numbers via CONFIDENCE.
+# P3 rulings (architect, DESIGN §8): alchemica price order = trade-implied -> pool at block >= floor -> thin pool below the floor with
+# both reserves > 0 and a Swap log <= 7 days before the block (low confidence, flagged low_confidence) -> unpriced (no_price).
+# The swap check is a HyperSync Swap-log scan per thin pool (shared 5/min + 12 s bucket), cached in pool_swap.
+THIN_POOL_ASSETS = {8453: {"0x2028b4043e6722ea164946c82fe806c4a43a0ff4", "0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58",
+                           "0x15e7cac885e3730ce6389447bc0f7ac032f31947", "0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5",   # FUD FOMO ALPHA KEK
+                           "0x4d140ce792bedc430498c2d219afbc33e2992c9d"}}                                               # GLTR
+# GLTR is priced on the thin-pool tier only (architect 2026-10-23): GLTR -> GHST -> USDC, low confidence, flagged, only with reserves > 0
+# and a swap <= 7 d; never via the >= floor tier, otherwise unpriced.
+THIN_ONLY_ASSETS = {8453: {"0x4d140ce792bedc430498c2d219afbc33e2992c9d"}}
+THIN_SWAP_WINDOW_BLOCKS = int(os.environ.get("THIN_SWAP_WINDOW_BLOCKS", str(7 * 86400 // 2)))   # 7 d of 2 s Base blocks = 302,400
+AERO_V2_SWAP_TOPIC = "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b"   # keccak Swap(address,address,uint256,uint256,uint256,uint256)
+NO_PRICE_SOURCE = {8453: set()}   # assets with no free price source at all (none since the GLTR/GHST pool was found, 2026-10-23)
+# ±3% DEX-vs-API gate (ruling 4): only GHST high/medium DEX prices vs the API; everything else is reported, not gated.
+DEV_GATED_ASSETS = {8453: {"0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb"}}
+PRICE_LABEL = {"numeraire": "high", "trade_usdc": "high", "dex_direct": "high", "dex_routed": "medium", "defillama": "medium"}
 
 # ---- P2.2 Gotchiverse (DESIGN v1.3 §9). Addresses: allowlist (§7) + craft receipt 0x74f55051… (cost split recipients, RPC).
 GV = {8453: {

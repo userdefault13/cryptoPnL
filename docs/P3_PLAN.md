@@ -1,0 +1,69 @@
+# P3 plan: pricing (DESIGN v1.2 §2, §4 P3, §8)
+
+Branch `p3-pricing`, cut from `p2.1-fake-gotchi-cards` @ ef9b36c (main @ 19754c6 does not contain PRs #2/#3/#4); PR stacked on PR #4.
+Design source: DESIGN.md **v1.2** exists only in `/workspace/cryptoPnL` (box, uncommitted); every repo branch carries v1.0 or older. P3 follows v1.2.
+
+## Done when (DESIGN §4 P3; all three, with command output cited in P3_RESULTS.md)
+1. Every fungible asset (tracked: native ETH, WETH, USDC, cbBTC, GHST, FUD, FOMO, ALPHA, KEK, GLTR) is priced at 20 sampled blocks.
+2. DEX prices are within ±3% of API prices wherever both exist.
+3. Every ledger entry has a price or a flag (`price_usdc IS NOT NULL OR price_flag IS NOT NULL` = 100%).
+
+## Steps (one small commit each, pushed)
+0. This plan.
+1. **Host-level HyperSync lock (first code commit, pushed before any backfill).** `cryptopnl/hostlimit.py`: `flock` on a fixed path
+   (`HYPERSYNC_LOCK_PATH`, default `~/.cache/cryptopnl/hypersync.lock`) guarding a shared sliding-window log next to it; at most
+   `HYPERSYNC_RPM` (5) request starts in any 60 s window across **all processes on the host**. Every HyperSync caller (sources.py, verify
+   scripts) uses it in place of the per-process Limiter. Test: two concurrent OS processes on a shared lock with a scaled window
+   (5 per 2 s) record their start times; every sliding window holds ≤ 5. Plus a real-parameter check that the 6th start waits for the window.
+2. **Migration 009 (renumbered from 007) (+ `migrations/rollback/009_down.sql`).** `ledger_entry.price_flag` (text, CHECK list), `ledger_entry.tx_index`,
+   `asset.decimals` filled for tracked fungibles, `price_point.confidence_label` already exists; `price_point` gets `pool`/`detail`.
+   No `ON DELETE CASCADE` added on user data (manual_basis stays FK-free of cascades).
+3. **Pricer (`cryptopnl/pricing.py`)**, resolution order of §2:
+   - *numeraire:* native Base USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 = 1, source `numeraire`, high (architect, KNOWN_GAPS #16).
+     Only that address. USDbC / any bridged or wrapped USDC never gets par (pool price or flag). P2's `par` label becomes `numeraire`.
+   - *trade:* swap legs in one trade_group with a priceable counter-leg: ratio × counter price (USDC counter → ratio). Untracked or spam
+     counter-legs are never used (§8): the tracked leg is priced from its own DEX/API price at that block (closes KNOWN_GAPS #15).
+   - *DEX at block (archive RPC, read-only, 1 req/s burst 3):* WETH and cbBTC = Uni V3 0.05% USDC pool `slot0` at the tx block (§2 v0.5).
+     GHST/alchemica/GLTR: §2 names Envio-indexed Aerodrome swaps, but Envio stacks are off-limits for this task, so the §2 general rule is
+     used instead: Aerodrome/Uni pool state (`getReserves` / `slot0`) at the block, routed via WETH where there is no direct USDC pool.
+     Pools found by on-chain factory reads (Q3); pools under a liquidity floor are rejected (floor value = open question).
+   - ~~*API fallback:*~~ **Removed (PR #7 review ruling, 2026-10-24): there is no API step in the price order.** DefiLlama `coins.llama.fi/prices/historical/{ts}/base:{addr}` (free, no key) is kept only as the reference for the ±3% GHST check. Original text: DefiLlama `coins.llama.fi/prices/historical/{ts}/base:{addr}` (free, no key). CoinGecko only if a free key is set
+     (`COINGECKO_API_KEY`, optional, names only in `.env.example`).
+   - native ETH = WETH price. Results cached in `price_point` (asset, block, source).
+4. **Ledger pricing pass (`cryptopnl price --chain`)**: idempotent; fills price_usdc/source/confidence(+label)/price_id or `price_flag`:
+   `spam`, `untracked` (pnl_excluded, never priced), `pending_basis` (migration_in: price NULL, P4 excludes it from mark and basis),
+   `nft_no_trade` (NFT leg with no trade-implied price; NFT marks follow §5 Q8, which is open), `no_price` (fungible with no source; never invented).
+   NFT buy/sale legs get trade-implied value from the payment leg (cost basis rule of §2).
+5. **Tx order within a block by tx index.** `tx_payload` keeps HyperSync `transaction_index` for new ingests; existing rows get it from
+   RPC `eth_getTransactionByHash` (read-only) only where a block holds ≥ 2 wallet txs; classify orders by (block, tx_index, log_index).
+6. **Pass test `scripts/p3_test.sh <chain>`** (nohup; RPC + DefiLlama only, zero HyperSync): 20 blocks sampled across the ledger range
+   (fixed seed), every fungible asset priced at each, DEX vs API deviation table, coverage query. Evidence in `docs/evidence/p3_*`.
+7. Docs: P3_RESULTS.md, KNOWN_GAPS #15/#16 resolved (#16 cites the architect's ruling), P6 note (Polygon native USDC = numeraire,
+   USDC.e = pool price).
+
+## Test commands
+- Unit (offline, local Postgres): `CRYPTOPNL_DSN=postgresql:///cryptopnl_unit_p3 ENVIO_API_TOKEN=x .venv/bin/python -m unittest discover tests`
+- Pass test: `createdb -T cryptopnl_p11s_base cryptopnl_p3_base` (local copy of the P2.1 Base ledger, no re-ingest), then
+  `CRYPTOPNL_DSN=postgresql:///cryptopnl_p3_base nohup scripts/p3_test.sh 8453 > logs/p3_base.log 2>&1 &`
+
+## Rollback
+- Schema: `psql -f migrations/rollback/009_down.sql` and delete the `009_p3_pricing.sql` row from schema_migrations.
+- Data: `cryptopnl price` only writes price columns / price_point; `classify` rebuilds the ledger from raw_event. The pass test runs on a
+  dropped-able copy (`dropdb cryptopnl_p3_base`); the P2 evidence DB `cryptopnl_p11s_base` is never written.
+- Code: revert the branch commits (no force-push); nothing merges without review.
+
+## Constraints honoured
+Free sources only; read-only on chain; secrets by env name (abra), never printed; nohup for long jobs; stop on a 429 storm;
+no home infra / live subgraphs / Envio stacks touched; abra-agent not restarted; no force-push, no merge.
+
+## P3 rulings (architect, 2026-10-23; DESIGN §8 "P3 rulings"), implemented on p3-pricing
+- **Price order (alchemica FUD/FOMO/ALPHA/KEK):** (1) trade-implied → (2) pool at the block at or above the liquidity floor (`DEX_MIN_QUOTE_USD`, quote-side reserve in USD) → (3) thin pool below the floor with both reserves > 0 and a Swap log in the 7 days (302,400 blocks) before the block: low confidence, flag `low_confidence` → (4) unpriced, flag `no_price`. The Gotchi-Trader candle step is removed (its candles table holds only ETH/BTC CEX prices).
+- **7-day swap check:** HyperSync Swap-log scan (topic0 0xb3e27736…f75b) of the thin pools through the shared 5/min + 12 s bucket, cached per pool in `pool_swap` / `pool_swap_scan` (migration 010). No scan coverage for a block → not thin-priced.
+- **Pool USD depth** is recorded with every DEX price (`price_point.detail.pool_depth_usd`, `quote_reserve_usd`, `depth_method`: v2 = 2 × quote-side reserve at spot, v3/Slipstream = quote-side balance).
+- **Totals:** `price-report` gives `value_usdc_all` (low-confidence included, with a count) and `value_usdc_excl_low`; unpriced entries are excluded and counted, never 0.
+- **GLTR (correction, architect 2026-10-23; reverses the earlier "GLTR unpriced" ruling):** priced GLTR → GHST → USDC through the Aerodrome v2 pool vAMM-GLTR/GHST `0xa83b31d701633b8edcfba55b93ddbc202d8a4621`, on the thin-pool tier only: `low` confidence, flagged `low_confidence`, and only when reserves > 0 and the pool had a swap within 7 days (HyperSync Swap-log scan); otherwise unpriced (`no_price`), never 0. Read-only verification at latest: factory `getPool(GLTR, GHST, false)` = that pool (either argument order), token0 = GLTR, token1 = GHST, `factory()` = 0x420dd381…, reserves 37,803,279,626.40 GLTR / 15,959.47 GHST. Trade-implied prices still come first.
+- **Why the pool was missed (root cause):** (1) 2026-10-17, `verify/p3_pools.py` carried the GLTR address with 41 hex digits, so the calldata did not encode GLTR and every getPool returned 0x0; (2) 2026-10-23, my ad-hoc re-check ran in zsh, where `set -- $pair` does not word-split, so the quote token was empty and every lookup asked for (GLTR, 0x0). Fix: `verify/p3_pools.py` now rejects any address that is not 20 non-zero bytes and builds calldata in `calls_for()`, covered by `tests/test_pool_discovery.py` (exact getPool(GLTR, GHST, false) calldata, bad-address rejection, every configured address is 20 bytes).
+- **±3% DEX vs API:** gated only for GHST high/medium DEX prices vs DefiLlama; every other pair is reported only.
+- Pass criterion 1 is the original DESIGN §4 wording: every fungible asset, GLTR included, is priced at 20 sampled blocks (the earlier amendment is reverted).
+- **C1 rulings (PR #7 at fd12039, 2026-10-23; DESIGN §8 'P3 C1 rulings'):** the 7-day swap rule stays (no wider window, no stale-swap price). C1 is amended: a sample passes if it is priced, or unpriced with a machine-checkable reason: `stale_pool` (with the last-swap block and its age in days), `no_pool` or `zero_reserves` (`Pricer.unpriced_reason`). Every `stale_pool` sample is re-derived from the `pool_swap` cache (`verify_stale`: SQL last swap = claimed, at least 302,400 blocks / 7 d before the sample block, scan covers the window). Any other reason (`swap_scan_gap`, `quote_unpriced`, `below_floor_no_api`, `unexplained`) fails C1. Unpriced = excluded and flagged `no_price`, never 0. C1 covers the tracked assets with Base ledger entries. GLTR (no Base ledger entries) gets a separate **GLTR probe** (`gltr_probe`): 5 blocks (fixed seed) from the GLTR/GHST pool `0xa83b31d7…`'s cached Swap blocks at or after the C1 sample start. Each must price GLTR → GHST → USDC on the thin tier (low, `low_confidence`). It has its own pass/fail line, outside the C1 count. Tests: `tests/test_p3_c1.py`.
+- **PR #7 review (2026-10-24):** (1) RPC errors are no longer silent. Only a JSON-RPC 'execution reverted' or eth_getCode = 0x is `no_pool`; any other RPC error (they arrive as HTTP 200) is `rpc_error`, which fails C1, and is counted in the ledger stats and the C1 summary. (2) No API step in the price order; DefiLlama is the ±3% GHST reference only. (3) A `stale_pool` with no swap in the scanned range reports its age as a lower bound (block − scan_from, `age_is_lower_bound`), and verify_stale requires an age. (4) The price_point upsert also updates confidence and its label. (5) Comments corrected (RPC 30/min with a 1.5 s gap; the Swap scan uses HyperSync; GLTR thin tier only). (6) v3 thin pools need both token balances > 0. The C1 summary counts unpriced samples by reason, including rpc_error.
