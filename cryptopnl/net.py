@@ -1,6 +1,6 @@
 """HTTP JSON with token-bucket rate limiting (rate + burst), Retry-After / exp. backoff + jitter on 429/5xx,
 and per-source counters incl. effective throughput."""
-import http.client, json, os, random, ssl, time, urllib.parse, urllib.request, urllib.error
+import http.client, json, math, os, random, ssl, time, urllib.parse, urllib.request, urllib.error
 STATS = {}
 _T0 = {}
 # NOTE: this limiter is PER PROCESS (used for RPC). HyperSync uses hostlimit.HostLimiter: one flock-guarded 5/min budget per host.
@@ -14,8 +14,9 @@ class Limiter:
             time.sleep((1 - self.tokens) / self.rate)
 def _retry_after(e):
     v = e.headers.get("Retry-After") if e.headers else None
-    try: return min(120.0, float(v)) if v else None
-    except ValueError: return None
+    try: d = float(v) if v else None   # honoured in full (architect, PR #5 at d7714d9); > 300 s warns in hostlimit.backoff
+    except ValueError: return None      # unparseable (e.g. an HTTP date): existing exponential backoff
+    return d if d is not None and math.isfinite(d) and d >= 0 else None
 def permanent(e):
     """Errors that retrying cannot fix: TLS certificate/handshake failures (except a mid-stream EOF), bad URLs.
     URLError wraps the real cause in .reason."""
