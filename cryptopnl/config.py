@@ -6,6 +6,7 @@ CHAINS = {
           "rpc": os.environ.get("BASE_RPC_URL", "https://base.drpc.org")},
 }
 DSN = os.environ.get("CRYPTOPNL_DSN", "dbname=cryptopnl")
+HYPERSYNC_MIN_GAP_S = float(os.environ.get("HYPERSYNC_MIN_GAP_S", "12"))   # architect 429 rule: >= 12 s between starts, host-wide
 HYPERSYNC_RPM = float(os.environ.get("HYPERSYNC_RPM", "5"))   # architect (PR #3 approval): 5/min for all runs
 RPC_RPS = float(os.environ.get("RPC_RPS", "1"))               # architect (PR #1): RPC 1 req/s, burst 3
 RPC_BURST = int(os.environ.get("RPC_BURST", "3"))
