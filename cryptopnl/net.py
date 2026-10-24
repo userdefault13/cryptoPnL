@@ -29,14 +29,16 @@ def _reqlog(name, outcome, ts=None):
     f = os.environ.get("NET_REQLOG")
     if f:
         with open(f, "a") as fh: fh.write(f"{(ts if ts is not None else time.time()):.3f} {name} {outcome}\n")
-def _outlog(name, url, attempt, status, retry_after):
+def _outlog(name, url, attempt, status, retry_after, err=None):
     """Per-request outcome line (architect 429 rule): '<unix_ts> <source> outcome host=<h> endpoint=<path> status=<s>
     retry_after=<v|-> attempt=<n>'. Host and path only: no query string, headers, body or token ever reach the log."""
     f = os.environ.get("NET_REQLOG")
     if not f: return
     u = urllib.parse.urlsplit(url); ra = "-" if retry_after is None else f"{retry_after:g}"
+    ep = (u.path or "/") if name == "hypersync" else "<redacted>"   # RPC URLs can carry a key in the path: host only
     with open(f, "a") as fh:
-        fh.write(f"{time.time():.3f} {name} outcome host={u.hostname or '-'} endpoint={u.path or '/'} status={status} retry_after={ra} attempt={attempt}\n")
+        fh.write(f"{time.time():.3f} {name} outcome host={u.hostname or '-'} endpoint={ep} status={status} retry_after={ra} attempt={attempt}"
+                 + (f" err={err}" if err else "") + "\n")
 def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sleep=time.sleep):
     st = STATS.setdefault(name, {"requests": 0, "ok": 0, "429": 0, "5xx": 0, "errors": 0, "retry_after_honored": 0})
     _T0.setdefault(name, time.monotonic())
@@ -56,7 +58,8 @@ def post_json(name, limiter, url, body, headers=None, retries=6, timeout=90, _sl
             delay = _retry_after(e); _outlog(name, url, attempt + 1, e.code, delay)
             if delay is not None: st["retry_after_honored"] += 1
         except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException, OSError, ValueError) as e:
-            _outlog(name, url, attempt + 1, type(getattr(e, "reason", e)).__name__, None)
+            if isinstance(e, json.JSONDecodeError): _outlog(name, url, attempt + 1, 200, None, err="JSONDecodeError")   # 200 with a non-JSON body
+            else: _outlog(name, url, attempt + 1, type(getattr(e, "reason", e)).__name__, None)
             if permanent(e):   # e.g. SSLCertVerificationError: fail fast, never retry (architect, PR #3)
                 st["errors"] += 1; st["permanent"] = st.get("permanent", 0) + 1
                 raise RuntimeError(f"{name}: permanent error, not retried: {type(getattr(e, 'reason', e)).__name__}: {e}") from e
