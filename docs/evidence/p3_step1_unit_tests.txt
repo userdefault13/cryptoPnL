@@ -1,0 +1,29 @@
+/Users/juliuswong/Dev/cryptoPnL/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/Users/juliuswong/Dev/cryptoPnL/cryptopnl/../migrations/001_init.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/juliuswong/Dev/cryptoPnL/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/Users/juliuswong/Dev/cryptoPnL/cryptopnl/../migrations/002_global_cursor.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/juliuswong/Dev/cryptoPnL/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/Users/juliuswong/Dev/cryptoPnL/cryptopnl/../migrations/003_parent_scan.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/juliuswong/Dev/cryptoPnL/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/Users/juliuswong/Dev/cryptoPnL/cryptopnl/../migrations/004_ledger.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/juliuswong/Dev/cryptoPnL/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/Users/juliuswong/Dev/cryptoPnL/cryptopnl/../migrations/005_p2_review.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/juliuswong/Dev/cryptoPnL/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/Users/juliuswong/Dev/cryptoPnL/cryptopnl/../migrations/006_p2_decisions.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+....../Users/juliuswong/Dev/cryptoPnL/.venv/lib/python3.9/site-packages/psycopg/_connection_base.py:149: ResourceWarning: <psycopg.Connection object at 0x106e819d0> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+....................................
+----------------------------------------------------------------------
+Ran 42 tests in 66.729s
+
+OK
+
+  real window: 6th start 60.02s after the 1st; max per 60s = 5
+
+  two procs: 16 starts in 6.1s, max per 2s window = 5

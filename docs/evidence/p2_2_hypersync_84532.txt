@@ -1,0 +1,4 @@
+source=hypersync requests=4
+  2026-10-23 20:30 PDT: 2
+  2026-10-23 20:31 PDT: 2
+busiest_60s_window=2 (ending 20:30:21 PDT) limit=5 -> OK
