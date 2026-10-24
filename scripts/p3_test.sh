@@ -18,11 +18,11 @@ $PY -m cryptopnl price --chain "$C" 2>&1 | tee "$E/p3_price_$C.log"
 set +e
 $PY -m cryptopnl price-report --chain "$C" 2>/dev/null | tee "$E/p3_coverage_$C.json"; c3=${PIPESTATUS[0]}
 $PY -m cryptopnl price-sample --chain "$C" 2>/dev/null > "$E/p3_sample_$C.jsonl"; c12=$?
-tail -1 "$E/p3_sample_$C.jsonl"
+grep -E '^[{]"(summary|gltr_probe)"' "$E/p3_sample_$C.jsonl"
 $PY scripts/reqlog_summary.py "$NET_REQLOG" hypersync "$T0" 5 > "$E/p3_hypersync_$C.txt"; hs=$?
 $PY scripts/reqlog_summary.py "$NET_REQLOG" rpc "$T0" "${RPC_RPM:-30}" > "$E/p3_rpc_$C.txt"; rs=$?
 $PY scripts/reqlog_summary.py "$NET_REQLOG" defillama "$T0" 60 > "$E/p3_defillama_$C.txt"
 for s in hypersync rpc; do awk -v t0="$T0" -v s="$s" '$1>=t0 && $2==s && $3=="attempt" {if (p!="") {d=$1-p; if (m==""||d<m) m=d}; p=$1} END {printf "min_gap_s=%s\n", (m==""?"n/a":sprintf("%.3f",m))}' "$NET_REQLOG" >> "$E/p3_${s}_$C.txt"; done
 grep -vE "^  20" "$E/p3_hypersync_$C.txt"; grep -vE "^  20" "$E/p3_rpc_$C.txt"; grep -E "requests=|429s=" "$E/p3_defillama_$C.txt"
 set -e
-[ $c3 -eq 0 ] && [ $c12 -eq 0 ] && [ $hs -eq 0 ] && [ $rs -eq 0 ] && echo "P3 PASS chain $C" || { echo "P3 FAIL chain $C (coverage rc=$c3, sample rc=$c12, hypersync rc=$hs, rpc rc=$rs)"; exit 1; }
+[ $c3 -eq 0 ] && [ $c12 -eq 0 ] && [ $hs -eq 0 ] && [ $rs -eq 0 ] && echo "P3 PASS chain $C" || { echo "P3 FAIL chain $C (coverage rc=$c3, sample+gltr-probe rc=$c12, hypersync rc=$hs, rpc rc=$rs)"; exit 1; }
