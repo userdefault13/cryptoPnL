@@ -1,56 +1,73 @@
-source=rpc requests=1497
-outcomes status_200=1497 429s=0
-  2026-10-23 22:44 PDT: 3
-  2026-10-23 22:45 PDT: 30
-  2026-10-23 22:46 PDT: 30
-  2026-10-23 22:47 PDT: 30
-  2026-10-23 22:48 PDT: 30
-  2026-10-23 22:49 PDT: 30
-  2026-10-23 22:50 PDT: 30
-  2026-10-23 22:51 PDT: 30
-  2026-10-23 22:52 PDT: 30
-  2026-10-23 22:53 PDT: 30
-  2026-10-23 22:54 PDT: 30
-  2026-10-23 22:55 PDT: 29
-  2026-10-23 22:56 PDT: 30
-  2026-10-23 22:57 PDT: 29
-  2026-10-23 22:58 PDT: 29
-  2026-10-23 22:59 PDT: 30
-  2026-10-23 23:00 PDT: 29
-  2026-10-23 23:01 PDT: 29
-  2026-10-23 23:02 PDT: 30
-  2026-10-23 23:03 PDT: 28
-  2026-10-23 23:04 PDT: 30
-  2026-10-23 23:05 PDT: 28
-  2026-10-23 23:06 PDT: 27
-  2026-10-23 23:07 PDT: 30
-  2026-10-23 23:08 PDT: 29
-  2026-10-23 23:09 PDT: 29
-  2026-10-23 23:10 PDT: 30
-  2026-10-23 23:11 PDT: 29
-  2026-10-23 23:12 PDT: 29
-  2026-10-23 23:13 PDT: 30
-  2026-10-23 23:14 PDT: 29
-  2026-10-23 23:15 PDT: 29
-  2026-10-23 23:16 PDT: 30
-  2026-10-23 23:17 PDT: 29
-  2026-10-23 23:18 PDT: 29
-  2026-10-23 23:19 PDT: 30
-  2026-10-23 23:20 PDT: 29
-  2026-10-23 23:21 PDT: 29
-  2026-10-23 23:22 PDT: 30
-  2026-10-23 23:23 PDT: 29
-  2026-10-23 23:24 PDT: 29
-  2026-10-23 23:25 PDT: 30
-  2026-10-23 23:26 PDT: 28
-  2026-10-23 23:27 PDT: 30
-  2026-10-23 23:28 PDT: 30
-  2026-10-23 23:29 PDT: 29
-  2026-10-23 23:30 PDT: 28
-  2026-10-23 23:31 PDT: 29
-  2026-10-23 23:32 PDT: 28
-  2026-10-23 23:33 PDT: 30
-  2026-10-23 23:34 PDT: 30
-  2026-10-23 23:35 PDT: 26
-busiest_60s_window=30 (ending 22:45:49 PDT) limit=30 -> OK
+source=rpc requests=1509
+outcomes status_200=1494 status_408=15 429s=0
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  non-200: status=408 retry_after=- attempt=1 host=base.drpc.org endpoint=<redacted>
+  2026-10-24 08:41 PDT: 10
+  2026-10-24 08:42 PDT: 22
+  2026-10-24 08:43 PDT: 26
+  2026-10-24 08:44 PDT: 11
+  2026-10-24 08:45 PDT: 25
+  2026-10-24 08:46 PDT: 29
+  2026-10-24 08:47 PDT: 29
+  2026-10-24 08:48 PDT: 27
+  2026-10-24 08:49 PDT: 30
+  2026-10-24 08:50 PDT: 30
+  2026-10-24 08:51 PDT: 29
+  2026-10-24 08:52 PDT: 29
+  2026-10-24 08:53 PDT: 30
+  2026-10-24 08:54 PDT: 30
+  2026-10-24 08:55 PDT: 29
+  2026-10-24 08:56 PDT: 27
+  2026-10-24 08:57 PDT: 29
+  2026-10-24 08:58 PDT: 30
+  2026-10-24 08:59 PDT: 29
+  2026-10-24 09:00 PDT: 29
+  2026-10-24 09:01 PDT: 30
+  2026-10-24 09:02 PDT: 29
+  2026-10-24 09:03 PDT: 29
+  2026-10-24 09:04 PDT: 30
+  2026-10-24 09:05 PDT: 29
+  2026-10-24 09:06 PDT: 29
+  2026-10-24 09:07 PDT: 30
+  2026-10-24 09:08 PDT: 29
+  2026-10-24 09:09 PDT: 30
+  2026-10-24 09:10 PDT: 30
+  2026-10-24 09:11 PDT: 30
+  2026-10-24 09:12 PDT: 26
+  2026-10-24 09:13 PDT: 29
+  2026-10-24 09:14 PDT: 29
+  2026-10-24 09:15 PDT: 30
+  2026-10-24 09:16 PDT: 30
+  2026-10-24 09:17 PDT: 30
+  2026-10-24 09:18 PDT: 29
+  2026-10-24 09:19 PDT: 30
+  2026-10-24 09:20 PDT: 25
+  2026-10-24 09:21 PDT: 29
+  2026-10-24 09:22 PDT: 30
+  2026-10-24 09:23 PDT: 29
+  2026-10-24 09:24 PDT: 29
+  2026-10-24 09:25 PDT: 30
+  2026-10-24 09:26 PDT: 29
+  2026-10-24 09:27 PDT: 29
+  2026-10-24 09:28 PDT: 30
+  2026-10-24 09:29 PDT: 29
+  2026-10-24 09:30 PDT: 29
+  2026-10-24 09:31 PDT: 30
+  2026-10-24 09:32 PDT: 29
+  2026-10-24 09:33 PDT: 30
+  2026-10-24 09:34 PDT: 14
+busiest_60s_window=30 (ending 08:46:09 PDT) limit=30 -> OK
 min_gap_s=1.510
