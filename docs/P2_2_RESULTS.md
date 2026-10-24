@@ -146,3 +146,10 @@ Limiter: 5 / sliding 60 s, host-wide minimum 12 s gap between attempt starts (0b
 | Script | P2.2 PASS chain 8453 | — |
 
 **Result: PASS on the 429 rule.** Unit suite at cae04b8: 80 tests OK (1 skipped) on cryptopnl_unit22.
+
+## PR #5 review at 55974bb / d7714d9: farm path and new Base baseline (architect-accepted 2026-10-23)
+- Base baseline ledger md5 is now **210a71d811fd872a970b1d11770ced05** (report 58cc79730edcf6b11a1e8ee39ea3ab97, review e7de420e6883071793eb2790cd85b3af); old 6b00ec3c509df6309bd7a65956c1eb0a (report c41ee59ece07e4bf45bdf0a9dda14ec8).
+- The only moved row: tx `0x89d68cf446355aad616e974002cf4d6f4edf72068853cd4071df56e316ff39f4` log 45 (−100 vAMM-FOMO/GHST LP into the GLTR staking farm), category `untracked` unchanged, escrow_ref empty → `gauge:0xab449dca14413a6ae0bcea9ea210b57ace280d2c` (farm path 9af8c1c). Accepted by the architect.
+- Classify-only (no ingest, no network) on `cryptopnl_p22_base`: 833 / 834 (99.88%), review 1 (`0xccbfe04a…`), classify #1 = #2.
+- Retry-After is honoured in full (no 120 s cap); unparseable values fall back to the exponential backoff; > 300 s warns.
+- Unit suite: 86 tests OK (1 skipped) on cryptopnl_unit22; classify-only Base md5 re-checked 210a71d811fd872a970b1d11770ced05 (classify #1 = #2, 0 network requests).
