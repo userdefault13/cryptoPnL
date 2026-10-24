@@ -348,3 +348,31 @@ def ingest_gotchi_escrows(conn, chain, address, rpc, gv, log=print):
                               (chain, i, b(a), head)).rowcount
     conn.commit()
     log(json.dumps({"chain": chain, "source": "rpc_gotchi_escrow", "gotchis": len(ids), "cached_before": len(have), "added": added}))
+
+def ingest_pool_swaps(conn, chain, log=print):
+    """P3 ruling 3: Swap-log blocks of the thin alchemica pools (Aerodrome v2 entries of PRICE_POOLS for THIN_POOL_ASSETS), one
+    HyperSync scan for all of them through the shared host bucket, cached per pool in pool_swap; pool_swap_scan holds the scanned
+    range per pool so later runs only scan forward. Read-only."""
+    from .config import PRICE_POOLS, THIN_POOL_ASSETS, AERO_V2_SWAP_TOPIC
+    from .sources import HyperSyncContractLogs
+    pools = sorted({p for a in THIN_POOL_ASSETS.get(chain, ()) for k, p, _ in PRICE_POOLS.get(chain, {}).get(a, []) if k == "v2"})
+    if not pools: log(json.dumps({"chain": chain, "pool_swaps": "none configured"})); return
+    cfg = CHAINS[chain]; rpc = RPC(cfg["rpc"]); to = rpc.safe_head(); start = GV[chain]["start_block"]
+    have = {hx(p): (f, t) for p, f, t in conn.execute("SELECT pool, from_block, scanned_to FROM pool_swap_scan WHERE chain_id=%s", (chain,))}
+    frm = min((have[p][1] + 1) if p in have else start for p in pools)
+    src = HyperSyncContractLogs(cfg["hypersync"], "hypersync_pool_swaps", pools, [AERO_V2_SWAP_TOPIC]); seen = ins = 0
+    if frm <= to:
+        for logs, _ in src.fetch_range(frm, to):
+            for l in logs:
+                if h2i(l["block_number"]) > to or l.get("topic0") != AERO_V2_SWAP_TOPIC: continue
+                seen += 1
+                ins += conn.execute("INSERT INTO pool_swap VALUES (%s,%s,%s) ON CONFLICT DO NOTHING",
+                                    (chain, b(l["address"].lower()), h2i(l["block_number"]))).rowcount
+            for p in pools:
+                if src.covered >= frm:
+                    conn.execute("""INSERT INTO pool_swap_scan VALUES (%s,%s,%s,%s) ON CONFLICT (chain_id,pool) DO UPDATE
+                        SET scanned_to=GREATEST(pool_swap_scan.scanned_to, EXCLUDED.scanned_to)""", (chain, b(p), have.get(p, (start,))[0], src.covered))
+            conn.commit()
+        if src.covered < to: log(json.dumps({"warn": "pool swap scan stopped early", "requested_to": to, "covered_to": src.covered}))
+    per = dict(conn.execute("SELECT '0x'||encode(pool,'hex'), count(*) FROM pool_swap WHERE chain_id=%s GROUP BY 1", (chain,)).fetchall())
+    log(json.dumps({"chain": chain, "source": src.name, "pools": pools, "from": frm, "to": to, "swaps_seen": seen, "inserted": ins, "swaps_per_pool": per}))
