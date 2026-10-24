@@ -15,7 +15,7 @@ Design source: DESIGN.md **v1.2** exists only in `/workspace/cryptoPnL` (box, un
    `HYPERSYNC_RPM` (5) request starts in any 60 s window across **all processes on the host**. Every HyperSync caller (sources.py, verify
    scripts) uses it in place of the per-process Limiter. Test: two concurrent OS processes on a shared lock with a scaled window
    (5 per 2 s) record their start times; every sliding window holds ≤ 5. Plus a real-parameter check that the 6th start waits for the window.
-2. **Migration 007 (+ `migrations/rollback/007_down.sql`).** `ledger_entry.price_flag` (text, CHECK list), `ledger_entry.tx_index`,
+2. **Migration 009 (renumbered from 007) (+ `migrations/rollback/009_down.sql`).** `ledger_entry.price_flag` (text, CHECK list), `ledger_entry.tx_index`,
    `asset.decimals` filled for tracked fungibles, `price_point.confidence_label` already exists; `price_point` gets `pool`/`detail`.
    No `ON DELETE CASCADE` added on user data (manual_basis stays FK-free of cascades).
 3. **Pricer (`cryptopnl/pricing.py`)**, resolution order of §2:
@@ -47,7 +47,7 @@ Design source: DESIGN.md **v1.2** exists only in `/workspace/cryptoPnL` (box, un
   `CRYPTOPNL_DSN=postgresql:///cryptopnl_p3_base nohup scripts/p3_test.sh 8453 > logs/p3_base.log 2>&1 &`
 
 ## Rollback
-- Schema: `psql -f migrations/rollback/007_down.sql` and delete the `007_p3_pricing.sql` row from schema_migrations.
+- Schema: `psql -f migrations/rollback/009_down.sql` and delete the `009_p3_pricing.sql` row from schema_migrations.
 - Data: `cryptopnl price` only writes price columns / price_point; `classify` rebuilds the ledger from raw_event. The pass test runs on a
   dropped-able copy (`dropdb cryptopnl_p3_base`); the P2 evidence DB `cryptopnl_p11s_base` is never written.
 - Code: revert the branch commits (no force-push); nothing merges without review.

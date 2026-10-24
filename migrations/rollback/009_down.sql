@@ -1,4 +1,4 @@
--- Rollback of 007_p3_pricing.sql. Run, then: DELETE FROM schema_migrations WHERE name='007_p3_pricing.sql';
+-- Rollback of 009_p3_pricing.sql. Run, then: DELETE FROM schema_migrations WHERE name='009_p3_pricing.sql';
 BEGIN;
 UPDATE fifo_lot SET basis_price_source='par' WHERE basis_price_source='numeraire';
 UPDATE ledger_entry SET price_source='par' WHERE price_source='numeraire' AND price_usdc = 1;
