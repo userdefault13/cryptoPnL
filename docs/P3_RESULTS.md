@@ -1,50 +1,39 @@
-# P3 results: Base (8453), C1 rerun at `d909779`: **FAIL (C3 / price-report: 15 RPC 408s)**
+# P3 results: Base (8453), 408-retry rerun at `c22d59a`: **PASS**
 
-One rerun on `cryptopnl_p3_base`, launched once at **2026-10-24 08:41:38 PDT** (epoch 1792856498, `logs/p3_rerun_c1.start`) with
+One rerun on `cryptopnl_p3_base`, launched once at **2026-10-24 17:21:38 PDT** (epoch 1792887698, `logs/p3_rerun_408.start`) with
 `CRYPTOPNL_DSN=postgresql:///cryptopnl_p3_base setsid nohup ~/.local/bin/abra run cryptoPnL -k ENVIO_API_TOKEN -- /tmp/p22run.sh scripts/p3_test.sh 8453`.
-The log last changed at 09:38 PDT. Full output: `docs/evidence/p3_rerun_c1_8453.log`. This rerun's request log (lines at or after the start epoch, RPC path redacted):
-`docs/evidence/p3_rerun_c1_net_requests_8453.log`.
+The log last changed at 18:13:27 PDT. Full output: `docs/evidence/p3_rerun_408_8453.log`. This rerun's request log (lines at or after the start epoch, RPC path redacted):
+`docs/evidence/p3_rerun_408_net_requests_8453.log`. Code: `1b647ba` (408 retry), `acaab35` (migration 012), `b1156d1` (started_at / rpc_retries / probe GHST ±3%), `c22d59a` (tests).
 
-Final line: `P3 FAIL chain 8453 (coverage rc=1, sample+gltr-probe rc=0, hypersync rc=0, rpc rc=0)`.
+Final line: `P3 PASS chain 8453`.
 
 | Check (architect acceptance) | Result |
 |---|---|
-| C1 (amended: priced, or unpriced with an accepted reason) | **PASS**: `pass_c1: true`, `c1_failures: []`, unpriced overall `{"stale_pool": 25}`, 0 rpc_error, 0 bad_response; 25/25 stale samples re-verified from `pool_swap` |
-| GLTR probe (5 blocks from the GLTR/GHST pool's swaps) | **PASS 5/5**: GLTR → GHST → USDC, `dex_reserves_thin`, low, `low_confidence` |
-| C2 (GHST high/med vs DefiLlama ±3%) | **PASS**: 20/20 pairs, -0.655% to 1.005%, max abs 1.005%; 0 outside (gated or report only) |
-| C3 (every entry priced or flagged) | entries 1321, priced 816, flagged 538, **neither 0** |
-| price-report exit 0 | **FAIL (rc 1)**: `price run 1 hit 15 RPC errors: unpriced entries may be RPC failures, not real no_price` |
+| C1 (priced, or unpriced with an accepted reason) | **PASS**: `pass_c1: true`, `c1_failures: []`, unpriced overall `{"stale_pool": 25}` (per asset below), 0 rpc_error, 0 bad_response; 25/25 stale samples re-verified from cached `pool_swap` logs (0 lower-bound ages) |
+| GLTR probe | **PASS 5/5**: each GLTR → GHST → USDC, `dex_reserves_thin`, low, `low_confidence`; GHST within ±3% of DefiLlama at **5/5** probe blocks (-2.217% to 0.791%), `ghst_outside_3pct: []` |
+| C2 (GHST vs DefiLlama ±3%) | **PASS**: 20/20 gated pairs, -0.655% to 1.005%, max abs 1.005%; 0 outside (gated or report only), `pass_dex_vs_api_3pct: true` |
+| C3 (every entry priced or flagged) | **PASS**: entries 1321, priced 836, flagged 518, **neither 0**, `no_price` **0** (was 20 at 13 blocks) |
+| RPC errors after retries | **0** (`price_run.rpc_errors 0`, sample pass `rpc_errors 0`); retries **0** (`price_run.rpc_retries 0`; ledger STATS `"408": 0, "retries": 0`; 0 × 408 and 0 non-200 outcomes in the request log since the start) |
+| price-report exit 0 | **PASS** (rc 0, `"pass": true, "failures": []`), reading `price_run` id 2 written by this run (row below) |
 | HyperSync | 1 request, 0 429s, busiest 60 s = 1 (limit 5) → OK |
-| RPC | 1509 requests: 1494 × 200, **15 × 408**, 0 429s; busiest 60 s = 30 (limit 30), min gap 1.510 s |
+| RPC | 1530 requests (request log since start: 1556 attempts incl. 1 HyperSync + 25 DefiLlama), all 200, 0 × 408, 0 429s; busiest 60 s = 30 (limit 30), min gap 1.510 s |
 | Narrow ledger md5 | **210a71d811fd872a970b1d11770ced05** over 1321 rows (recomputed read-only after the run) |
-| GHST fall-through after an RPC error | **2** (ledger price run; 0 in the sample/probe pass) |
+| GHST fall-through after an RPC error | **0** (was 2) |
 
-## Why it failed: 15 HTTP 408s from the free RPC
-All 15 non-200 RPC outcomes are `status=408` from base.drpc.org. The body: `{"error":{"message":"Request timeout on the free plan, please upgrade
-to paid plan","code":30}}`. `net.post_json` does not retry a 408 (only 429, 5xx and connection errors are retried), so each became an RPC error.
-By design (PR #7 approval note) they now fail price-report instead of passing as plain `no_price`. 0 429s, and the host budget held (busiest 30/30).
-The 15 errors, as (block, contract, selector) from `price_run.detail.rpc_errors`:
-27388021 and 27388025 WETH/USDC `0xd0b53d92` slot0; 33903453 USDC balanceOf; 42297928 GHST pools `0x41d49343` and `0x56c11053` slot0; 42343274, 42362605
-USDC balanceOf; 42366633, 42367506, 42367568 WETH/USDC slot0; 42420163 USDC balanceOf; 42448898 `0x56c11053` slot0 and GHST/WETH `0x0dfb9cb6` getReserves;
-43748241 `0x41d49343` slot0; 49402932 WETH/USDC slot0.
+## price_run row read by price-report (this rerun)
+Read-only `SELECT * FROM price_run` (times in PDT): `id=2 | chain 8453 | started_at 2026-10-24 17:21:44.276652 | finished_at 2026-10-24 18:02:49.315273 |
+entries 1321 | rpc_calls 1214 | rpc_errors 0 | rpc_retries 0 | fallthrough_after_rpc_error 0 | detail {"rpc_errors": [], "fallthrough": []}`.
+started_at (17:21:44) is after the launch (17:21:38), and finished_at is after started_at (41 min 05 s, the `clock_timestamp()` fix from migration 012).
+Row id=1 is the earlier C1 rerun (15 errors; its `finished_at` 08:41:47 is the old `now()` transaction start, and started_at is NULL because it predates 012).
 
-**Effect on the ledger:** 20 entries are `no_price`, and every one is at one of those 13 error blocks (read-only join of `ledger_entry` with
-`price_run.detail`): 10 ETH fees, 5 ETH withdrawals, 2 GHST escrow_out, 2 GHST escrow_return and 1 GHST income (the fee/withdrawal ones are native ETH,
-priced via WETH/USDC). The first run (fd12039) priced these with 0 errors. These are RPC failures, not real no-price cases.
-
-## price_run row read by price-report (written by THIS rerun)
-`SELECT … FROM price_run` → `id=1 | chain 8453 | finished_at 2026-10-24 08:41:47.470172 PDT | entries 1321 | rpc_calls 1208 | rpc_errors 15 |
-fallthrough_after_rpc_error 2`. It is the only row. The table was created by migration 011 in this rerun (`schema_migrations.applied_at`
-08:41:41.51 PDT, after the 08:41:38 start), so the row comes from this rerun. **Caveat:** `finished_at` defaults to `now()`, which in Postgres is the
-**transaction start** (the price step began at about 08:41:47), not the finish (about 09:24). The column name is misleading. Fix pending:
-`clock_timestamp()` in the INSERT, not done in this pass.
-
-## GHST fall-through (from `price_run.detail.fallthrough`)
-- Block 42297928: `0x41d49343` (error) and `0x56c11053` (error) → priced from GHST/WETH `0x0dfb9cb66a18468850d6216fcc691aa20ad1e091`.
-- Block 43748241: `0x41d49343` (error) → priced from `0x56c11053159a24c0731b4b12356bc1f0578fb474`.
+## The 20 entries left `no_price` last run, now priced
+`ledger_entry` has 0 `no_price` rows on 8453 (flags: low_confidence 33, nft_no_trade 8, pending_basis 81, spam 340, untracked 56, none 803).
+Every entry at the 13 former 408 blocks (27388021, 27388025, 33903453, 42297928, 42343274, 42362605, 42366633, 42367506, 42367568, 42420163,
+42448898, 43748241, 49402932) has a price: fees/withdrawals `dex_slot0` high, escrow_out at 33903453 `dex_reserves` medium, escrow_return/income at
+42448898 `dex_slot0` high, auction at 43748241 `dex_slot0`/`trade` high, and the 4 alchemica income entries at 49402932 `dex_reserves_thin` low (low_confidence, as before).
 
 ## C1: 20 sampled blocks (`docs/evidence/p3_sample_8453.jsonl`)
-Seed 3, start block 48775083, blocks [48778781, 48968245, 49319375, 49408055, 49605307, 49705890, 50336888, 51029666, 51093930, 51096573, 51096720, 51157926, 51157981, 51200957, 51283821, 51481434, 51962756, 51965171, 52006332, 52111288]. Sample and probe RPC calls: 300; RPC errors in that pass: 0.
+Seed 3, start block 48775083, blocks [48778781, 48968245, 49319375, 49408055, 49605307, 49705890, 50336888, 51029666, 51093930, 51096573, 51096720, 51157926, 51157981, 51200957, 51283821, 51481434, 51962756, 51965171, 52006332, 52111288]. Sample and probe RPC calls: 310; RPC errors in that pass: 0.
 
 | asset | C1 scope | priced | unpriced (by reason) | stale age days (min–max, re-verified) | C1 ok |
 |---|---|---|---|---|---|
@@ -59,7 +48,7 @@ Seed 3, start block 48775083, blocks [48778781, 48968245, 49319375, 49408055, 49
 | cbBTC | report only | 20/20 | 0  | – | 20/20 |
 
 ### Every unpriced sample, re-derived from the cached Swap logs (`verify_stale`, SQL on `pool_swap` / `pool_swap_scan`)
-Age days = blocks × 2 s / 86,400 (Base 2 s blocks). The 7-day window is 302,400 blocks. All ages are exact (no lower bounds).
+Age days = blocks × 2 s / 86,400 (Base 2 s blocks). The 7-day window is 302,400 blocks. 25/25 re-checks ok; 0 ages are lower bounds.
 
 | block | asset | reason | pool | last swap block (pricer) | SQL re-derived last swap | age days | lower bound | re-check |
 |---|---|---|---|---|---|---|---|---|
@@ -89,45 +78,52 @@ Age days = blocks × 2 s / 86,400 (Base 2 s blocks). The 7-day window is 302,400
 | 51481434 | FOMO | stale_pool | `0x62ab7d55…` | 50755966 | 50755966 | 16.79 | False | ok |
 | 51481434 | KEK | stale_pool | `0x699b4eb3…` | 51031687 | 51031687 | 10.41 | False | ok |
 
-## GLTR probe (pool `0xa83b31d701633b8edcfba55b93ddbc202d8a4621`; 29 cached swap blocks at or after 48775083; seed 3)
-Blocks [50512192, 50561002, 50594622, 50596594, 50596838]: **5/5 pass**. Checks per block: priced, thin tier, low, flagged, pool, quote GHST, GHST→USDC, swap recent (SQL).
+## GLTR probe (pool `0xa83b31d701633b8edcfba55b93ddbc202d8a4621`, Aerodrome vAMM-GLTR/GHST; 29 cached swap blocks at or after 48775083; seed 3)
+Blocks [50512192, 50561002, 50594622, 50596594, 50596838]: **5/5 pass**. Checks per block: priced, thin tier, low, flagged, pool, quote GHST, GHST→USDC, swap recent (SQL), GHST within ±3%.
 
-| block | GLTR price (USDC) | source | conf. | flag | GLTR/GHST pool | pool depth USD | last swap block | GHST/USDC pool | GHST price | GHST pool depth USD | checks |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| 50512192 | 1.678563e-08 | dex_reserves_thin | low | low_confidence | `0xa83b31d7…` | 1319.47 | 50512192 | `0x41d49343…` | 0.046068 | 293900.28 | all 8 pass |
-| 50561002 | 1.671549e-08 | dex_reserves_thin | low | low_confidence | `0xa83b31d7…` | 1313.96 | 50561002 | `0x41d49343…` | 0.045875 | 293293.93 | all 8 pass |
-| 50594622 | 3.906237e-08 | dex_reserves_thin | low | low_confidence | `0xa83b31d7…` | 3008.36 | 50594622 | `0x41d49343…` | 0.102904 | 444126.97 | all 8 pass |
-| 50596594 | 3.945362e-08 | dex_reserves_thin | low | low_confidence | `0xa83b31d7…` | 2921.97 | 50596594 | `0x41d49343…` | 0.096116 | 429548.65 | all 8 pass |
-| 50596838 | 4.017945e-08 | dex_reserves_thin | low | low_confidence | `0xa83b31d7…` | 2955.57 | 50596838 | `0x41d49343…` | 0.096563 | 430558.41 | all 8 pass |
+| block | GLTR price (USDC) | source | conf. | flag | GLTR/GHST pool depth USD (quote side) | last swap block | checks |
+|---|---|---|---|---|---|---|---|
+| 50512192 | 1.678563e-08 | dex_reserves_thin | low | low_confidence | 1319.47 (659.74) | 50512192 | all 9 pass |
+| 50561002 | 1.671549e-08 | dex_reserves_thin | low | low_confidence | 1313.96 (656.98) | 50561002 | all 9 pass |
+| 50594622 | 3.906237e-08 | dex_reserves_thin | low | low_confidence | 3008.36 (1504.18) | 50594622 | all 9 pass |
+| 50596594 | 3.945362e-08 | dex_reserves_thin | low | low_confidence | 2921.97 (1460.98) | 50596594 | all 9 pass |
+| 50596838 | 4.017945e-08 | dex_reserves_thin | low | low_confidence | 2955.57 (1477.78) | 50596838 | all 9 pass |
 
-The GHST leg comes from the Uniswap v3 GHST/USDC pool `0x41d49343…` at each probe block. It rises from 0.046068 (50561002) to 0.102904 (50594622).
-That is an on-chain slot0 reading at blocks outside the C1 sample, so the ±3% DefiLlama check does not cover it (**not verified**). The GLTR/GHST pool's quote-side
-reserve is above $1,000 at the last three probe blocks (1,504.18 / 1,460.98 / 1,477.78 USD), but GLTR stays on the thin tier by ruling (thin tier only).
+### GHST leg vs DefiLlama at each probe block
+GHST is priced from the Uniswap v3 GHST/USDC pool at each block and compared with the nearest DefiLlama historical price. Depth = USDC side (balanceOf).
+
+| block | GHST/USDC pool | kind | GHST (pool) | GHST (DefiLlama) | API ts → block ts (s) | dev % | pool GHST balance | pool USDC balance | pool depth USD | within ±3% |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 50512192 | `0x41d4934322f2bd6fe1dbe4124070fe61651a2067` | v3 | 0.046068 | 0.045991 | +231 | 0.165 | 6379831.04 | 293900.283288 | 293900.28 | True |
+| 50561002 | `0x41d4934322f2bd6fe1dbe4124070fe61651a2067` | v3 | 0.045875 | 0.045515 | +641 | 0.791 | 6393549.10 | 293293.934482 | 293293.93 | True |
+| 50594622 | `0x41d4934322f2bd6fe1dbe4124070fe61651a2067` | v3 | 0.102904 | 0.105238 | -519 | -2.217 | 4304005.57 | 444126.969807 | 444126.97 | True |
+| 50596594 | `0x41d4934322f2bd6fe1dbe4124070fe61651a2067` | v3 | 0.096116 | 0.097889 | -175 | -1.811 | 4455777.08 | 429548.651231 | 429548.65 | True |
+| 50596838 | `0x41d4934322f2bd6fe1dbe4124070fe61651a2067` | v3 | 0.096563 | 0.097889 | +313 | -1.355 | 4445656.61 | 430558.41443 | 430558.41 | True |
+
+All 5 within ±3%, so the GHST move from about 0.046 (50512192/50561002) to about 0.096–0.103 (50594622–50596838) matches DefiLlama and is not a pool artifact. Pricing unchanged.
 
 ## C3 / coverage (`docs/evidence/p3_coverage_8453.json`)
-by_source: trade 40, numeraire 45, dex_slot0 651, dex_reserves 49, dex_reserves_thin 31. by_flag: spam 340, untracked 56, pending_basis 81,
-low_confidence 33, no_price 20, nft_no_trade 8. Neither: 0. The ledger price step made 1,208 RPC requests (15 errors, 2 fall-throughs).
+by_source: trade 40, numeraire 45, dex_slot0 670, dex_reserves 50, dex_reserves_thin 31. by_flag: spam 340, untracked 56, pending_basis 81,
+low_confidence 33, nft_no_trade 8 (no `no_price`). by_label: high 744, medium 59, low 33. zero_prices 0. Neither: 0.
 
 ## Rate limits (`docs/evidence/p3_hypersync_8453.txt`, `p3_rpc_8453.txt`, `p3_defillama_8453.txt`)
-- HyperSync: requests=1, status_200=1, 429s=0, busiest_60s_window=1 (ending 08:41:46 PDT), limit=5 → OK. The pool-swap scan ran forward
-  53,015,552 → 53,033,480: 0 new swaps.
-- RPC: requests=1509, status_200=1494, status_408=15, 429s=0, busiest_60s_window=30 (ending 08:46:09 PDT), limit=30 → OK, min_gap_s=1.510.
-- DefiLlama: requests=20, status_200=20, 429s=0.
+- HyperSync: requests=1, status_200=1, 429s=0, busiest_60s_window=1 (ending 17:21:43 PDT), limit=5 → OK. Pool-swap scan forward 53,033,481 → 53,049,075: 0 new swaps.
+- RPC: requests=1530, status_200=1530, 429s=0, 0 × 408, busiest_60s_window=30 (ending 17:22:27 PDT), limit=30 → OK, min_gap_s=1.510.
+- DefiLlama: requests=25, status_200=25, 429s=0 (20 C2 + 5 probe GHST checks).
 
 ## Ledger unchanged
 classify#1 = classify#2: `ledger_rows 1321, ledger_md5 58cc79730edcf6b11a1e8ee39ea3ab97` (report md5), review 1 / e7de420e…. Narrow md5 recomputed read-only
-after the run: **210a71d811fd872a970b1d11770ced05** (1321 rows). tx-index: 0 candidates.
+after the run: **210a71d811fd872a970b1d11770ced05** (1321 rows). tx-index: 0 candidates. Migration applied this run: `012_p3_price_run_retries.sql`.
 
 ## Not verified / open
-1. **RPC 408 handling (needs a decision, then one more rerun):** should 408 be retried with backoff like 5xx (it is a server-side timeout,
-   "free plan")? With a retry, these 15 would likely have priced. That is not shown; it needs a rerun.
-2. `price_run.finished_at` is the transaction start (see the caveat above); switch to `clock_timestamp()`.
-3. The GHST spike to about 0.10 at probe blocks 50594622–50596838 is not checked against an API.
-4. Sepolia not run.
+1. The 408 retry path was not exercised in this run (the free RPC returned 0 × 408), so `rpc_retries` is 0. The retry behavior is covered by unit tests (`c22d59a`) only.
+2. `pass_all_priced: false` is informational: ALPHA/FUD/FOMO 12/20 and KEK 19/20 are stale_pool (accepted C1 reason).
+3. Sepolia not run.
 
-## Previous run (fd12039, 2026-10-23 22:45 PDT)
-C1 FAIL under the original rule (ALPHA/FUD/FOMO 12/20, KEK 19/20; GLTR not sampled), C2 PASS (max 1.005%), C3 PASS (1321/0 neither), 0 RPC
-errors, 0 429s. Its evidence files were overwritten by this rerun's (same names); the earlier versions are in git at `cd23af9`.
+## Earlier runs
+- C1 rerun at `d909779` (2026-10-24 08:41 PDT): C1 PASS, GLTR probe 5/5, C2 PASS (−0.655% to +1.005%), but **15 × HTTP 408** (free-plan timeout) → 15 RPC errors,
+  20 `no_price` entries at 13 blocks, 2 fall-throughs, price-report rc 1. Evidence: `p3_rerun_c1_8453.log`, `p3_rerun_c1_net_requests_8453.log`; P3_RESULTS at `518c428`.
+- First run at `fd12039` (2026-10-23 22:45 PDT): C1 FAIL under the original rule, C2 PASS (max 1.005%), C3 PASS, 0 RPC errors. Evidence in git at `cd23af9`.
 
 ## Appendix: every C1 sample
 | block | asset | price (USDC) | source | conf. | flag | pool | pool depth USD | last swap block | API | dev % |
