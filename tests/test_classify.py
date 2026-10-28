@@ -238,7 +238,7 @@ class T(unittest.TestCase):
         self.assertEqual(self.c.execute("SELECT count(*), count(*) FILTER (WHERE superseded_at IS NULL) FROM manual_basis").fetchone(), (2, 1))
         self.assertEqual(float(classify.basis_totals(self.c, C)["basis_usdc_total_excl_pending"]), 200.0)
         # a sell from a pending lot gives proceeds and a pending (NULL) realized PnL
-        self.c.execute("UPDATE fifo_lot SET basis_usdc=NULL, basis_status='pending'")
+        self.c.execute("UPDATE fifo_lot SET basis_usdc=NULL, basis_price_source=NULL, basis_status='pending'")   # 013: pending lots carry no basis source
         did = self.c.execute("INSERT INTO lot_disposal(lot_id, qty, proceeds_usdc, cost_usdc) SELECT id, 1, 50, basis_usdc FROM fifo_lot RETURNING realized_pnl_usdc").fetchone()
         self.assertIsNone(did[0]); self.c.rollback()
 
