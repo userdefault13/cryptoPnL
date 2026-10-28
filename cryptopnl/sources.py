@@ -10,11 +10,20 @@ T1155B = "0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb"
 def topic_addr(a): return "0x" + "0" * 24 + a.lower()[2:]
 def h2i(x): return x if isinstance(x, int) else int(x, 16)
 
+class RPCError(RuntimeError):
+    """A JSON-RPC error (HTTP 200 with "error"). P3 follow-up (a): keeps only the method, the integer error code and whether it is an
+    'execution reverted' (pricing tells no_pool from rpc_error by that), never the message or data body."""
+    def __init__(self, method, err):
+        c = err.get("code") if isinstance(err, dict) else None
+        self.code = c if isinstance(c, int) and not isinstance(c, bool) else None
+        self.reverted = "execution reverted" in str(err.get("message", "") if isinstance(err, dict) else err).lower()
+        super().__init__(f"rpc {method}: jsonrpc code {'-' if self.code is None else self.code}" + ("; execution reverted" if self.reverted else ""))
+
 class RPC:
     def __init__(self, url, limiter=None): self.url = url; self.lim = limiter or rpc_limiter()   # host-wide RPC budget (P3)
     def call(self, method, params):
         r = post_json("rpc", self.lim, self.url, {"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
-        if "error" in r: raise RuntimeError(f"rpc {method}: {r['error']}")
+        if "error" in r: raise RPCError(method, r["error"])
         return r["result"]
     def block(self, tag):
         b = self.call("eth_getBlockByNumber", [tag if isinstance(tag, str) else hex(tag), False])

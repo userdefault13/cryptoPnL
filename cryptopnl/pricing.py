@@ -59,7 +59,7 @@ class Pricer:
         except RuntimeError as e:
             if "execution reverted" in str(e).lower(): self.status[k] = "revert"; return None
             self.status[k] = "error"; self.err_blocks.add(block)
-            self.rpc_errors.append({"to": to, "selector": data[:10], "block": block, "error": str(e)[:200]}); return None
+            self.rpc_errors.append({"to": to, "selector": data[:10], "block": block, "error": str(e)[:200]}); return None   # status + code only (net/sources)
         if r and r != "0x" and len(r) >= 66: self.status[k] = "ok"; return r
         self.status[k] = "empty"; return None
     def _absent(self, to, data, block):

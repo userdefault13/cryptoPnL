@@ -146,7 +146,8 @@ class RpcErrors(unittest.TestCase):
         self.assertIsNone(pr.price(FUD, BN, 0))
         r = pr.unpriced_reason(FUD, BN)
         self.assertEqual(r["reason"], "rpc_error"); self.assertNotIn("rpc_error", pricing.ACCEPTED_UNPRICED)
-        self.assertIn("rate limit", r["errors"][0]["error"]); self.assertGreaterEqual(len(pr.rpc_errors), 1)
+        self.assertEqual(r["errors"][0]["error"], "rpc eth_call: jsonrpc code -32005")      # P4 follow-up (a): code only, no message body
+        self.assertNotIn("rate limit", r["errors"][0]["error"]); self.assertGreaterEqual(len(pr.rpc_errors), 1)
     def test_http200_execution_reverted_is_no_pool(self):
         rpc = self.rpc_with_body(b'{"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted"}}')
         pr = pricing.Pricer(C, rpc, FakeAPI(), swaps={})
