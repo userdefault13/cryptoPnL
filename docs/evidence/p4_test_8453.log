@@ -1,0 +1,18 @@
+== 1 source ledger md5 (cryptopnl_p3_base)
+{"chain_id": 8453, "ledger_rows": 1321, "ledger_min_block": 4328142, "ledger_max_block": 52911467, "ledger_md5_narrow": "210a71d811fd872a970b1d11770ced05", "ledger_md5_report": "58cc79730edcf6b11a1e8ee39ea3ab97", "review_rows": 1, "review_md5": "e7de420e6883071793eb2790cd85b3af"}
+== 2 copy cryptopnl_p3_base -> cryptopnl_p4_base, migrate the copy
+NOTICE:  database "cryptopnl_p4_base" does not exist, skipping
+{"applied": ["013_p4_fifo.sql"]}
+== 3 full rebuild
+rebuild ('f198ed6c64c6c66ea49db87cfde82e6c', 'c227629aa3f8b422ae98ef6bd48a1219', 'b9c2d064d8b791653a9bad39c8d98031', 755, 680)
+== 4 incremental from block 40422429
+incremental == rebuild: OK
+== 5 reconciliation
+pass=True total_residual=0.0000000000000000000000000000000000000000000000028 failures=[]
+== 6 snapshot x2
+{"as_of_block": 52911410, "chain": 8453, "ledger_rows": 1321, "pnl_snapshot_md5": "fc4450f8d98cedcb27a44765e946e0b5", "pnl_snapshot_rows": 190, "policy": {"deposit": "pending", "fee": "capitalize", "fee_split": "basis_else_equal", "fee_without_trade": "expense", "internal_transfer": "carry", "mark": "p3_stored_at_as_of", "nft_mark": "p3_price_else_exclude", "queue_split": "recipe_else_equal", "recipe": "stored_craft_recipe_cost", "shortfall": "pending", "withdrawal": "exit"}}
+{"as_of_block": 52911410, "chain": 8453, "ledger_rows": 1321, "pnl_snapshot_md5": "fc4450f8d98cedcb27a44765e946e0b5", "pnl_snapshot_rows": 190, "policy": {"deposit": "pending", "fee": "capitalize", "fee_split": "basis_else_equal", "fee_without_trade": "expense", "internal_transfer": "carry", "mark": "p3_stored_at_as_of", "nft_mark": "p3_price_else_exclude", "queue_split": "recipe_else_equal", "recipe": "stored_craft_recipe_cost", "shortfall": "pending", "withdrawal": "exit"}}
+snapshot byte-identical: OK (ea3cf48ed5ea767f568c1444cf7996f0)
+== 7 unit suites (pure engine)
+OK
+P4 PASS chain 8453 (14 s)
