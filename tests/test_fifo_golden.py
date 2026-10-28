@@ -115,8 +115,8 @@ class G4Craft(unittest.TestCase):
         self.assertEqual((l.basis, l.qty, l.kind, l.status), (D(0), D(2), "free_craft", "resolved"))
         self.assertEqual(len(self.st.income), 2); self.assertEqual(D(self.r["income_usdc"]), D(3))
     def test_queue_until_claim(self):
-        self.assertEqual(self.mid.buckets, {"craft:queue:inst:7": [D(1), "high"]})
-        self.assertEqual(report(self.mid, P, 5)["open_cost_buckets"], {"craft:queue:inst:7": ["1", "high"]})
+        self.assertEqual(self.mid.buckets, {"craft:queue:inst:7": [D(1), "high", None]})
+        self.assertEqual(report(self.mid, P, 5)["open_cost_buckets"], {"craft:queue:inst:7": ["1", "high", None]})
         l = lots(self.st, self.claim[0])[0]; self.assertEqual((l.basis, l.kind), (D(1), "craft_claim"))
         self.assertEqual(self.st.buckets, {})
     def test_unmatched_claim_pending(self):
@@ -129,7 +129,7 @@ class G4Craft(unittest.TestCase):
         with self.assertRaises(PolicyRequired) as c: run(b.rows, P)
         self.assertEqual(c.exception.question, "Q-G")
         st = run(b.rows, Policy(queue_split="equal"))   # 0.4 USDC shared equally by the two queues
-        self.assertEqual(st.buckets, {"craft:queue:inst:7": [D("0.2"), "high"], "craft:queue:inst:8": [D("0.2"), "high"]})
+        self.assertEqual(st.buckets, {"craft:queue:inst:7": [D("0.2"), "high", "equal"], "craft:queue:inst:8": [D("0.2"), "high", "equal"]})
 
 def _parcel_book():
     """Shared synthetic setup: parcel #42 bought for 100 GHST @0.5 (trade-implied basis 50); FUD 1000 income @0.002 (basis 2);
@@ -228,19 +228,24 @@ class G9FeePolicy(unittest.TestCase):
         b, s = _eth_book(); st = run(b.rows, Policy(fee="expense")); d = disp(st, s[2])[0]; l = lots(st, s[1])[0]
         self.assertEqual((d.kind, d.proceeds, d.cost, d.expense, l.basis, l.qty, l.remaining_basis()), ("fee", D(3), D(3), D(3), D(30), D("0.009"), D(27)))
     def test_capitalize(self):
-        b, s = _eth_book(); st = run(b.rows, Policy(fee="capitalize")); d = disp(st, s[2])[0]; l = lots(st, s[1])[0]
+        b, s = _eth_book()
+        with self.assertRaises(PolicyRequired) as c: run(b.rows, Policy(fee="capitalize"))   # fee_split has no default either
+        self.assertEqual(c.exception.question, "Q-A")
+        st = run(b.rows, Policy(fee="capitalize", fee_split="basis_else_equal")); d = disp(st, s[2])[0]; l = lots(st, s[1])[0]
         self.assertEqual((d.kind, d.cost, d.expense, l.basis, l.remaining_basis()), ("fee_capitalized", D(3), None, D(33), D(30)))
+        self.assertEqual((l.fee, l.split_method), (D(3), "basis"))
         self.assertEqual(D(identity(st)["residual"]), 0)
     def test_capitalize_without_trade_leg(self):
         b, _ = _eth_book(); b.tx(3, L("ETH", "-0.001", "fee", "3000"))
         with self.assertRaises(PolicyRequired) as c: run(b.rows, Policy(fee="capitalize"))
         self.assertEqual(c.exception.question, "Q-A")
-        st = run(b.rows, Policy(fee="capitalize", fee_without_trade="expense")); self.assertEqual(st.disposals[-1].expense, D(3))
+        st = run(b.rows, Policy(fee="capitalize", fee_without_trade="expense", fee_split="basis_else_equal")); self.assertEqual(st.disposals[-1].expense, D(3))
 
 class G10DepositWithdrawal(unittest.TestCase):
     """Q-B hooks (no default). deposit 1 ETH @2000; withdraw 0.5 ETH @2500.
     acquire_fmv + dispose_fmv: lot basis 2000; withdrawal proceeds 1250, cost 1000, realized 250.
-    custody_exit: the 0.5 leaves at basis 1000 with no realized PnL (custody_exit_basis 1000). pending: deposit lot pending, withdrawal = pending disposal."""
+    exit: the 0.5 leaves at basis 1000, proceeds NULL, realized 0, MV 1250 for display (exit_basis 1000). pending: deposit lot pending,
+    withdrawal = pending disposal."""
     def book(self):
         b = Book(); dep = b.tx(1, L("ETH", "1", "deposit", "2000")); w = b.tx(2, L("ETH", "-0.5", "withdrawal", "2500")); return b, dep, w
     def test_required(self):
@@ -252,11 +257,12 @@ class G10DepositWithdrawal(unittest.TestCase):
         st = run(b.rows, pol); d = disp(st, w[0])[0]
         self.assertEqual((lots(st, dep[0])[0].basis, d.proceeds, d.cost, d.realized), (D(2000), D(1250), D(1000), D(250)))
         self.assertEqual(D(report(st, pol, 3)["all"]["unrealized_usdc"]), D(500))   # 0.5 x 3000 - 1000
-    def test_custody_exit(self):
-        b, _, w = self.book(); pol = Policy(deposit="acquire_fmv", withdrawal="custody_exit", mark=P.mark)
+    def test_exit(self):
+        b, _, w = self.book(); pol = Policy(deposit="acquire_fmv", withdrawal="exit", mark=P.mark)
         st = run(b.rows, pol); d = disp(st, w[0])[0]; r = report(st, pol, 3)
-        self.assertEqual((d.kind, d.proceeds, d.cost, d.realized), ("custody_exit", None, D(1000), None))
-        self.assertEqual((D(r["all"]["realized_usdc"]), D(r["custody_exit_basis_usdc"]), r["all"]["unpriced_disposals"]), (D(0), D(1000), 0))
+        self.assertEqual((d.kind, d.proceeds, d.cost, d.realized, d.display_mv), ("exit", None, D(1000), D(0), D(1250)))
+        self.assertEqual((D(r["all"]["realized_usdc"]), D(r["exit_basis_usdc"]), D(r["exit_display_mv_usdc"]), r["all"]["unpriced_disposals"], r["exits"]),
+                         (D(0), D(1000), D(1250), 0, 1))
     def test_pending_deposit(self):
         b, dep, w = self.book(); st = run(b.rows, Policy(deposit="pending", withdrawal="dispose_fmv")); r = report(st, P, 3)
         self.assertEqual((lots(st, dep[0])[0].status, lots(st, dep[0])[0].source, disp(st, w[0])[0].lot_status), ("pending", None, "pending"))
@@ -303,7 +309,8 @@ class G12NeverZeroAndExclusions(unittest.TestCase):
         self.assertEqual(D(r["all"]["unrealized_usdc"]), D(1))   # FUD 500 x 0.004 - 1
     def test_oversell_is_an_error(self):
         b = Book(); b.tx(1, L("GHST", "1", "income", "1")); b.tx(2, L("GHST", "-2", "swap", "1"), L("USDC", "2", "swap", "1"))
-        with self.assertRaises(FifoError): run(b.rows, P)
+        with self.assertRaises(PolicyRequired) as c: run(b.rows, P)          # Q-H: no default for a shortfall
+        self.assertEqual(c.exception.question, "Q-H")
     def test_mark_hook_required(self):
         b = Book(); b.tx(1, L("GHST", "1", "income", "1"))
         with self.assertRaises(PolicyRequired) as c: report(run(b.rows, P), Policy(nft_mark="exclude"), 2)
