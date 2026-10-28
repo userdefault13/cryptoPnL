@@ -1,0 +1,17 @@
+{
+  "_doc": "P4 engine switches. Defaults = DESIGN §8 'P4 rulings (2026-10-28)' and 'P4 rulings 2'. Every key is a switch (override with --set key=value); the engine itself has NO defaults (fifo.Policy raises PolicyRequired). Keys marked pending_architect are proposals awaiting confirmation.",
+  "fee": "capitalize",
+  "fee_without_trade": "expense",
+  "fee_split": "basis_else_equal",
+  "deposit": "pending",
+  "withdrawal": "exit",
+  "internal_transfer": "carry",
+  "nft_mark": "p3_price_else_exclude",
+  "mark": "p3_stored_at_as_of",
+  "queue_split": "recipe_else_equal",
+  "recipe": "stored_craft_recipe_cost",
+  "shortfall": "pending",
+  "group": "one_group_per_chain",
+  "as_of_block": "latest_stored_p3_price",
+  "pending_architect": ["shortfall", "fee_split: equal when any acquisition of the tx is pending", "gas of a swap goes into the bought asset's basis (not off the sold asset's proceeds)", "as_of_block: latest block with a stored P3 price; marks = latest stored price at or before it"]
+}
