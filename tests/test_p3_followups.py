@@ -47,6 +47,11 @@ class NoBodyInErrors(unittest.TestCase):
             with self.assertRaises(sources.RPCError) as cm: self.rpc.call("eth_call", [])
         self.assertEqual((str(cm.exception), cm.exception.reverted), ("rpc eth_call: jsonrpc code 3; execution reverted", True))
         self.assertClean(str(cm.exception))
+    def test_pruned_history_still_detected_without_the_body(self):
+        with self.ok(b'{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"missing trie node, state is pruned ' + SECRET + b'"}}'):
+            with self.assertRaises(sources.RPCError) as cm: self.rpc.call("eth_getBalance", [])
+        self.assertEqual(str(cm.exception), "rpc eth_getBalance: jsonrpc code -32000; pruned state"); self.assertClean(str(cm.exception))
+        self.assertIn("pruned", str(cm.exception))                                     # ingest.py:52 / verify.py:120 string checks
     def test_pricer_rpc_errors_store_no_body(self):
         with self.ok(b'{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"header not found ' + SECRET + b'"}}'):
             pr = pricing.Pricer(8453, self.rpc, None, swaps={})

@@ -16,8 +16,11 @@ class RPCError(RuntimeError):
     def __init__(self, method, err):
         c = err.get("code") if isinstance(err, dict) else None
         self.code = c if isinstance(c, int) and not isinstance(c, bool) else None
-        self.reverted = "execution reverted" in str(err.get("message", "") if isinstance(err, dict) else err).lower()
-        super().__init__(f"rpc {method}: jsonrpc code {'-' if self.code is None else self.code}" + ("; execution reverted" if self.reverted else ""))
+        msg = str(err.get("message", "") if isinstance(err, dict) else err).lower()
+        self.reverted = "execution reverted" in msg
+        self.pruned = self.code == 4444 or "pruned" in msg or "unknown state" in msg      # ingest/verify Sepolia pruned-history checks
+        super().__init__(f"rpc {method}: jsonrpc code {'-' if self.code is None else self.code}" + ("; execution reverted" if self.reverted else "")
+                         + ("; pruned state" if self.pruned else ""))
 
 class RPC:
     def __init__(self, url, limiter=None): self.url = url; self.lim = limiter or rpc_limiter()   # host-wide RPC budget (P3)
