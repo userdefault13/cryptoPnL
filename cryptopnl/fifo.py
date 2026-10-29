@@ -11,14 +11,15 @@ it meets a row that needs an answer, so nothing is guessed:
   Q-A fee               DESIGN §5 Q7: gas 'expense' | 'capitalize'; fee_without_trade ('expense') for a capitalized fee in a tx with no trade
                         leg; fee_split 'basis_else_equal' (capitalized gas over several acquired lots: pro rata to basis, equal when a lot
                         is pending or no lot has basis > 0; split_method stored per lot)
-  Q-B deposit           'acquire_fmv' | 'pending';  withdrawal 'dispose_fmv' | 'exit' (custody exit: proceeds NULL, realized 0, MV for display)
+  Q-B deposit           'acquire_fmv' | 'pending';  withdrawal 'dispose_fmv' | 'exit' (custody exit: proceeds NULL, realized NULL -> not in totals, counted; MV for display)
   Q-D nft_mark          DESIGN §5 Q8: 'exclude' | 'at_basis' | callable(asset, as_of_block, lot) -> Mark | None
   Q-E internal_transfer DESIGN §5 Q2: 'carry' | 'dispose_acquire' (transfer between two own wallets of the group)
   Q-F mark              callable(asset, as_of_block) -> Mark | None (which block, which price source); used by report()
   Q-G queue_split       'recipe_else_equal' (several minted assets under one cost ref: split by `recipe(asset, block)` -> USDC recipe cost
                         per unit, stored at ingest/pricing time; equal per unit, flagged split_method='equal', when any recipe is missing) | 'equal'
   Q-H shortfall         'pending': an out-leg larger than the lots held at its location (the ledger lacks the inflow, e.g. a pocket
-                        balance that arrived without a ledger row) opens a pending lot (unrecorded_inflow) for the missing qty
+                        balance that arrived without a ledger row) opens a pending lot for the missing qty at the shortfall block,
+                        basis_origin='unrecorded_inflow' (P4 rulings 3); reported as an unexplained gap, never as reconciled
 Decided rules (not hooks): custody moves (escrow_out/return, equip parcel:, pocket:, lent:) carry lots unchanged; income opens a lot
 at FMV (§3); free craft = basis 0, not income (§9 r3); migration_in keeps the carried/manual basis, else pending with a NULL
 source (§8); gift_in = basis 0, flagged (§9 r1); spend = disposal at market value plus an expense (§9 r9)."""
@@ -100,6 +101,7 @@ class Lot:
     basis_out: Decimal = Decimal(0)   # basis already disposed or moved out; the last unit takes basis - basis_out, so sums are exact
     fee: Optional[Decimal] = None     # capitalized gas share (in basis when resolved; kept here, outside totals, while pending)
     split_method: Optional[str] = None   # gas share: basis | equal; craft cost: recipe | equal (fallback) | single
+    basis_origin: Optional[str] = None   # 'unrecorded_inflow' for a Q-H lot (P4 rulings 3); carried to custody children
     def per_unit(self) -> Optional[Decimal]:
         return None if self.basis is None else self.basis / self.qty_open
     def take_basis(self, q: Decimal) -> Optional[Decimal]:
@@ -119,7 +121,7 @@ class Disposal:
     display_mv: Optional[Decimal] = None # exit: market value at the block, for display only (never in PnL)
     @property
     def realized(self) -> Optional[Decimal]:
-        if self.kind == "exit": return None if self.cost is None else Decimal(0)   # Q-B: custody exit, realized 0
+        if self.kind == "exit": return None   # Q-B / rulings 3: a custody exit has no realized PnL (NULL), it is counted, not summed
         if self.proceeds is None or self.cost is None: return None
         return self.proceeds - self.cost
 
@@ -169,7 +171,8 @@ def _take(st: State, group: str, asset: str, location: str, qty: Decimal, eid: i
         msg = f"entry {eid}: disposes {qty} {asset} at {location} but only {qty - need} is held there"
         if p is None or e is None: raise FifoError(msg)
         p.need("shortfall", msg)
-        l = _open(st, e, need, None, None, None, "unrecorded", status="pending", location=location, pending_reason="unrecorded_inflow")
+        l = _open(st, e, need, None, None, None, "unrecorded", status="pending", location=location, pending_reason="unrecorded_inflow",
+                  basis_origin="unrecorded_inflow")   # opens at the shortfall block (e.block), pending
         out.append((l, need))
     return out
 
@@ -195,7 +198,7 @@ def _move(st: State, src: Entry, dst: Entry, pol: Optional[Policy] = None):
         st.lots.append(Lot(id=st.next_lot, group=l.group, asset=l.asset, wallet=dst.wallet, location=dst.location, open_entry=l.open_entry,
                            open_block=l.open_block, order=l.order, qty_open=p, qty=p, basis=c, source=l.source, label=l.label, status=l.status,
                            kind=l.kind, nft=l.nft, ref=l.ref, parent=l.id, chain_origin=l.chain_origin, pending_reason=l.pending_reason,
-                           manual_basis_id=l.manual_basis_id, split_method=l.split_method))   # fee share stays on the root lot
+                           manual_basis_id=l.manual_basis_id, split_method=l.split_method, basis_origin=l.basis_origin))   # fee share stays on the root lot
         st.next_lot += 1
 
 # ---------- per-tx handlers ----------
@@ -330,7 +333,7 @@ def _generic(st: State, p: Policy, legs: List[Entry]):
             elif e.category == "withdrawal":
                 if p.need("withdrawal", f"entry {e.id}: {e.asset} withdrawn to an outside address") == "dispose_fmv":
                     ds = _dispose(st, e, "withdrawal", v, src, lab, p=p)
-                else:   # Q-B exit: proceeds NULL, realized 0 (pending if the lot is), market value kept for display only
+                else:   # Q-B exit: proceeds NULL, realized NULL (counted), pending if the lot is; market value kept for display only
                     ds = _dispose(st, e, "exit", None, None, None, p=p)
                     for d, mv in zip(ds, _split(v, [d.qty for d in ds])): d.display_mv = mv
             else: raise FifoError(f"entry {e.id}: outflow category {e.category!r} not handled")
@@ -362,17 +365,21 @@ def _generic(st: State, p: Policy, legs: List[Entry]):
             else: raise FifoError(f"entry {e.id}: inflow category {e.category!r} not handled")
     return opened, sales
 
-def _fees(st: State, p: Policy, fees: List[Entry], opened: List[Lot], sales: List[Disposal]):
+NFT_SALE = ("nft_sale", "auction")
+def _fees(st: State, p: Policy, fees: List[Entry], opened: List[Lot], sales: List[Disposal], cat: Dict[int, str]):
     """Q-A / DESIGN §5 Q7 (rulings 2026-10-28). Every gas payment is an ETH FIFO disposal with proceeds = ETH market value at the block
     (so the ETH gain or loss is realized). expense: kind 'fee', expense = that value. capitalize: kind 'fee_capitalized'; the value goes
     into the basis of the lots the tx acquired (fee_split 'basis_else_equal': pro rata to basis when every such lot is resolved and the
-    bases sum > 0, else equal; a pending lot keeps its share in `fee`, outside totals), else comes off the tx's sale proceeds (pro rata);
+    bases sum > 0, else equal; a pending lot keeps its share in `fee`, outside totals), else comes off the tx's sale proceeds (pro rata).
+    An NFT sale (nft_sale, or the seller side of an auction) comes first: its gas comes off the NFT's proceeds, never into the basis of
+    the payment received (rulings 3);
     a tx with no trade leg -> fee_without_trade ('expense': kind 'fee', reported as gas_expense)."""
     for f in fees:
         v = f.value(); pol = p.need("fee", f"entry {f.id}: gas")
         if pol == "expense": _dispose(st, f, "fee", v, f.price_source, f.label, expense=v, p=p); continue
-        tgt = [l for l in opened if l.kind in ACQ_KINDS]
-        sal = [d for d in sales if d.kind in ("sale", "bundle") and d.proceeds is not None]
+        nsal = [d for d in sales if d.kind in ("sale", "bundle") and d.proceeds is not None and st.lot(d.lot).nft and cat.get(d.entry) in NFT_SALE]
+        tgt = [] if nsal else [l for l in opened if l.kind in ACQ_KINDS]
+        sal = nsal or [d for d in sales if d.kind in ("sale", "bundle") and d.proceeds is not None]
         if not tgt and not sal:
             p.need("fee_without_trade", f"entry {f.id}: capitalized gas in a tx with no trade leg")
             _dispose(st, f, "fee", v, f.price_source, f.label, expense=v, p=p); continue
@@ -404,7 +411,7 @@ def _tx(st: State, p: Policy, legs: List[Entry]):
     if by("upgrade"): opened += _upgrade(st, by("upgrade"), p)
     if by("destroy_refund"): _destroy(st, by("destroy_refund"), p)
     o, sales = _generic(st, p, [e for e in rest if e.category not in ("craft", "craft_pending", "upgrade", "destroy_refund", "fee")])
-    _fees(st, p, by("fee"), opened + o, sales)
+    _fees(st, p, by("fee"), opened + o, sales, {e.id: e.category for e in live})
 
 def run(entries: List[Entry], policy: Policy, state: Optional[State] = None) -> State:
     """Deterministic FIFO replay. With `state`, continues from it (recompute from block X): every entry must sort after state.last_key."""
@@ -426,18 +433,19 @@ def _s(x): return format(x.normalize(), "f") if isinstance(x, Decimal) else x
 def report(st: State, policy: Policy, as_of_block: int) -> dict:
     """Totals per §8 at a fixed as_of_block (Q-F; marks come from policy.mark, offline). Pending basis is excluded on both mark and
     basis (and from realized) and counted. Two variants: all confidence levels, and excluding low-confidence prices (§9 P3 thin pools).
-    Unpriced disposals and unmarked lots are counted, never valued at 0. Exits count realized 0. by_asset carries the pnl_snapshot row."""
+    Unpriced disposals and unmarked lots are counted, never valued at 0. Exits are skipped and counted. by_asset carries the pnl_snapshot row."""
     out = {}
     for variant, keep_low in (("all", True), ("excl_low", False)):
-        R = U = MV = OB = Decimal(0); n = {"unmarked_lots": 0, "unmarked_nft_lots": 0, "unpriced_disposals": 0, "low_excluded": 0}
+        R = U = MV = OB = Decimal(0); n = {"unmarked_lots": 0, "unmarked_nft_lots": 0, "unpriced_disposals": 0, "low_excluded": 0, "exits": 0}
         by: Dict[str, dict] = {}
         def A(a):
             return by.setdefault(a, {"realized": Decimal(0), "unrealized": Decimal(0), "qty": Decimal(0), "cost_basis": Decimal(0),
                                      "market_value": Decimal(0), "mark_price": None, "mark_source": None, "pending_lots": 0,
-                                     "pending_disposals": 0, "unmarked_lots": 0, "unpriced_disposals": 0})
+                                     "pending_disposals": 0, "unmarked_lots": 0, "unpriced_disposals": 0, "exits": 0})
         for d in st.disposals:
             a = A(st.lot(d.lot).asset)
             if d.lot_status == "pending": a["pending_disposals"] += 1; continue
+            if d.kind == "exit": n["exits"] += 1; a["exits"] += 1; continue          # no realized PnL; counted (basis in exit_basis_usdc)
             if d.realized is None: n["unpriced_disposals"] += 1; a["unpriced_disposals"] += 1; continue
             if not keep_low and LOW in (d.proceeds_label, st.lot(d.lot).label): n["low_excluded"] += 1; continue
             R += d.realized; a["realized"] += d.realized
@@ -515,7 +523,7 @@ def identity(st: State) -> dict:
     return {"basis_opened_root": _s(root), "cost_disposed": _s(cost), "basis_open": _s(open_b), "residual": _s(root - cost - open_b)}
 
 LOT_COLS = ("id", "group", "asset", "wallet", "location", "open_entry", "open_block", "qty_open", "qty", "basis", "basis_out", "source",
-            "label", "status", "kind", "ref", "parent", "chain_origin", "pending_reason", "manual_basis_id", "fee", "split_method")
+            "label", "status", "kind", "ref", "parent", "chain_origin", "pending_reason", "manual_basis_id", "fee", "split_method", "basis_origin")
 DISP_COLS = ("id", "lot", "entry", "block", "qty", "kind", "proceeds", "proceeds_source", "proceeds_label", "cost", "payment_for",
              "bundle_ref", "expense", "lot_status", "own_cost", "display_mv")
 def canonical(st: State) -> str:

@@ -244,7 +244,7 @@ class G9FeePolicy(unittest.TestCase):
 class G10DepositWithdrawal(unittest.TestCase):
     """Q-B hooks (no default). deposit 1 ETH @2000; withdraw 0.5 ETH @2500.
     acquire_fmv + dispose_fmv: lot basis 2000; withdrawal proceeds 1250, cost 1000, realized 250.
-    exit: the 0.5 leaves at basis 1000, proceeds NULL, realized 0, MV 1250 for display (exit_basis 1000). pending: deposit lot pending,
+    exit: the 0.5 leaves at basis 1000, proceeds NULL, realized NULL (counted, not summed), MV 1250 for display (exit_basis 1000). pending: deposit lot pending,
     withdrawal = pending disposal."""
     def book(self):
         b = Book(); dep = b.tx(1, L("ETH", "1", "deposit", "2000")); w = b.tx(2, L("ETH", "-0.5", "withdrawal", "2500")); return b, dep, w
@@ -260,9 +260,9 @@ class G10DepositWithdrawal(unittest.TestCase):
     def test_exit(self):
         b, _, w = self.book(); pol = Policy(deposit="acquire_fmv", withdrawal="exit", mark=P.mark)
         st = run(b.rows, pol); d = disp(st, w[0])[0]; r = report(st, pol, 3)
-        self.assertEqual((d.kind, d.proceeds, d.cost, d.realized, d.display_mv), ("exit", None, D(1000), D(0), D(1250)))
-        self.assertEqual((D(r["all"]["realized_usdc"]), D(r["exit_basis_usdc"]), D(r["exit_display_mv_usdc"]), r["all"]["unpriced_disposals"], r["exits"]),
-                         (D(0), D(1000), D(1250), 0, 1))
+        self.assertEqual((d.kind, d.proceeds, d.cost, d.realized, d.display_mv), ("exit", None, D(1000), None, D(1250)))   # rulings 3: NULL
+        self.assertEqual((D(r["all"]["realized_usdc"]), D(r["exit_basis_usdc"]), D(r["exit_display_mv_usdc"]), r["all"]["unpriced_disposals"], r["exits"],
+                          r["all"]["exits"]), (D(0), D(1000), D(1250), 0, 1, 1))   # skipped in totals, counted (not as unpriced)
     def test_pending_deposit(self):
         b, dep, w = self.book(); st = run(b.rows, Policy(deposit="pending", withdrawal="dispose_fmv")); r = report(st, P, 3)
         self.assertEqual((lots(st, dep[0])[0].status, lots(st, dep[0])[0].source, disp(st, w[0])[0].lot_status), ("pending", None, "pending"))
