@@ -137,3 +137,4 @@ docs/evidence/p4_1_pockets.json (chain data only). Canonical later reuses the ca
   first inflow block (35315787); RPC ownerOf at that block equals the ledger replay for all 24 gotchis.
 - **M1 re-run on the MBP copy after rule 7** (written before running): GHST is now held at as_of 52112861 (pocket income booked) and
   has no p3_mark row. `cryptopnl marks` re-marks every held asset: **expected 12–16 RPC, cap 30** (the earlier run was 12).
+  **Actual (20:38 PT): 12 RPC**, 0 errors (GHST priced at as_of, dex_slot0). Rule 7 round total: HyperSync 4, RPC 14.

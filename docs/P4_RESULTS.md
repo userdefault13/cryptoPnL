@@ -209,8 +209,8 @@ thin tier, or priced) is only known after the run.
 
 **Unexplained gaps:**
 - **ETH:** 0 on the MBP copy (15 internal ETH legs, residual 0 at every probe); canonical _TBD_.
-- **GHST: stays FLAGGED** — 579.034393058025659651 GHST over 8 events on the MBP copy (canonical _TBD_). The 60 escrow outflows are not
-  classified until the HyperSync trace of how GHST entered the pockets (P4.1 D) is done.
+- **GHST:** before rule 7, 579.034393058025659651 GHST over 8 events on the MBP copy. **After rule 7 (pocket inflows, below): 0**, and
+  reconcile is PASS with no unexplained gap on the MBP copy (canonical _TBD_).
 
 **Income lines (rule 5 ruling):** `dao_distribution` from 0xf50326e1… (the Aavegotchi PTD claim, 1.0141283024 ETH at block 40749157) is
 its own line under income; everything else is `general`. USDC values: _TBD (canonical)_.
@@ -236,3 +236,51 @@ RF split or basis_adjustment code or schema). Background, the PTD breakdown foun
   rewardRF 0.0972248549 = 1.0141283024 ETH. The RF part (≈ 9.6%) is gotchi-based (e.g. gotchis 10478, 15486, 15017, 954, 10503 in the
   KIN / XP reward details). The split of the wallet's 17,687 VP between GHST, gotchis/wearables, parcels and LP is **not** in the repo
   (only the combined figure); not computed here.
+
+### 12b. P4.1 rule 7: gotchi pocket inflows (architect ruling (a), 20:21 PT). MBP non-canonical; canonical _TBD_
+Rule: DESIGN §8 P4.1 rule 7. Facts: `docs/evidence/p4_1_pockets.json` (`scripts/p4_1_pockets.py`; **4 HyperSync + 2 RPC** requests,
+docs/P4_1_PLAN.md "Rule 7 round"), loaded with `cryptopnl pockets` (no network). Then classify, `price --seed-only` (0 RPC), `marks`
+(12 RPC: GHST is now held at as_of 52112861), and P4 rebuild + reconcile.
+
+**Gate (MBP copy):** GHST pocket in = **652629999999999997500** wei, out = **652629999999999997500** wei (652.6299999999999975 GHST, equal
+to the wei); unexplained gap `{}` (ETH 0, GHST 0, was 579.034393058025659651 GHST over 8 events); acceptance **PASS**, identity_pass
+true, failures []. Evidence: `docs/evidence/p4_1_rule7_reconcile_8453_MBP_NONCANONICAL.json` (before: `..._before.json`).
+
+| | canonical | MBP before rule 7 | MBP after rule 7 |
+|---|---|---|---|
+| ledger_rows | _TBD_ | 1207 | 1639 |
+| ledger_md5_v1 | _TBD_ | `799e27209042e75206757ca6b4119744` | `e528566f6d242a3a0d83f27b052ef8ed` |
+| ledger_md5_v1_pre_p4_1 (rows) | _TBD_ | `e7e254065b990e90a1550d545b8ca951` (1192) | `41eb153178e68405e77e220072d546c9` (1624) |
+| ledger_md5_v1_untouched_txs (rows) | _TBD_ | `ccea8cbf4d81d8af2114ccc3ceab3695` (1161) | `bd9c11169d6f27a95165825b6a64fed9` (1593) |
+| **ledger_md5_v2** | **_TBD_** | `1646af93a2f1d766f9efb1c192450d4a` | `1dd87eeb33d8027c4dcb85ef004356b6` |
+| ledger_md5_report | _TBD_ | `62458dbbddb2e5701e7054f7c348a55a` | `81a00041258c51d5db953943ab40c8c9` |
+| review rows | _TBD_ | 4 (the 4 pocket txs: escrow not cached) | 10 (all `pocket_owner_mismatch`, 0 real review) |
+
+The +432 rows: 156 income at `pocket:<id>`, 154 spam at `pocket:<id>`, and 61 + 61 custody legs (60 `batchTransferEscrow` GHST
+withdrawals and the wallet's 1 FUD `depositERC20`). The untouched-txs hash covers the internal-ETH definition only, so it now also
+includes the pocket rows (the hash is `trace_address`-based). Evidence: `docs/evidence/p4_1_rule7_ledger_md5_8453_MBP_NONCANONICAL.txt`.
+
+**Pocket inflow legs by sender and token, before (on chain) → after (ledger category), blocks 35315787–46311838, 24 pockets:**
+
+| sender | token | legs | after |
+|---|---|---|---|
+| RF relayer 0xf5239825… (`batchDepositGHST`) | GHST | 164 | 156 income `rarity_farming_payout` (104 txs, 652.6299999999999975 GHST) + 8 `pocket_owner_mismatch` (28.8225 GHST, gotchi 10774 before the wallet held it) |
+| wallet group (0x2127…, `depositERC20`) | FUD 0x2028… | 1 | 1 `transfer_internal` |
+| third party | 12 ERC-20 contracts, none allowlisted | 97 | 96 spam + 1 `pocket_owner_mismatch` (0x4fa840…, gotchi 10774) |
+| third party | 7 ERC-721 contracts, none allowlisted | 54 | 54 spam |
+| third party | 2 ERC-1155 contracts, none allowlisted | 4 | 4 spam |
+
+The per-contract table is in the evidence JSON (`pockets.counts_before` / `counts_after`). Of the 97 third-party ERC-20 legs, 96 emit
+Transfer with `from` = the USDC contract 0x833589fc…, the usual pattern of an airdrop-spam token.
+**pocket_owner_mismatch: 10 legs** (9 inflows and the prior owner's 1 `transferEscrow` out of gotchi 10774, 28.8225 GHST at block
+39606538), all `not_owned`; **rented at the deposit: 0**. The one rental of a wallet gotchi (954, listing 1151, executed 42195157,
+ended 42750753) saw no pocket inflow. No lending operator was ever set (0 calls, 0 events). Nothing was lent at the first inflow block.
+At that block, ownerOf equals the ledger replay for all 24 gotchis.
+**Income lines (MBP):** `dao_distribution` 0xf50326e1… (1 entry); `rarity_farming_payout` 0xf5239825… (156 entries, 104 txs,
+**156 unpriced** on the MBP: no stored GHST price at those blocks, so the lots are pending `no_price`, never 0); `general` (31 entries,
+21 unpriced). The RF season is inferred, not tagged.
+**Decision flagged for the architect:** all third-party non-GHST pocket inflows are non-allowlisted, so they fall under the §8
+unsolicited-token spam rule. They are not booked as pending income lots (DESIGN §8 rule 7, implementation note).
+**Canonical caveats:** pricing the 104 RF payout blocks on canonical goes through the P3 price order. Stored points or pool-swap
+scans may cover them; if not, they need RPC, and that must be counted against the canonical RPC cap (250) before the run.
+
