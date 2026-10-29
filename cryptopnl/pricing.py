@@ -6,7 +6,7 @@ Read-only: eth_call at the block over the free public RPC through the host RPC b
 and DefiLlama GET (free, no key, 1 req/s). The thin-pool Swap scan (ingest.ingest_pool_swaps) uses HyperSync (5/min, 12 s gap); this
 module only reads its cache. Never invents a price: no source -> None -> ledger flag 'no_price'.
 Every price is a UNIT price in USDC per whole token (decimals applied)."""
-import json
+import json, os
 from decimal import Decimal, getcontext
 from .config import (NUMERAIRE, TOKENS, PRICE_POOLS, DEX_MIN_QUOTE_USD, DEFILLAMA_URL, DEFILLAMA_SEARCH_WIDTH, API_RPS,
                      PRICE_LABEL, CONFIDENCE, WETH, gated, THIN_POOL_ASSETS, THIN_ONLY_ASSETS, THIN_SWAP_WINDOW_BLOCKS, NO_PRICE_SOURCE, DEV_GATED_ASSETS)
@@ -59,7 +59,11 @@ class Pricer:
         """eth_call or None. Only a JSON-RPC 'execution reverted' is a revert (pool not usable at the block). Any other error (JSON-RPC
         errors arrive as HTTP 200 and raise RuntimeError in sources.RPC.call, e.g. rate/limit/upstream errors) is recorded in
         rpc_errors / err_blocks so unpriced_reason() reports rpc_error (fails C1) instead of no_pool."""
-        self.calls += 1; k = (to, data, block)
+        k = (to, data, block); cap = int(os.environ.get("CRYPTOPNL_PRICE_RPC_CAP") or 0)
+        if cap and self.calls >= cap:   # P4.1 canonical run: hard cap on live price calls; beyond it nothing is sent (rpc_error, unpriced)
+            self.status[k] = "error"; self.err_blocks.add(block)
+            self.rpc_errors.append({"to": to, "selector": data[:10], "block": block, "error": f"price RPC cap {cap} reached (not sent)"}); return None
+        self.calls += 1
         try: r = self.rpc.eth_call(to, data, block)
         except RuntimeError as e:
             if "execution reverted" in str(e).lower(): self.status[k] = "revert"; return None
