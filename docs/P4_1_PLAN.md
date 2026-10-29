@@ -98,3 +98,8 @@ never unlocked here), so the canonical run waits and everything below runs on th
 - **Actual (20:04:54 PT): 1 HyperSync request, HTTP 403** (`base.hypersync.xyz/query`, attempt 1, no retry). The same abra token got
   HTTP 200 on 2026-10-24 17:21 PT (P3 run log `~/dev/cryptoPnL-p3/logs/net_requests_p3.log`). Stopped: a 403 is an auth/plan refusal,
   so retrying would only spend the cap. RPC 0. No ledger PG access.
+- **Retry (CoS 20:18 PT), written before running.** Name check (exact-name filter, yes/no only): `cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD`
+  **no**; `aavegotchi-envio-indexers/ENVIO_API_TOKEN` yes. Canonical run stays blocked. **H3** with the aavegotchi-envio-indexers token
+  (free tier, host limiter 5/min + 12 s): **expected 1–4 requests, hard cap 7** (8 minus the 403 at 20:04). RPC 0.
+  **Actual (20:18:49–20:19:15 PT): 1 HyperSync request, HTTP 200**, the whole range in one page (346 rows, 149 txs). RPC 0. Facts in
+  P4_1_SOURCES.md §2b. Canonical run not started (ledger PG password missing).
