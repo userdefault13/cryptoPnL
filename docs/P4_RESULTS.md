@@ -126,3 +126,39 @@ New for rulings 3:
 ## 11. Open questions (owner)
 1. **The missing ETH and GHST inflows** (architect + ingest owner; user_default for the facts). This is P4.1.
 2. ~~fee_split equal on pending, swap gas into the bought asset's basis, Q-G equal split across queues~~: confirmed by the architect (rulings 3 item 3); `pending_architect` is empty.
+
+## 12. P4.1 (prep — canonical run pending)
+Status: **not run canonically.** The canonical rerun on `cryptopnl_p4_base` (omarchywin) waits on abra there being unlocked by user_default
+(locked at every check 17:44–18:17 PT). Numbers marked *MBP non-canonical* come from the MBP copy `cryptopnl_p4_1_mbp` (P2.2 base + stored
+P3 prices; evidence `docs/evidence/*_MBP_NONCANONICAL*`) and are **not** results; the canonical cells stay empty until the run.
+
+**Ledger md5 baseline after the P4.1 ingest + classify (canonical):**
+- `ledger_rows` = _TBD (canonical run)_
+- `ledger_md5_narrow` = _TBD (canonical run)_
+- `ledger_md5_report` = _TBD (canonical run)_ (also replaces the hard-coded EXP in `scripts/p4_test.sh`)
+- *MBP non-canonical, for comparison only:* 1207 rows, narrow `799e27209042e75206757ca6b4119744`, report `62458dbbddb2e5701e7054f7c348a55a`.
+- Note: the md5 definitions do not include the new `trace_address` / `income_subtype` / `source_ref` columns (unchanged definitions).
+
+**as_of (rulings 4):** last ledger block = _TBD (canonical)_; set_by = last ledger block unless user_default passes `--as-of`.
+
+**Counted exclusions: held assets with no valid mark at as_of** (excluded from unrealized, counted; never marked at basis or 0):
+
+| asset | contract (Base) | reason (MBP) | held qty (MBP non-canonical) | canonical status |
+|---|---|---|---|---|
+| KEK | 0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5 | swap_scan_gap | 113,368.441671625025025670 | _TBD_ |
+| FUD | 0x2028b4043e6722ea164946c82fe806c4a43a0ff4 | swap_scan_gap | 1,245,441.959187077688682901 | _TBD_ |
+| FOMO | 0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58 | swap_scan_gap | 418,638.062663589051780483 | _TBD_ |
+| ALPHA | 0x15e7cac885e3730ce6389447bc0f7ac032f31947 | swap_scan_gap | 261,182.755480408360768244 | _TBD_ |
+
+On the MBP the reason is `swap_scan_gap` (no pool-swap scans there); omarchywin has the scans, so the canonical reason (stale pool,
+thin tier, or priced) is only known after the run.
+
+**Unexplained gaps:**
+- **ETH:** 0 on the MBP copy (15 internal ETH legs, residual 0 at every probe); canonical _TBD_.
+- **GHST: stays FLAGGED** — 579.034393058025659651 GHST over 8 events on the MBP copy (canonical _TBD_). The 60 escrow outflows are not
+  classified until the HyperSync trace of how GHST entered the pockets (P4.1 D) is done.
+
+**Income lines (rule 5 ruling):** `dao_distribution` from 0xf50326e1… (the Aavegotchi PTD claim, 1.0141283024 ETH at block 40749157) is
+its own line under income; everything else is `general`. USDC values: _TBD (canonical)_.
+
+**ETH pending lots by basis_origin:** _TBD (canonical)_; MBP: bridge_in 3 (Hop, Mayan Swift, Across), deposit 12, unrecorded_inflow 0.

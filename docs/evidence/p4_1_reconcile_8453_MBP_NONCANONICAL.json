@@ -55,6 +55,22 @@
   "cost_disposed": "3648.6232384296547862780411117982700002386023531316",
   "residual": "-0.00000000000000000000000000000000000000000000037"
  },
+ "income_lines": [
+  {
+   "entries": 1,
+   "income_subtype": "dao_distribution",
+   "source_ref": "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11",
+   "unpriced_entries": 0,
+   "usdc": "3175.4022700608818552424560829145276190693107143605"
+  },
+  {
+   "entries": 31,
+   "income_subtype": "general",
+   "source_ref": null,
+   "unpriced_entries": 21,
+   "usdc": "0.12784630519548829419746186345039651303355072005521"
+  }
+ ],
  "income_usdc": "3175.5301163660773435366535447779780155823442650806",
  "ledger_rows": 1207,
  "ledger_side_gas_txs": {
