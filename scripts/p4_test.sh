@@ -45,7 +45,7 @@ for n in 1 2; do CRYPTOPNL_DSN="dbname=$DST" $PY -m cryptopnl.p4 snapshot --chai
 cmp "$E/p4_snapshot_${C}_1.json" "$E/p4_snapshot_${C}_2.json" || fail "snapshots differ"
 echo "snapshot byte-identical: OK ($(md5sum < "$E/p4_snapshot_${C}_1.json" | cut -c1-32))"
 echo "== 7 unit suites (pure engine)"
-u=$($PY -m unittest -q tests.test_fifo_golden tests.test_fifo_recompute tests.test_fifo_rulings tests.test_p4_rulings3 tests.test_p4_adapter 2>&1 | tail -1); echo "$u"
+u=$($PY -m unittest -q tests.test_fifo_golden tests.test_fifo_recompute tests.test_fifo_rulings tests.test_p4_rulings3 tests.test_p4_adapter tests.test_entry_key tests.test_p4_1_inflows 2>&1 | tail -1); echo "$u"
 [ "$u" = OK ] || fail "unit suites: $u"
 [ "$rc" != 1 ] || fail "reconciliation residual above 0.01 USDC or qty mismatch (see $E/p4_reconcile_$C.json)"
 if [ "$rc" = 3 ]; then
