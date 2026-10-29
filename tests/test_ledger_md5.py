@@ -15,7 +15,8 @@ ROWS = [  # (tx_hash, log_index, qty, category, location, escrow_ref, block, inc
     # a pre-existing row of the same tx (a tx P4.1 touched): in the pre-P4.1 set, not in the untouched-tx set
     (bytes.fromhex("0c" * 32), 4, Decimal("-1"), "fee", "wallet", None, 106, None, None, None)]
 OLD = ROWS[:3] + ROWS[4:]          # trace_address IS NULL
-UNTOUCHED = ROWS[:3]               # txs with no internal-ETH leg
+UNTOUCHED = ROWS[:3]               # txs with no internal-ETH leg (and no pocket transfer)
+POCKET_TX = bytes.fromhex("0b" * 32)   # SYNTHETIC: a rule 7 pocket transfer in this tx (test_pocket_txs_excluded)
 
 class LedgerMd5(unittest.TestCase):
     def setUp(self):
@@ -28,7 +29,7 @@ class LedgerMd5(unittest.TestCase):
         self.c.commit()
     def tearDown(self):
         self.c.rollback()
-        for t in ("review_queue", "ledger_entry", "asset"): self.c.execute(f"DELETE FROM {t} WHERE chain_id=%s", (C,))
+        for t in ("review_queue", "ledger_entry", "raw_event", "asset"): self.c.execute(f"DELETE FROM {t} WHERE chain_id=%s", (C,))
         self.c.commit()
     def expected(self, rows=ROWS):   # independent recomputation of v1 (concat_ws skips NULLs)
         rows = sorted(rows, key=lambda r: (r[0], r[1], self.a, r[4], r[2]))
@@ -46,6 +47,15 @@ class LedgerMd5(unittest.TestCase):
         self.assertEqual((r["ledger_rows_pre_p4_1"], r["ledger_md5_v1_pre_p4_1"]), (4, self.expected(OLD)))
         self.assertEqual((r["internal_eth_txs"], r["untouched_txs_from"], r["ledger_rows_untouched_txs"], r["ledger_md5_v1_untouched_txs"]),
                          (1, "self", 3, self.expected(UNTOUCHED)))
+        self.assertEqual((r["pocket_txs"], r["untouched_excluded_txs"]), (0, 1))
+    def test_pocket_txs_excluded(self):   # architect ruling on PR #9: rule 7 pocket txs are P4.1-touched too
+        self.c.execute("""INSERT INTO raw_event(chain_id,tx_hash,log_index,block_number,block_hash,source,kind,payload)
+            VALUES (%s,%s,0,105,%s,'synthetic','pocket_transfer','{}')""", (C, POCKET_TX, bytes(32)))
+        r = evidence.ledger_md5(self.c, C)
+        self.assertEqual((r["internal_eth_txs"], r["pocket_txs"], r["untouched_excluded_txs"], r["ledger_rows_untouched_txs"]), (1, 1, 2, 2))
+        self.assertEqual(r["ledger_md5_v1_untouched_txs"], self.expected(ROWS[:2]))
+        o = evidence.ledger_md5(self.c, C, untouched_txs=evidence.touched_txs(self.c, C), untouched_from="other")   # external (internal, pocket)
+        self.assertEqual((o["ledger_md5_v1_untouched_txs"], o["untouched_excluded_txs"]), (r["ledger_md5_v1_untouched_txs"], 2))
     def test_untouched_with_an_external_tx_list(self):   # e.g. a pre-P4.1 ledger hashed over the txs a P4.1 ledger did not touch
         r = evidence.ledger_md5(self.c, C, untouched_txs=[], untouched_from="other")
         self.assertEqual((r["ledger_rows_untouched_txs"], r["ledger_md5_v1_untouched_txs"], r["untouched_txs_from"]), (5, r["ledger_md5_v1"], "other"))

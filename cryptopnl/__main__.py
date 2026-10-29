@@ -78,7 +78,7 @@ elif a.cmd == "ledger-md5":   # P3 follow-up (c): ledger md5 evidence file (defa
     txs, src = None, "self"
     if a.untouched_txs_from_db:   # e.g. hash the pre-P4.1 ledger over the rows the P4.1 ledger did not touch
         import psycopg
-        with psycopg.connect(psycopg.conninfo.make_conninfo(db.DSN, dbname=a.untouched_txs_from_db)) as o: txs = evidence.internal_txs(o, a.chain)
+        with psycopg.connect(psycopg.conninfo.make_conninfo(db.DSN, dbname=a.untouched_txs_from_db)) as o: txs = evidence.touched_txs(o, a.chain)
         src = a.untouched_txs_from_db
     print(json.dumps(evidence.write_ledger_md5(conn, a.chain, a.out or f"docs/evidence/p4_ledger_md5_{a.chain}.txt", txs, src)))
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)

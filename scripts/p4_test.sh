@@ -25,7 +25,7 @@ grep -q "^ledger_md5_v2=$EXP_MD5$" "$E/p4_ledger_md5_$C.txt" && grep -q "^ledger
   || fail "source ledger md5 v2/rows differ from $EXP_MD5/$EXP_ROWS"
 k() { grep "^$1=" "$E/p4_ledger_md5_$C.txt" | cut -d= -f2; }
 echo "v1 $(k ledger_md5_v1); v1 over pre-P4.1 rows $(k ledger_md5_v1_pre_p4_1) ($(k ledger_rows_pre_p4_1) rows; moved by rule 2 by design; pre-P4.1 v1 was $PRE_V1)"
-echo "v1 over untouched-tx rows (continuity) $(k ledger_md5_v1_untouched_txs) ($(k ledger_rows_untouched_txs) rows, $(k internal_eth_txs) txs excluded); not gated"
+echo "v1 over untouched-tx rows (continuity) $(k ledger_md5_v1_untouched_txs) ($(k ledger_rows_untouched_txs) rows; excluded $(k untouched_excluded_txs) P4.1-touched txs = $(k internal_eth_txs) internal-ETH + $(k pocket_txs) pocket); not gated"
 echo "== 2 copy $SRC -> $DST, migrate the copy"
 dropdb --if-exists "$DST"; createdb -T "$SRC" "$DST"
 CRYPTOPNL_DSN="dbname=$DST" $PY -m cryptopnl migrate 2>/dev/null | tail -1
