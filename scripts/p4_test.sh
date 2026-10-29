@@ -6,7 +6,7 @@
 #   pre-P4.1 rows are printed, not gated); 2 createdb -T source copy, migrate (013) on the copy, ledger md5 unchanged;
 # 3 full rebuild; 4 incremental (rebuild to the median block, persist, reload from the DB, continue) -> md5s equal the rebuild's;
 # 5 reconciliation against an INDEPENDENT ledger side (ledger rows only, its own FIFO and running balance) per asset and in total
-# (tol 0.01 USDC) at as_of_block = MIN over tracked assets of each one's latest stored price; 6 snapshot twice -> byte-identical;
+# (tol 0.01 USDC) at as_of_block = the last ledger block unless --as-of (P4 rulings 4; marks at as_of); 6 snapshot twice -> byte-identical;
 # 7 unit suites. Outcome: exit 0 'P4 PASS'; exit 3 'P4 FLAGGED' = identity and md5s hold but the ledger has an UNEXPLAINED GAP
 # (balance with no recorded inflow; real-ledger acceptance deferred to P4.1); exit 1 'P4 FAIL'. Evidence: docs/evidence/p4_*_<chain>.*
 set -euo pipefail
@@ -45,7 +45,7 @@ echo "incremental == rebuild: OK"
 echo "== 5 reconciliation"
 rc=0; CRYPTOPNL_DSN="dbname=$DST" $PY -m cryptopnl.p4 reconcile --chain "$C" --out "$E/p4_reconcile_$C.json" > /dev/null || rc=$?
 [ "$rc" = 0 ] || [ "$rc" = 3 ] || [ "$rc" = 1 ] || fail "reconcile crashed (rc $rc)"
-j "$E/p4_reconcile_$C.json" "'as_of_block=%s set_by=%s acceptance=%s identity_pass=%s total_residual=%s exits=%s failures=%s' % (d['as_of_block'], d['as_of']['set_by_assets'], d['reconciliation']['acceptance'], d['reconciliation']['identity_pass'], d['reconciliation']['total']['residual'], d['reconciliation']['exits'], d['reconciliation']['failures'])"
+j "$E/p4_reconcile_$C.json" "'as_of_block=%s set_by=%s acceptance=%s identity_pass=%s total_residual=%s exits=%s failures=%s' % (d['as_of_block'], d['as_of']['set_by'], d['reconciliation']['acceptance'], d['reconciliation']['identity_pass'], d['reconciliation']['total']['residual'], d['reconciliation']['exits'], d['reconciliation']['failures'])"
 j "$E/p4_reconcile_$C.json" "'\\n'.join('UNEXPLAINED GAP asset %s: qty %s in %s events, blocks %s..%s' % (a, g['qty'], g['events'], g['first_block'], g['last_block']) for a, g in sorted(d['reconciliation']['unexplained_gap'].items())) or 'no unexplained gap'"
 j "$E/p4_reconcile_$C.json" "'pockets (P4.1 rule 7): ghst_gate=%s owner_mismatch_legs=%s' % (d.get('pockets', {}).get('ghst_gate'), d.get('pockets', {}).get('pocket_owner_mismatch', {}).get('legs'))"
 pg=$($PY -c "import json,sys; g=json.load(open(sys.argv[1])).get('pockets',{}).get('ghst_gate'); print('ok' if (g is None or g['in_eq_out']) else 'bad')" "$E/p4_reconcile_$C.json")
