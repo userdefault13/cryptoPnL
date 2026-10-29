@@ -6,6 +6,7 @@ Escrow is a pseudo-location ('escrow:<diamond>'): escrow_out = wallet -X & escro
 Wearable TransferToParent/FromParent rows are custody (P1.1) and never produce ledger legs."""
 import hashlib, json, uuid
 from decimal import Decimal, InvalidOperation
+from .config import INTERNAL_ETH
 from .config import gated, DEX_ROUTERS, ESCROW, BUYORDER_PLACE_SELECTORS, MIGRATION_REMINT, MANUAL_CONFIDENCE, CCTP, CCTP_TOKENS, CONFIDENCE, NUMERAIRE
 from .db import b, hx
 from .gotchiverse import gv_rule
@@ -21,7 +22,20 @@ GBM_INCENTIVE_MAX = 1.10   # heuristic refund match without an event: escrow <= 
 
 class Review(Exception): pass
 
-def legs_of(w, rows):
+def pocket_legs(li, p, pockets):
+    """P4.1 rule 7: legs of a third-party pocket_transfer log, one per pocket side (a pocket-to-pocket move gives two)."""
+    out = []
+    if p["std"] == "erc20": items = [(None, int(p["value"]))]
+    elif p["std"] == "erc721": items = [(p["token_id"], 1)]
+    else: items = [(i, int(v)) for i, v in zip(p["ids"], p["values"])]
+    for side, addr, sign, cp in (("in", p["to"], 1, p["from"]), ("out", p["from"], -1, p["to"])):
+        if addr not in pockets or p["from"] == p["to"]: continue
+        for tid, q in items:
+            out.append(dict(li=li, std=p["std"], contract=p["contract"], token_id=tid, qty=sign * q, cp=cp, pocket=pockets[addr],
+                            selector=p.get("selector")))
+    return out
+
+def legs_of(w, rows, pockets=None):
     """rows: [(log_index, kind, payload)] of one tx. Returns (tx, legs, market, meta) where leg = dict(li, std, contract, token_id, qty, cp).
     meta = {from,to,selector,value} of a tx the wallet neither sent nor received (RPC tx_meta), else None."""
     tx, legs, market, meta = None, [], [], None
@@ -29,6 +43,13 @@ def legs_of(w, rows):
         if kind == "tx": tx = p; continue
         if kind == "tx_meta": meta = p; continue
         if kind.startswith("market_") or kind.startswith("gv_"): market.append({**p, "li": li}); continue
+        if kind == "pocket_transfer": legs += pocket_legs(li, p, pockets or {}); continue
+        if kind == "internal_eth":   # P4.1 rulings 1: contract-internal ETH from traces (log_index = n - 100000, trace address kept)
+            f, t = p["from"], p["to"]
+            if w not in (f, t) or f == t: continue
+            sign, cp = (1, f) if t == w else (-1, t)
+            legs.append(dict(li=li, std="native", contract=None, token_id=None, qty=sign * int(p["value"]), cp=cp, trace=p["trace_address"]))
+            continue
         if kind not in TRANSFER_KINDS: continue
         f, t = p["from"], p["to"]
         if w not in (f, t) or f == t: continue
@@ -53,7 +74,7 @@ def native_legs(w, tx):
 
 def L(l, cat, loc="wallet", ref=None, qty=None, spam=False):
     d = {k: l[k] for k in ("li", "std", "contract", "token_id", "qty")}
-    d.update(cat=cat, loc=loc, ref=ref, spam=spam or cat in ("spam", "untracked"))
+    d.update(cat=cat, loc=loc, ref=ref, spam=spam or cat in ("spam", "untracked"), trace=l.get("trace"))
     if qty is not None: d["qty"] = qty
     return d
 
@@ -69,6 +90,10 @@ class Escrow:
     def __init__(self, pockets=None):   # P2.2: NFT std per escrow key; items per parcel; gotchi escrow -> id; gotchis owned (wallet + lent)
         self.open = {}; self._snap = None; self.std = {}; self.parcels = {}; self.pockets = pockets or {}; self.gotchis = {}
         self.type_cost = {}; self.bn = None   # (contract, type, block) -> alchemicaCost[4]; block of the tx being planned
+        self.lending = {}; self.flags = []; self.th = None    # P4.1 rule 7: gotchi -> [((exec block, log), (end block, log) | None)]; per-tx pocket flags
+    def lent(self, gid, bn, li):
+        """Out on a rental at (block, log index): executed at or before it and not yet ended."""
+        return any(ex <= (bn, li) and (en is None or (bn, li) < en) for ex, en in self.lending.get(gid, []))
     def track_gotchis(self, out, canonical):
         """After a classified tx: owned gotchis = wallet + lent:* legs of the canonical ERC721, never untracked (borrowed) ones."""
         for l in out:
@@ -227,6 +252,92 @@ def bridge_rule(chain, w, info, legs, sent):
     if not info or info.get("to") not in CCTP.get(chain, set()): raise Review("USDC mint not via Circle CCTP (tx.to unverified)")
     return "bridge_in", [L(l, "bridge_in") for l in legs], []
 
+def internal_rule(chain, w, tx, legs, ilegs):
+    """P4.1 rulings 2-6 (DESIGN §8) for contract-internal ETH legs (`ilegs`, from traces), keyed by the payer (the frame's `from`).
+    legs = the tx's other legs (gas not included). Returns (pre, add, refunds):
+      pre     [(leg, category, ref)] classified on their own: bridge_in (rule 4, pending lot in P4), income (rule 5 distribution,
+              rule 6 dust when the wallet sent no ETH);
+      add     legs that go through the normal rules: swap outputs (rule 2: a router / swap payer, the wallet sent a token and no ETH:
+              decide() pairs the ETH in-leg with the token out-leg as a swap; no token out-leg -> review) and internal sends;
+      refunds in-legs netted against the ETH the wallet sent in the same tx (rule 3; rule 6 dust when ETH was sent): not new lots.
+    Anything else -> Review. Native ETH is never spam."""
+    C = INTERNAL_ETH.get(chain, {}); routers = DEX_ROUTERS.get(chain, set())
+    sent = bool(tx) and tx["from"] == w
+    eth_out = -sum(l["qty"] for l in list(legs) + list(ilegs) if l["std"] == "native" and l["qty"] < 0)   # value + internal sends; gas excluded
+    tok_out = any(l["std"] != "native" and l["qty"] < 0 for l in legs)
+    pre, add, refunds = [], [], []
+    for l in ilegs:
+        if l["qty"] < 0: add.append(l); continue
+        p = l["cp"]
+        if p in C.get("bridge_in", {}):
+            if sent: raise Review("bridge payer paid ETH inside a wallet-sent tx (not a bridge fill)")
+            pre.append((l, "bridge_in", f"bridge_in:{C['bridge_in'][p]}"))
+        elif p in C.get("distribution", {}): pre.append((l, "income", f"distribution:{C['distribution'][p]}"))
+        elif sent and eth_out > 0 and (p in routers or p in C.get("refund", {})): refunds.append(l)
+        elif sent and eth_out > 0: raise Review("internal ETH from an unknown payer in a tx that sent ETH")
+        elif sent and p in C.get("dust", {}): pre.append((l, "income", f"dust:{C['dust'][p]}"))
+        elif sent and (p in routers or p in C.get("swap", {})):
+            if not tok_out: raise Review("swap ETH output without a token out-leg")
+            add.append(l)
+        elif p in routers or p in C.get("refund", {}): raise Review("ETH refund in a tx with no ETH sent")
+        else: raise Review("internal ETH inflow, payer not identified")
+    if sum(r["qty"] for r in refunds) > eth_out: raise Review("ETH refund larger than the ETH sent in the tx")
+    return pre, add, refunds
+
+def plan_full(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
+    """plan() plus the P4.1 internal ETH legs (internal_rule) and the rule 7 third-party pocket legs (pocket_rule)."""
+    plegs = [l for l in legs if l.get("pocket") is not None]
+    if plegs:
+        rest = [l for l in legs if l.get("pocket") is None]
+        pout = pocket_rule(chain, w, tx, plegs, esc, group, bn)
+        if rest or (tx and tx["from"] == w): cat, out, upd = plan_full(chain, w, tx, rest, market, group, bn, esc, meta, warn)
+        else: cat, out, upd = (pout[0]["cat"] if pout else "pocket_owner_mismatch"), [], []
+        return cat, out + pout, upd
+    ilegs = [l for l in legs if l.get("trace") is not None]; base = [l for l in legs if l.get("trace") is None]
+    if not ilegs: return plan(chain, w, tx, base, market, group, bn, esc, meta, warn)
+    pre, add, refunds = internal_rule(chain, w, tx, base, ilegs)
+    sent = bool(tx) and tx["from"] == w
+    if base or add or sent: cat, out, upd = plan(chain, w, tx, base + add, market, group, bn, esc, meta, warn)
+    else: cat, out, upd = pre[0][1], [], []
+    if pre and cat == "fee": cat = pre[0][1]   # a wallet-sent claim: gas + the internal inflow
+    out = out + [L(l, c, ref=r) for l, c, r in pre]
+    sub = INTERNAL_ETH.get(chain, {}).get("distribution_subtype", {})
+    for o, (l, c, r) in zip(out[len(out) - len(pre):], pre):   # rule 5 ruling: identified distribution -> income_subtype + source_ref
+        if r.startswith("distribution:") and l["cp"] in sub: o.update(income_subtype=sub[l["cp"]], source_ref=l["cp"])
+    if refunds:
+        nat = [o for o in out if o["std"] == "native" and o["qty"] < 0 and o["li"] != -1]
+        cats = {o["cat"] for o in nat}
+        if len(cats) != 1: raise Review("ETH refund: the ETH sent is not in exactly one classified category")
+        c = cats.pop(); out = out + [L(l, c, ref="eth_refund") for l in refunds]
+    return cat, out, upd
+
+def pocket_rule(chain, w, tx, plegs, esc, group, bn):
+    """P4.1 rule 7 (DESIGN §8) for third-party legs into / out of a wallet gotchi's pocket (legs carry pocket = gotchi id):
+      * the gotchi is not owned by the wallet group at this point (esc.gotchis, the historical owner) or is out on a rental at the
+        deposit (esc.lent) -> no ledger entry; flagged pocket_owner_mismatch (esc.flags, counted and reported);
+      * a wallet-group sender -> transfer_internal into the pocket (custody move);
+      * a non-allowlisted token -> spam (DESIGN §8 unsolicited token rule; never a lot, never in PnL; counted);
+      * otherwise income at pocket:<id> at FMV (P3 price order; unpriced -> pending, never 0), tagged income_subtype
+        rarity_farming_payout (RF relayer + batchDepositGHST; season inferred, not tagged) or pocket_deposit, source_ref sender:tx.
+    A third-party move OUT of an owned pocket -> Review. Withdrawals to the wallet are wallet-scoped legs (r_pocket: custody)."""
+    from .config import POCKETS
+    C = POCKETS.get(chain, {}); allow = gated(chain); out = []
+    for l in plegs:
+        g = l["pocket"]; loc = f"pocket:{g}"
+        owned = esc.gotchis.get(g, 0) > 0; lent = owned and esc.lent(g, bn, l["li"])
+        if not owned or lent:
+            esc.flags.append({"gotchi": g, "li": l["li"], "contract": l["contract"], "token_id": l["token_id"], "qty": str(l["qty"]), "sender": l["cp"],
+                              "why": "rented" if lent else "not_owned"})
+            continue
+        if l["qty"] < 0: raise Review("third-party move out of a pocket the wallet group owns")
+        if l["cp"] in group or l["cp"] == w: out.append(L(l, "transfer_internal", loc=loc, ref=loc)); continue
+        if l["contract"] not in allow: out.append(L(l, "spam", loc=loc, spam=True)); continue
+        o = L(l, "income", loc=loc)
+        rf = l["cp"] == C.get("rf_relayer") and l.get("selector") in C.get("rf_selectors", ())
+        o.update(income_subtype="rarity_farming_payout" if rf else "pocket_deposit", source_ref=f"{l['cp']}:{esc.th}")
+        out.append(o)
+    return out
+
 def decide(chain, w, tx, legs, market, group):
     """Generic rules (unchanged order from v1). Returns (category, None) or (None, review_reason). legs exclude gas, qty != 0."""
     sent = bool(tx) and tx["from"] == w
@@ -362,12 +473,18 @@ def classify(conn, chain, log=print):
     type_cost = {(hx(c), int(t), int(bn)): [int(x) for x in cost] for c, t, bn, cost in
                  conn.execute("SELECT contract, type_id, block_number, cost FROM craft_type_cost WHERE chain_id=%s", (chain,))}
     canonical = GV.get(chain, {}).get("aavegotchi")
+    lending = {}
+    for g, eb, el, nb, nl in conn.execute("""SELECT gotchi_id, executed_block, executed_log, ended_block, ended_log FROM gotchi_lending
+          WHERE chain_id=%s AND executed_block IS NOT NULL ORDER BY executed_block""", (chain,)):
+        lending.setdefault(int(g), []).append(((eb, el), None if nb is None else (nb, nl)))
+    stats["pocket_owner_mismatch"] = 0
     for wid, w, grp in wallets:
         group = {a for _, a, g in wallets if g == grp and a != w}
         txh = [r[0] for r in conn.execute("""SELECT DISTINCT tx_hash FROM raw_event WHERE chain_id=%s AND
               ((kind='tx' AND (payload->>'from'=%s OR payload->>'to'=%s)) OR
-               (kind = ANY(%s) AND (payload->>'from'=%s OR payload->>'to'=%s)))""",
-              (chain, w, w, list(TRANSFER_KINDS), w, w))]
+               (kind = ANY(%s) AND (payload->>'from'=%s OR payload->>'to'=%s)) OR
+               (kind = 'pocket_transfer' AND payload->>'wallet'=%s))""",
+              (chain, w, w, list(TRANSFER_KINDS) + ["internal_eth"], w, w, w))]
         rows = {}
         for th, li, kind, p, bn, ts in conn.execute("""SELECT r.tx_hash, r.log_index, r.kind, r.payload, r.block_number, bl.ts
               FROM raw_event r JOIN block bl ON bl.chain_id=r.chain_id AND bl.number=r.block_number
@@ -375,7 +492,7 @@ def classify(conn, chain, log=print):
             rows.setdefault(bytes(th), {"bn": bn, "ts": ts, "rows": []})["rows"].append((li, kind, p))
         missing = len(txh) - len(rows)
         if missing: raise RuntimeError(f"{missing} wallet txs have no block row (ts unknown); re-run ingest")
-        esc = Escrow(pockets); esc.type_cost = type_cost
+        esc = Escrow(pockets); esc.type_cost = type_cost; esc.lending = lending
         # P3: within a block, txs are ordered by tx index (HyperSync transaction_index on new 'tx' rows, else tx_position from RPC);
         # txs without a known index fall back to their first log index (log indexes are block-wide, so this is tx order too).
         txi = {bytes(h): i for h, i in conn.execute("SELECT tx_hash, tx_index FROM tx_position WHERE chain_id=%s AND tx_hash = ANY(%s)", (chain, txh))}
@@ -387,12 +504,12 @@ def classify(conn, chain, log=print):
                            min([li for li, _, _ in rows[h]["rows"] if li >= 0] or [10**9]), h)
         for th in sorted(rows, key=order):           # chain order: escrow placement precedes fill/refund
             d = rows[th]; stats["txs"] += 1
-            tx, legs, market, meta = legs_of(w, d["rows"])
+            tx, legs, market, meta = legs_of(w, d["rows"], pockets)
             legs += native_legs(w, tx)
-            esc.begin()
+            esc.begin(); esc.flags = []; esc.th = hx(th)
             try:
                 warn = []
-                cat, out, upd = plan(chain, w, tx, legs, market, group, d["bn"], esc, meta, warn); why = None
+                cat, out, upd = plan_full(chain, w, tx, legs, market, group, d["bn"], esc, meta, warn); why = None
                 for m in warn: stats["warnings"].append(f"{hx(th)}: {m}"); log(json.dumps({"warning": m, "tx": hx(th)}))
             except Review as e:
                 esc.rollback(); why, cat, out, upd = str(e), None, [], []
@@ -402,30 +519,35 @@ def classify(conn, chain, log=print):
                     (chain, wid, th, why, json.dumps({"legs": [{k: (str(v) if k == "qty" else v) for k, v in l.items()} for l in ls],
                                                       "market": [m["event"] for m in market], "selector": (tx or meta or {}).get("selector"),
                                                       "block_number": d["bn"]})))
+            if esc.flags and not why:   # P4.1 rule 7: pocket legs not booked (owner not in the group, or rented): flagged and counted
+                stats["pocket_owner_mismatch"] += len(esc.flags)
+                conn.execute("INSERT INTO review_queue(chain_id,wallet_id,tx_hash,reason,detail) VALUES (%s,%s,%s,%s,%s)",
+                    (chain, wid, th, "pocket_owner_mismatch", json.dumps({"legs": esc.flags, "block_number": d["bn"]})))
             if not why:
                 esc.track_gotchis(out, canonical)
                 stats["classified"] += 1; stats["by_category"][cat] = stats["by_category"].get(cat, 0) + 1
             tg = str(uuid.UUID(bytes=hashlib.sha256(b"%d:" % chain + th + b":%d" % wid).digest()[:16])) if cat in TRADE_CATS else None
             if tx and tx["from"] == w and int(tx["fee"]):   # gas: a fact, recorded even for txs in review
-                out = out + [dict(li=-1, std="native", contract=None, token_id=None, qty=-int(tx["fee"]), cat="fee", loc="wallet", ref=None, spam=False)]
+                out = out + [dict(li=-1, std="native", contract=None, token_id=None, qty=-int(tx["fee"]), cat="fee", loc="wallet", ref=None, spam=False, trace=None)]
             ids = []
             for l in out:
                 # native Circle USDC = numeraire (unit price 1, high; architect ruling on KNOWN_GAPS #16). USDbC / bridged USDC never
                 # gets par: it is priced from pools in P3 (cryptopnl price). Everything else is priced by the P3 pass.
                 par = l["contract"] == NUMERAIRE.get(chain) and not l["spam"]
                 eid = conn.execute("""INSERT INTO ledger_entry(wallet_id,asset_id,chain_id,tx_hash,log_index,block_number,ts,qty,category,
-                    trade_group,location,escrow_ref,pnl_excluded,price_usdc,price_source,price_confidence,price_confidence_label,tx_index)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                    trade_group,location,escrow_ref,pnl_excluded,price_usdc,price_source,price_confidence,price_confidence_label,tx_index,trace_address,income_subtype,source_ref)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                     (wid, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), chain, th, l["li"], d["bn"], d["ts"],
-                     l["qty"], l["cat"], tg if l["cat"] in TRADE_CATS else None, l["loc"], l["ref"], l["spam"],
-                     1 if par else None, "numeraire" if par else None, CONFIDENCE["high"] if par else None, "high" if par else None, d["txi"])).fetchone()[0]
+                     l["qty"], l["cat"], tg if l["cat"] in TRADE_CATS and l["ref"] != "eth_refund" else None, l["loc"], l["ref"], l["spam"],
+                     1 if par else None, "numeraire" if par else None, CONFIDENCE["high"] if par else None, "high" if par else None, d["txi"],
+                     l.get("trace"), l.get("income_subtype"), l.get("source_ref"))).fetchone()[0]
                 ids.append(eid); stats["entries"] += 1
                 if l["cat"] == "migration_in":
                     lot = conn.execute("""INSERT INTO fifo_lot(wallet_group,asset_id,open_entry_id,opened_at,open_block,qty_open,qty_remaining,
                         basis_usdc,basis_price_source,basis_status,chain_origin) VALUES (%s,%s,%s,NULL,%s,%s,%s,NULL,NULL,'pending',%s)
                         RETURNING id""", (grp, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), eid, d["bn"], l["qty"], l["qty"], origin)).fetchone()[0]
                     apply_manual(conn, lot)   # pending: basis and source unknown (NULL) until P6 or a manual entry
-                elif l["cat"] == "bridge_in":   # Circle-minted USDC: basis = qty at the numeraire (1 USDC), high confidence
+                elif l["cat"] == "bridge_in" and l["contract"] in CCTP_TOKENS.get(chain, {}):   # Circle-minted USDC: basis = qty at the numeraire (1 USDC), high confidence
                     dec = CCTP_TOKENS[chain][l["contract"]]
                     conn.execute("""INSERT INTO fifo_lot(wallet_group,asset_id,open_entry_id,opened_at,open_block,qty_open,qty_remaining,
                         basis_usdc,basis_price_source,basis_confidence,basis_confidence_label,basis_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'numeraire',%s,'high','resolved')""",

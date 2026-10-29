@@ -1,0 +1,2 @@
+STATS {}
+{"chain": 8453, "pockets": 24, "to_block": 52939945, "escrow_cached": 24, "raw_inserted": 320, "blocks_added": 147, "wallet_scoped_present": 61, "listings": 1, "rentals": 1, "owner_crosscheck_gotchis": 24, "owner_crosscheck_diff": 0}

@@ -38,15 +38,26 @@ class P4Db(unittest.TestCase):
     def tearDown(self):
         self.c.rollback()
         self.c.execute("DELETE FROM pnl_snapshot WHERE asset_id IN (SELECT id FROM asset WHERE chain_id=%s)", (C,))
+        self.c.execute("DELETE FROM p3_mark WHERE chain_id=%s", (C,))
         self.c.execute("DELETE FROM lot_disposal WHERE lot_id IN (SELECT id FROM fifo_lot WHERE chain_id=%s)", (C,))
         for t in ("fifo_lot", "fifo_run", "fifo_cost_bucket", "ledger_entry", "wallet", "asset"): self.c.execute(f"DELETE FROM {t} WHERE chain_id=%s", (C,))
         self.c.commit()
-    def setup_engine(self):
-        rows = p4.load_rows(self.c, C, self.cfg); mk = p4.Marks(rows); return rows, mk, p4.policy(self.cfg, mk, p4.Recipes(self.c, C))
+    def setup_engine(self, no_mark=()):
+        """Rulings 4: as_of = the last ledger block (6); marks = p3_mark rows at as_of. The rows below stand in for `cryptopnl marks`
+        (SYNTHETIC prices, the fixture's own: ETH 3000, GHST 4, USDC 1); an asset in no_mark gets a no_valid_mark row."""
+        rows = p4.load_rows(self.c, C, self.cfg); mk = p4.Marks(rows); as_of, _ = p4.as_of_rule(self.cfg, rows)
+        for sym, px in (("ETH", "3000"), ("GHST", "4"), ("USDC", "1")):
+            ok = sym not in no_mark
+            self.c.execute("""INSERT INTO p3_mark(chain_id, asset_id, as_of_block, status, price_usdc, source, confidence_label, reason, held_qty)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,1)""", (C, self.ids[sym], as_of, "priced" if ok else "no_valid_mark", px if ok else None,
+                "fixture" if ok else None, "high" if ok else None, None if ok else "fixture_no_price"))
+        self.c.commit(); fm = p4.AsOfMarks(self.c, C, as_of)
+        return rows, mk, p4.policy(self.cfg, mk, p4.Recipes(self.c, C), fm)
     def test_rebuild_roundtrip_incremental_snapshot_reconcile(self):
         rows, mk, pol = self.setup_engine()
-        self.assertEqual((len(rows), rows[1].qty, rows[5].qty, mk.as_of_block()), (12, D(-2000), D("-0.001"), 5))   # rulings 3: MIN
-        self.assertEqual(mk.as_of_detail()["set_by_assets"], [str(self.ids["ETH"])])   # ETH's last stored price is at block 5 (GHST/USDC 6)
+        self.assertEqual((len(rows), rows[1].qty, rows[5].qty), (12, D(-2000), D("-0.001")))
+        self.assertEqual(p4.as_of_rule(self.cfg, rows), (6, "last ledger block"))   # rulings 4 (not the rulings-3 MIN, which was 5)
+        self.assertEqual(p4.as_of_rule(self.cfg, rows, 4), (4, "user_default (--as-of)"))
         st = fifo.run(rows, pol); _, m = p4.write_state(self.c, C, st, pol, None); t1 = p4.table_md5(self.c, C)
         self.assertEqual(fifo.md5(p4.load_state(self.c, C)), m)
         with redirect_stdout(io.StringIO()):
@@ -55,7 +66,7 @@ class P4Db(unittest.TestCase):
         back = p4.load_state(self.c, C); self.assertEqual(fifo.md5(back), m); self.assertEqual(p4.table_md5(self.c, C), t1)
         r1 = p4.snapshot(self.c, C, back, pol, 6); r2 = p4.snapshot(self.c, C, p4.load_state(self.c, C), pol, 6)
         self.assertEqual((r1[1], r1[2]), (r2[1], r2[2])); self.assertEqual(json.dumps(p4._j(r1[0]), sort_keys=True), json.dumps(p4._j(r2[0]), sort_keys=True))
-        L_ = reconcile.ledger_side(rows, mk, pol.nft_mark, 6, None, self.cfg)
+        L_ = reconcile.ledger_side(rows, pol.mark, pol.nft_mark, 6, None, self.cfg)
         chk = reconcile.check(fifo.report(back, pol, 6), fifo.gas(back), L_, p4.engine_qty(back))
         self.assertEqual(chk["acceptance"], "PASS", chk["failures"])
         self.assertEqual((chk["total"]["engine_side"], chk["total"]["ledger_side"]), (D(991), D(991)))   # GHST row at block 6 nets 0 (4 for 1 @4)
@@ -63,3 +74,31 @@ class P4Db(unittest.TestCase):
         self.assertEqual((gh[0], gh[1], gh[2]), (D(103), D(3), "basis"))
         ex = self.c.execute("SELECT count(*) FROM lot_disposal_pnl d JOIN fifo_lot l ON l.id=d.lot_id WHERE l.chain_id=%s AND d.kind LIKE 'fee%%'", (C,)).fetchone()[0]
         self.assertEqual(ex, 3)
+
+class P4DbNoMark(P4Db):
+    """Rulings 4: a held asset with no valid mark at as_of (GHST here) is excluded from unrealized on both sides and counted."""
+    def test_rebuild_roundtrip_incremental_snapshot_reconcile(self): pass   # covered by P4Db
+    def test_no_valid_mark_excluded_and_counted(self):
+        rows, mk, pol = self.setup_engine(no_mark=("GHST",)); st = fifo.run(rows, pol); g = str(self.ids["GHST"])
+        cov = pol.mark.coverage(p4.held_fungible([e for e in rows if e.block <= 6]))
+        self.assertEqual(cov, {"priced": 2, "no_valid_mark": {g: "fixture_no_price"}, "missing": []})
+        chk = reconcile.check(fifo.report(st, pol, 6), fifo.gas(st), reconcile.ledger_side(rows, pol.mark, pol.nft_mark, 6, None, self.cfg), p4.engine_qty(st))
+        self.assertEqual(chk["acceptance"], "PASS", chk["failures"])
+        pa = chk["per_asset"][g]; self.assertEqual((D(str(pa["engine_unrealized"])), D(str(pa["ledger_unrealized"]))), (D(0), D(0)))
+        self.assertTrue(any(l.asset == g and l.qty > 0 for l in st.lots))   # held, just not marked
+
+class P4DbIncomeTag(P4Db):
+    """Migration 015 (rule 5 ruling): income_subtype only on income rows, dao_distribution only, with a 0x address source_ref."""
+    def test_rebuild_roundtrip_incremental_snapshot_reconcile(self): pass   # covered by P4Db
+    def test_check(self):
+        import psycopg
+        q = "UPDATE ledger_entry SET income_subtype=%s, source_ref=%s WHERE chain_id=%s AND block_number=%s AND category=%s"
+        for args in (("dao_distribution", "0x" + "f5" * 20, C, 2, "swap"), ("airdrop", "0x" + "f5" * 20, C, 1, "bridge_in"),
+                     ("dao_distribution", "PTD", C, 1, "bridge_in")):
+            self.c.execute("UPDATE ledger_entry SET category='income' WHERE chain_id=%s AND block_number=1", (C,)); self.c.commit()
+            with self.assertRaises(psycopg.errors.CheckViolation): self.c.execute(q, args[:4] + ("income" if args[4] == "bridge_in" else args[4],))
+            self.c.rollback()
+        self.c.execute("UPDATE ledger_entry SET category='income' WHERE chain_id=%s AND block_number=1", (C,))
+        self.c.execute(q, ("dao_distribution", "0x" + "f5" * 20, C, 1, "income")); self.c.commit()
+        rows = p4.load_rows(self.c, C, self.cfg); t = [(e.income_subtype, e.source_ref) for e in rows if e.block == 1]
+        self.assertEqual(t, [("dao_distribution", "0x" + "f5" * 20)])

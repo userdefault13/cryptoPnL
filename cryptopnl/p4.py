@@ -6,7 +6,7 @@ CRYPTOPNL_DSN (run it on a COPY of the P3 DB).
   python -m cryptopnl.p4 snapshot    --chain 8453 --out FILE         # pnl_snapshot at as_of_block (byte-identical when repeated)
   python -m cryptopnl.p4 reconcile   --chain 8453 --out FILE
 Switches: cryptopnl/p4_policy.json (the rulings), override with --set key=value."""
-import argparse, json, os, sys, hashlib
+import argparse, os, json, os, sys, hashlib
 from decimal import Decimal
 from . import db, fifo, reconcile
 from .pricing import TOKENS
@@ -20,7 +20,7 @@ def load_config(overrides=()):
 
 ROWS_SQL = """SELECT l.id, l.block_number, l.tx_index, encode(l.tx_hash,'hex'), l.log_index, l.asset_id, l.qty, l.category,
   l.wallet_id, w.wallet_group, l.location, l.escrow_ref, l.trade_group::text, l.price_usdc, l.price_source, l.price_confidence_label,
-  l.price_flag, l.pnl_excluded, a.standard, '0x'||encode(a.contract,'hex'), mb.id, mb.basis_usdc
+  l.price_flag, l.pnl_excluded, a.standard, '0x'||encode(a.contract,'hex'), mb.id, mb.basis_usdc, l.income_subtype, l.source_ref
   FROM ledger_entry l JOIN asset a ON a.id=l.asset_id LEFT JOIN wallet w ON w.id=l.wallet_id
   LEFT JOIN manual_basis mb ON mb.chain_id=l.chain_id AND mb.tx_hash=l.tx_hash AND mb.log_index=l.log_index AND mb.asset_id=l.asset_id
        AND mb.superseded_at IS NULL
@@ -43,7 +43,7 @@ def load_rows(conn, chain, cfg, stats=None):
     raw = conn.execute(ROWS_SQL, (chain,)).fetchall()
     n = check_tx_index([(r[1], r[2], r[3]) for r in raw])
     if stats is not None: stats["tx_index_null_rows"] = n
-    for (i, b, ti, tx, li, aid, q, cat, wid, wg, loc, ref, tg, px, ps, lab, fl, ex, std, c, mbid, mbv) in raw:
+    for (i, b, ti, tx, li, aid, q, cat, wid, wg, loc, ref, tg, px, ps, lab, fl, ex, std, c, mbid, mbv, isub, sref) in raw:
         nft = std in ("erc721", "erc1155")
         skip = ex or cat in ("spam", "untracked") or fl in ("spam", "untracked")
         if std == "native": d = 18
@@ -57,7 +57,7 @@ def load_rows(conn, chain, cfg, stats=None):
         out.append(fifo.Entry(id=i, block=b, tx="0x" + tx, log_index=li, asset=str(aid), qty=Decimal(q) / (Decimal(10) ** d), category=cat,
                               wallet=str(wid), group=group, location=loc, tx_index=0 if ti is None else ti, ref=ref, trade_group=tg,
                               price=None if px is None else Decimal(px), price_source=ps, label=lab, flag=fl, excluded=ex, nft=nft,
-                              manual_basis=None if mbv is None else Decimal(mbv), manual_basis_id=mbid))
+                              manual_basis=None if mbv is None else Decimal(mbv), manual_basis_id=mbid, income_subtype=isub, source_ref=sref))
     return out
 
 class Marks:
@@ -88,6 +88,38 @@ class Marks:
         if best is None: return None
         return fifo.Mark(best[1], f"p3:{best[2]}@{best[0][0]}", best[3])
 
+class AsOfMarks:
+    """P4 rulings 4 (revises Q-F / rulings 3): fungible marks are the p3_mark rows the P3 pricing path wrote AT as_of_block, one per
+    held asset (`python -m cryptopnl marks`). No row, or status no_valid_mark -> None: the asset is excluded from unrealized and
+    counted, like an unpriced NFT. No RPC in the engine."""
+    name = "p3_mark_at_as_of"
+    def __init__(self, conn, chain, as_of):
+        self.as_of, self.m, self.status = as_of, {}, {}
+        for aid, st, px, src, lab, why in conn.execute("""SELECT asset_id, status, price_usdc, source, confidence_label, reason FROM p3_mark
+                WHERE chain_id=%s AND as_of_block=%s ORDER BY asset_id""", (chain, as_of)):
+            self.status[str(aid)] = "priced" if st == "priced" else f"no_valid_mark:{why}"
+            if st == "priced": self.m[str(aid)] = fifo.Mark(Decimal(px), f"p3_mark:{src}@{as_of}", lab)
+    def __call__(self, asset, block, lot=None):
+        if block != self.as_of: raise ValueError(f"marks exist only at as_of_block {self.as_of}, asked for {block}")
+        return self.m.get(asset)
+    def coverage(self, held):
+        """held: {asset: qty} fungible -> {priced, no_valid_mark: {asset: reason}, missing: [assets with no p3_mark row]}"""
+        out = {"priced": 0, "no_valid_mark": {}, "missing": []}
+        for a in sorted(held, key=int):
+            s = self.status.get(a)
+            if s == "priced": out["priced"] += 1
+            elif s: out["no_valid_mark"][a] = s.split(":", 1)[1]
+            else: out["missing"].append(a)
+        return out
+
+def as_of_rule(cfg, rows, override=None):
+    """P4 rulings 4: as_of_block = the block user_default chose (--as-of), else the LAST ledger block."""
+    if override: return override, "user_default (--as-of)"
+    if cfg.get("as_of_block") != "last_ledger_block_else_user_default":
+        raise SystemExit(f"as_of_block switch {cfg.get('as_of_block')!r} not supported (rulings 4: last_ledger_block_else_user_default)")
+    if not rows: raise SystemExit("no ledger rows: as_of_block undefined")
+    return max(e.block for e in rows), "last ledger block"
+
 class NftMark(Marks):
     """Q8: an NFT is marked only at a stored P3 price (else left out of unrealized and counted; never at basis or 0)."""
     name = "p3_price_else_exclude"
@@ -101,11 +133,11 @@ class Recipes:
             self.r[(str(aid), b)] = Decimal(c)
     def __call__(self, asset, block): return self.r.get((asset, block))
 
-def policy(cfg, marks, recipes):
+def policy(cfg, marks, recipes, fmarks=None):
     k = {x: cfg.get(x) for x in ("fee", "fee_without_trade", "fee_split", "deposit", "withdrawal", "internal_transfer", "queue_split", "shortfall")}
     nm = cfg.get("nft_mark")
     k["nft_mark"] = NftMark(marks) if nm == "p3_price_else_exclude" else nm
-    k["mark"] = marks if cfg.get("mark") == "p3_stored_at_as_of" else None
+    k["mark"] = fmarks if cfg.get("mark") == "p3_mark_at_as_of" else (marks if cfg.get("mark") == "p3_stored_at_as_of" else None)
     k["recipe"] = recipes if cfg.get("recipe") == "stored_craft_recipe_cost" else None
     return fifo.Policy(**k)
 
@@ -204,12 +236,41 @@ def snapshot(conn, chain, st, pol, as_of):
         FROM pnl_snapshot WHERE as_of_block=%s AND asset_id IN (SELECT id FROM asset WHERE chain_id=%s)""", (as_of, chain)).fetchone()[0]
     return rep, sm, len(rows)
 
+INCOME_LINES_TOL = Decimal("1e-30")
+def income_lines(st, rows, total):
+    """Income in the report, one line per (income_subtype, source) (rule 5 ruling: the PTD claim is its own line, dao_distribution
+    from 0xf50326e1; rule 7: pocket custody income per subtype and sender, source_ref 'sender:tx' grouped by the sender, txs counted),
+    the rest as 'general'. Lines sum to the engine's income_usdc (checked). Unpriced income counts, never 0 USDC."""
+    tag = {e.id: (e.income_subtype, e.source_ref) for e in rows}; L = {}; T = {}
+    for i, a, v in st.income:
+        s, r = tag.get(i, (None, None)); src = (r or "").split(":")[0]; k = (s or "general", src)
+        x = L.setdefault(k, {"income_subtype": s or "general", "source_ref": src or None, "usdc": Decimal(0), "entries": 0, "unpriced_entries": 0})
+        x["entries"] += 1
+        if r and ":" in r: T.setdefault(k, set()).add(r.split(":")[1]); x["txs"] = len(T[k])
+        if v is None: x["unpriced_entries"] += 1
+        else: x["usdc"] += v
+    out = [L[k] for k in sorted(L, key=lambda k: (k[0] == "general", k))]
+    # Decimal context is prec 50 (pricing.py): summing per line then across lines rounds in a different order than the engine's single
+    # sum, so the last of the 50 digits can differ (canonical P4.1: 1E-46 USDC). Tolerance 1e-30 USDC, far below any money unit.
+    if abs(sum((x["usdc"] for x in out), Decimal(0)) - Decimal(total)) > INCOME_LINES_TOL: raise ValueError("income lines do not sum to income_usdc")
+    return out
 def ledger_qty(rows):
     q = {}
     for e in rows:
         if e.excluded or e.category in ("spam", "untracked") or e.flag in ("spam", "untracked"): continue
         q[e.asset] = q.get(e.asset, Decimal(0)) + e.qty
     return {a: v for a, v in q.items() if v != 0}
+def held_fungible(rows):
+    """{asset: qty} of tracked fungible assets with a positive ledger balance at ANY location (wallet, escrow, pocket, ...), as written
+    by `cryptopnl marks` (pricing.write_marks uses the same rule)."""
+    q = {}
+    for e in rows:
+        if e.nft or e.excluded or e.category in ("spam", "untracked") or e.flag in ("spam", "untracked"): continue
+        k = (e.asset, e.location); q[k] = q.get(k, Decimal(0)) + e.qty
+    out = {}
+    for (a, loc), v in q.items():
+        if v > 0: out[a] = out.get(a, Decimal(0)) + v
+    return out
 def engine_qty(st):
     q = {}
     for l in st.lots:
@@ -222,10 +283,11 @@ def main(argv=None):
     ap.add_argument("--chain", type=int, required=True); ap.add_argument("--split-block", type=int); ap.add_argument("--as-of", type=int)
     ap.add_argument("--out"); ap.add_argument("--set", action="append", default=[])
     a = ap.parse_args(argv); cfg = load_config(a.set); conn = db.connect()
-    stats = {}; rows = load_rows(conn, a.chain, cfg, stats); marks = Marks(rows); pol = policy(cfg, marks, Recipes(conn, a.chain))
-    if not a.as_of and cfg.get("as_of_block") != "min_over_tracked_assets_of_latest_stored_p3_price":
-        raise SystemExit(f"as_of_block switch {cfg.get('as_of_block')!r} not supported (rulings 3: min_over_tracked_assets_of_latest_stored_p3_price)")
-    as_of = a.as_of or marks.as_of_block(); out = {"chain": a.chain, "ledger_rows": len(rows), "policy": pol.describe(), **stats}
+    stats = {}; rows = load_rows(conn, a.chain, cfg, stats); marks = Marks(rows)
+    as_of, set_by = as_of_rule(cfg, rows, a.as_of)
+    fm = AsOfMarks(conn, a.chain, as_of) if cfg.get("mark") == "p3_mark_at_as_of" else None
+    pol = policy(cfg, marks, Recipes(conn, a.chain), fm)
+    out = {"chain": a.chain, "ledger_rows": len(rows), "policy": pol.describe(), **stats}
     if a.cmd == "rebuild":
         st = fifo.run(rows, pol); rid, m = write_state(conn, a.chain, st, pol, None)
         out.update({"fifo_run": rid, "engine_md5": m, **table_md5(conn, a.chain), "lots": len(st.lots), "disposals": len(st.disposals)})
@@ -240,15 +302,22 @@ def main(argv=None):
         upto = [e for e in rows if e.block <= as_of]
         if len(upto) == len(rows): st, src = load_state(conn, a.chain), "fifo_run (db)"
         else: st, src = fifo.run(upto, pol), "replay of ledger rows <= as_of_block (offline)"
-        out.update({"as_of": marks.as_of_detail() if not a.as_of else {"as_of_block": as_of, "set_by": "--as-of"},
-                    "state_at_as_of": src, "rows_after_as_of": len(rows) - len(upto)})
+        held = held_fungible(upto)
+        out.update({"as_of": {"as_of_block": as_of, "set_by": set_by, "last_ledger_block": max(e.block for e in rows)},
+                    "state_at_as_of": src, "rows_after_as_of": len(rows) - len(upto),
+                    "gate_all_rows_at_or_before_as_of": len(rows) == len(upto),
+                    "marks": fm.coverage(held) if fm else None})
         if a.cmd == "snapshot":
             rep, sm, n = snapshot(conn, a.chain, st, pol, as_of)
-            out.update({"as_of_block": as_of, "pnl_snapshot_rows": n, "pnl_snapshot_md5": sm, "report": rep})
+            out.update({"as_of_block": as_of, "pnl_snapshot_rows": n, "pnl_snapshot_md5": sm, "report": rep,
+                        "income_lines": income_lines(st, rows, rep["income_usdc"])})
         else:
             rep = fifo.report(st, pol, as_of); g = fifo.gas(st)
-            L = reconcile.ledger_side(rows, marks, pol.nft_mark, as_of, pol.recipe, cfg)   # ledger rows only, never engine lots
+            L = reconcile.ledger_side(rows, pol.mark, pol.nft_mark, as_of, pol.recipe, cfg)   # ledger rows only, never engine lots
             chk = reconcile.check(rep, g, L, engine_qty(st))
+            from .pockets import pocket_report   # P4.1 rule 7: pocket in / out per asset, owner-mismatch count, counts by sender and token
+            from .config import POCKETS
+            ev = POCKETS.get(a.chain, {}).get("evidence"); out["pockets"] = pocket_report(conn, a.chain, ev and os.path.join(os.path.dirname(__file__), "..", ev))
             out.update({"as_of_block": as_of, "reconciliation": chk, "ledger_side_gas_txs": L["gas_txs"],
                         "gas_share_on_pending_acquisitions_ledger": L["gas_share_on_pending_acquisitions"], "gas": g,
                         "identity_basis": fifo.identity(st), "counts": {k: rep[k] for k in ("pending_lots_open", "pending_lots_total",
@@ -256,7 +325,7 @@ def main(argv=None):
                         "excluded_rows")}, "unmarked_nft_lots": rep["all"]["unmarked_nft_lots"], "unmarked_lots": rep["all"]["unmarked_lots"],
                         "totals_all": {k: rep["all"][k] for k in ("realized_usdc", "unrealized_usdc", "market_value_usdc", "open_basis_usdc")},
                         "totals_excl_low": {k: rep["excl_low"][k] for k in ("realized_usdc", "unrealized_usdc", "market_value_usdc", "open_basis_usdc")},
-                        "income_usdc": rep["income_usdc"], "expenses_usdc": rep["expenses_usdc"], "exit_basis_usdc": rep["exit_basis_usdc"],
+                        "income_usdc": rep["income_usdc"], "income_lines": income_lines(st, rows, rep["income_usdc"]), "expenses_usdc": rep["expenses_usdc"], "exit_basis_usdc": rep["exit_basis_usdc"],
                         "exit_display_mv_usdc": rep["exit_display_mv_usdc"]})
             out["exit_rc"] = 0 if chk["acceptance"] == "PASS" else (3 if chk["identity_pass"] else 1)   # 3 = identity ok, gaps flagged
     txt = json.dumps(_j(out), indent=1, sort_keys=True) + "\n"

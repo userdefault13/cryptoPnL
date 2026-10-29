@@ -6,7 +6,7 @@ Read-only: eth_call at the block over the free public RPC through the host RPC b
 and DefiLlama GET (free, no key, 1 req/s). The thin-pool Swap scan (ingest.ingest_pool_swaps) uses HyperSync (5/min, 12 s gap); this
 module only reads its cache. Never invents a price: no source -> None -> ledger flag 'no_price'.
 Every price is a UNIT price in USDC per whole token (decimals applied)."""
-import json
+import json, os
 from decimal import Decimal, getcontext
 from .config import (NUMERAIRE, TOKENS, PRICE_POOLS, DEX_MIN_QUOTE_USD, DEFILLAMA_URL, DEFILLAMA_SEARCH_WIDTH, API_RPS,
                      PRICE_LABEL, CONFIDENCE, WETH, gated, THIN_POOL_ASSETS, THIN_ONLY_ASSETS, THIN_SWAP_WINDOW_BLOCKS, NO_PRICE_SOURCE, DEV_GATED_ASSETS)
@@ -50,11 +50,20 @@ class Pricer:
         self.status = {}; self.rpc_errors = []; self.err_blocks = set()   # per (to, data, block): ok | revert | empty | error
         self.fallthrough = []     # DEX prices taken from a later pool after an RPC error on an earlier pool (evidence, see dex())
     def dec(self, c): return self.tok[c][1]
+    def seed(self, points):
+        """P4.1 (re-pricing after a re-classify without repeating RPC): stored P3 points [(contract | None for native, block, Price)]
+        answer price() before any RPC. The price order is deterministic, so a stored point IS that order's result at the block;
+        only (asset, block) pairs with no stored point are priced live. Counted in seed_hits."""
+        self.seeded = {(self.weth if c is None else c.lower(), b): p for c, b, p in points}; self.seed_hits = 0; self.seed_misses = 0
     def _call(self, to, data, block):
         """eth_call or None. Only a JSON-RPC 'execution reverted' is a revert (pool not usable at the block). Any other error (JSON-RPC
         errors arrive as HTTP 200 and raise RuntimeError in sources.RPC.call, e.g. rate/limit/upstream errors) is recorded in
         rpc_errors / err_blocks so unpriced_reason() reports rpc_error (fails C1) instead of no_pool."""
-        self.calls += 1; k = (to, data, block)
+        k = (to, data, block); cap = int(os.environ.get("CRYPTOPNL_PRICE_RPC_CAP") or 0)
+        if cap and self.calls >= cap:   # P4.1 canonical run: hard cap on live price calls; beyond it nothing is sent (rpc_error, unpriced)
+            self.status[k] = "error"; self.err_blocks.add(block)
+            self.rpc_errors.append({"to": to, "selector": data[:10], "block": block, "error": f"price RPC cap {cap} reached (not sent)"}); return None
+        self.calls += 1
         try: r = self.rpc.eth_call(to, data, block)
         except RuntimeError as e:
             if "execution reverted" in str(e).lower(): self.status[k] = "revert"; return None
@@ -156,6 +165,7 @@ class Pricer:
                      route=[dd["pool"]] + qp.detail.get("route", []), quote_detail=qp.detail, quote_price=str(qp.price)))
 
     def unpriced_reason(self, asset, block):
+        if getattr(self, "seed_only", False) and not getattr(self, "_marking", False): return {"reason": "not_seeded"}
         """C1 ruling (PR #7, 2026-10-23): why (asset, block) is unpriced, after price() returned None (uses the dex() memo / thin
         candidates of that call). Accepted (machine-checkable) codes: stale_pool (thin pool, both reserves > 0, last Swap >= 7 d before
         the block per the cached scan; last_swap_block + age), no_pool (no configured pool, or the pool has no code / reverts at the block),
@@ -212,6 +222,9 @@ class Pricer:
         NO_PRICE_SOURCE -> None, never 0. asset None = native ETH (= WETH). ts is unused by the price order (kept for callers)."""
         a = self.weth if asset is None else asset.lower()
         if a == self.num: return Price(1, "numeraire", PRICE_LABEL["numeraire"])
+        sd = getattr(self, "seeded", None)
+        if sd and (a, block) in sd: self.seed_hits += 1; return sd[(a, block)]
+        if getattr(self, "seed_only", False): self.seed_misses += 1; return None   # non-canonical test runs: no live RPC for legs
         if a in NO_PRICE_SOURCE.get(self.chain, set()): return None
         d = self.dex(a, block)
         if d: return d
@@ -260,9 +273,9 @@ def price_ledger(conn, chain, pricer, log=print):
     conn.execute("""UPDATE ledger_entry SET price_usdc=NULL, price_source=NULL, price_confidence=NULL, price_confidence_label=NULL,
                     price_id=NULL, price_flag=NULL WHERE chain_id=%s""", (chain,))
     rows = conn.execute("""SELECT l.id, l.asset_id, a.standard, '0x'||encode(a.contract,'hex'), l.qty, l.category, l.trade_group,
-        l.block_number, l.ts, l.pnl_excluded, l.location FROM ledger_entry l JOIN asset a ON a.id=l.asset_id
+        l.block_number, l.ts, l.pnl_excluded, l.location, l.escrow_ref FROM ledger_entry l JOIN asset a ON a.id=l.asset_id
         WHERE l.chain_id=%s ORDER BY l.block_number, l.tx_index NULLS LAST, l.id""", (chain,)).fetchall()
-    E = {r[0]: dict(id=r[0], aid=r[1], std=r[2], c=r[3], qty=Decimal(r[4]), cat=r[5], tg=r[6], bn=r[7], ts=r[8], excl=r[9], loc=r[10]) for r in rows}
+    E = {r[0]: dict(id=r[0], aid=r[1], std=r[2], c=r[3], qty=Decimal(r[4]), cat=r[5], tg=r[6], bn=r[7], ts=r[8], excl=r[9], loc=r[10], ref=r[11]) for r in rows}
     out, stats = {}, {"entries": len(E), "by_source": {}, "by_flag": {}}
     def flag(e, f): out[e["id"]] = ("flag", f)
     def tracked_fungible(e): return e["std"] in FUNGIBLE and (e["std"] == "native" or e["c"] in allow)
@@ -271,6 +284,7 @@ def price_ledger(conn, chain, pricer, log=print):
         if e["cat"] == "spam": flag(e, "spam")
         elif e["cat"] == "untracked" or (e["excl"] and e["cat"] != "spam"): flag(e, "untracked")
         elif e["cat"] == "migration_in": flag(e, "pending_basis")
+        elif e["cat"] == "bridge_in" and (e["ref"] or "").startswith("bridge_in:"): flag(e, "pending_basis")   # P4.1 rulings 4
     groups = {}
     for e in E.values():
         if e["tg"] and e["id"] not in out: groups.setdefault(e["tg"], []).append(e)
@@ -328,6 +342,50 @@ def price_ledger(conn, chain, pricer, log=print):
                  (chain, started, stats["entries"], pricer.calls, len(pricer.rpc_errors), stats["rpc_retries"], len(pricer.fallthrough),
                   json.dumps({"rpc_errors": pricer.rpc_errors[:50], "fallthrough": pricer.fallthrough[:50]})))
     conn.commit(); log(json.dumps({"chain": chain, "price_ledger": stats})); return stats
+
+def stored_points(conn, chain):
+    """[(contract | None, block, Price)] of every stored non-trade price_point of the chain (for Pricer.seed)."""
+    out = []
+    for std, c, b, px, src, lab, det in conn.execute("""SELECT a.standard, '0x'||encode(a.contract,'hex'), p.block_number, p.price_usdc,
+            p.source, p.confidence_label, p.detail FROM price_point p JOIN asset a ON a.id=p.asset_id
+            WHERE p.chain_id=%s AND p.source <> 'trade' ORDER BY p.id""", (chain,)):
+        out.append((None if std == "native" else c, b, Price(px, src, lab, det or {})))
+    return out
+
+def write_marks(conn, chain, pricer, as_of, log=print):
+    """P4 rulings 4 (DESIGN §8): the P3 path writes a mark for each held asset at as_of_block with the normal price order (numeraire,
+    DEX at the block >= floor, thin tier for alchemica). held = ledger net qty > 0 over live tracked fungible rows (not spam / untracked /
+    pnl_excluded) at block <= as_of, at any location (wallet, escrow, pocket). No valid price -> status 'no_valid_mark' + reason: P4 excludes that asset from unrealized and
+    counts it (like unpriced NFTs; NFTs keep Q8). Idempotent per (chain, as_of). Returns counts."""
+    allow = gated(chain)
+    held = conn.execute("""SELECT id, standard, c, sum(q) FROM (SELECT a.id, a.standard, '0x'||encode(a.contract,'hex') c, l.location, sum(l.qty) q
+          FROM ledger_entry l JOIN asset a ON a.id=l.asset_id
+          WHERE l.chain_id=%s AND l.block_number <= %s AND NOT coalesce(l.pnl_excluded, false) AND l.category NOT IN ('spam','untracked')
+            AND coalesce(l.price_flag, '') NOT IN ('spam','untracked') AND a.standard IN ('native','erc20')
+          GROUP BY 1,2,3,4 HAVING sum(l.qty) > 0) x GROUP BY 1,2,3 ORDER BY 1""", (chain, as_of)).fetchall()   # positive at ANY location
+    tsr = conn.execute("SELECT ts FROM block WHERE chain_id=%s AND number=%s", (chain, as_of)).fetchone()
+    conn.execute("DELETE FROM p3_mark WHERE chain_id=%s AND as_of_block=%s", (chain, as_of))
+    so = getattr(pricer, "seed_only", False); pricer.seed_only = False; pricer._marking = True
+    c0 = pricer.calls; res = {"as_of_block": as_of, "held_assets": 0, "priced": 0, "no_valid_mark": 0, "reasons": {}, "assets": {}}
+    for aid, std, c, q in held:
+        if std == "erc20" and c not in allow: continue   # untracked token: never priced (DESIGN §8)
+        res["held_assets"] += 1
+        p = pricer.price(None if std == "native" else c, as_of, int(tsr[0].timestamp()) if tsr else None)
+        if p and p.price > 0:
+            pid = conn.execute("""INSERT INTO price_point(asset_id,chain_id,block_number,ts,price_usdc,source,confidence,confidence_label,detail)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (asset_id,block_number,source) DO UPDATE SET price_usdc=EXCLUDED.price_usdc,
+                confidence=EXCLUDED.confidence, confidence_label=EXCLUDED.confidence_label, detail=EXCLUDED.detail RETURNING id""",
+                (aid, chain, as_of, tsr[0] if tsr else None, p.price, p.source, CONFIDENCE[p.label], p.label, json.dumps(p.detail))).fetchone()[0] if tsr else None
+            conn.execute("""INSERT INTO p3_mark(chain_id,asset_id,as_of_block,status,price_usdc,source,confidence_label,price_id,held_qty)
+                VALUES (%s,%s,%s,'priced',%s,%s,%s,%s,%s)""", (chain, aid, as_of, p.price, p.source, p.label, pid, q))
+            res["priced"] += 1; res["assets"][str(aid)] = {"status": "priced", "price": str(p.price), "source": p.source, "label": p.label}
+        else:
+            why = pricer.unpriced_reason(None if std == "native" else c, as_of).get("reason", "unexplained")
+            conn.execute("""INSERT INTO p3_mark(chain_id,asset_id,as_of_block,status,reason,held_qty) VALUES (%s,%s,%s,'no_valid_mark',%s,%s)""",
+                         (chain, aid, as_of, why, q))
+            res["no_valid_mark"] += 1; res["reasons"][why] = res["reasons"].get(why, 0) + 1; res["assets"][str(aid)] = {"status": "no_valid_mark", "reason": why}
+    pricer.seed_only = so; pricer._marking = False
+    conn.commit(); res["rpc_calls"] = pricer.calls - c0; log(json.dumps({"chain": chain, "write_marks": res})); return res
 
 def totals(conn, chain):
     """USDC value (|qty| in whole units x unit price) of priced, PnL-relevant entries (not spam/untracked/pnl_excluded, not fees).

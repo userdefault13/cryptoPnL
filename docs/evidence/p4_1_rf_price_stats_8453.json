@@ -1,0 +1,23 @@
+{
+ "by_flag": {
+  "low_confidence": 33,
+  "nft_no_trade": 8,
+  "pending_basis": 84,
+  "spam": 494,
+  "untracked": 56
+ },
+ "by_source": {
+  "dex_reserves": 51,
+  "dex_reserves_thin": 31,
+  "dex_slot0": 834,
+  "numeraire": 46,
+  "trade": 43
+ },
+ "entries": 1647,
+ "fallthrough_after_rpc_error": 0,
+ "rpc_calls": 352,
+ "rpc_errors": 0,
+ "rpc_retries": 6,
+ "seed_hits": 762,
+ "seed_misses": 0
+}

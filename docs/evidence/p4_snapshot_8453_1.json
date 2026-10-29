@@ -1,34 +1,51 @@
 {
  "as_of": {
-  "as_of_block": 49402932,
-  "latest_priced_block_per_asset": {
-   "19": 51283821,
-   "2": 52911410,
-   "20": 51481437,
-   "28": 49402932,
-   "39": 49402932,
-   "96": 49402932,
-   "97": 49402932
-  },
-  "set_by_assets": [
-   "28",
-   "39",
-   "96",
-   "97"
-  ]
+  "as_of_block": 52911467,
+  "last_ledger_block": 52911467,
+  "set_by": "last ledger block"
  },
- "as_of_block": 49402932,
+ "as_of_block": 52911467,
  "chain": 8453,
- "ledger_rows": 1321,
- "pnl_snapshot_md5": "4b17f839e5459a60ca6ffb9b6b504f07",
- "pnl_snapshot_rows": 186,
+ "gate_all_rows_at_or_before_as_of": true,
+ "income_lines": [
+  {
+   "entries": 1,
+   "income_subtype": "dao_distribution",
+   "source_ref": "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11",
+   "unpriced_entries": 0,
+   "usdc": "3175.4022700608818552424560829145276190693107143605"
+  },
+  {
+   "entries": 156,
+   "income_subtype": "rarity_farming_payout",
+   "source_ref": "0xf52398257a254d541f392667600901f710a006ed",
+   "txs": 104,
+   "unpriced_entries": 0,
+   "usdc": "200.3551896765666907494510524681161133090515476738"
+  },
+  {
+   "entries": 31,
+   "income_subtype": "general",
+   "source_ref": null,
+   "unpriced_entries": 0,
+   "usdc": "0.14162696287137066493330087583504704313280079798697"
+  }
+ ],
+ "ledger_rows": 1647,
+ "marks": {
+  "missing": [],
+  "no_valid_mark": {},
+  "priced": 7
+ },
+ "pnl_snapshot_md5": "d6831484d717297034323e300833bc08",
+ "pnl_snapshot_rows": 190,
  "policy": {
   "deposit": "pending",
   "fee": "capitalize",
   "fee_split": "basis_else_equal",
   "fee_without_trade": "expense",
   "internal_transfer": "carry",
-  "mark": "p3_stored_at_as_of",
+  "mark": "p3_mark_at_as_of",
   "nft_mark": "p3_price_else_exclude",
   "queue_split": "recipe_else_equal",
   "recipe": "stored_craft_recipe_cost",
@@ -51,6 +68,20 @@
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
      "unrealized": "-0.03720443036941993825022675605568359636764130063496"
+    },
+    "102": {
+     "cost_basis": "0.015454898191166471040527530754142262198422693224825",
+     "exits": 0,
+     "mark_price": "0.0077274490955832355202637653770711310992113466124125",
+     "mark_source": "p3:trade@51283821",
+     "market_value": "0.015454898191166471040527530754142262198422693224825",
+     "pending_disposals": 0,
+     "pending_lots": 0,
+     "qty": "2",
+     "realized": "0",
+     "unmarked_lots": 0,
+     "unpriced_disposals": 0,
+     "unrealized": "0"
     },
     "117": {
      "cost_basis": "0.047144938631386242148240270624075696093909787607424",
@@ -151,46 +182,46 @@
      "unrealized": "0"
     },
     "19": {
-     "cost_basis": "5.078108705072326496387235873731923663516214631078",
-     "exits": 2,
-     "mark_price": "0.044343104904388287645038434694976640074523015870999",
-     "mark_source": "p3:trade@49347048",
-     "market_value": "5.0187793049270084398176737770933226070715604972214",
-     "pending_disposals": 80,
-     "pending_lots": 10,
-     "qty": "113.180601939092889336",
-     "realized": "-3.5305177175435236391655203393949851811492677168319",
+     "cost_basis": "17.154826341856997426764621894229838527087951284253",
+     "exits": 11,
+     "mark_price": "0.061970300180951050427830576114448426052278900997314",
+     "mark_source": "p3_mark:dex_slot0@52911467",
+     "market_value": "11.46861471474034337965307092767574931802443715144",
+     "pending_disposals": 4,
+     "pending_lots": 0,
+     "qty": "185.066308881067227185",
+     "realized": "-81.188378727644033171212395751664313464059144865356",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.059329400145318056569562096638601056444654133856672"
+     "unrealized": "-5.6862116271166540471115509665540892090635141328134"
     },
     "2": {
-     "cost_basis": "0",
-     "exits": 0,
-     "mark_price": null,
-     "mark_source": null,
-     "market_value": "0",
-     "pending_disposals": 465,
-     "pending_lots": 0,
-     "qty": "0",
-     "realized": "0",
+     "cost_basis": "3.84237789137699836985542438755160955621325089634",
+     "exits": 39,
+     "mark_price": "2493.9571678934744211752079372229707158142086595515",
+     "mark_source": "p3_mark:dex_slot0@52911467",
+     "market_value": "3.8026266778865541775800480366764647563198983257805",
+     "pending_disposals": 295,
+     "pending_lots": 1,
+     "qty": "0.001524736161005704",
+     "realized": "-36.096929078163223235507414443314235698106391661129",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "0"
+     "unrealized": "-0.0397512134904441922753763508751447998933525705595"
     },
     "20": {
-     "cost_basis": "0",
-     "exits": 14,
-     "mark_price": null,
-     "mark_source": null,
-     "market_value": "0",
-     "pending_disposals": 14,
-     "pending_lots": 1,
-     "qty": "0",
-     "realized": "-0.0518723687450197944634648677062477429066582293094",
+     "cost_basis": "15.925015745107996573130647282901726301754883915664",
+     "exits": 12,
+     "mark_price": "1",
+     "mark_source": "p3_mark:numeraire@52911467",
+     "market_value": "15.916984",
+     "pending_disposals": 15,
+     "pending_lots": 2,
+     "qty": "15.916984",
+     "realized": "-0.07058115624936766775775347306211822431171097134191",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "0"
+     "unrealized": "-0.008031745107996573130647282901726301754883915664"
     },
     "201": {
      "cost_basis": "0",
@@ -251,16 +282,16 @@
     "28": {
      "cost_basis": "3.0138700870046547077517187186727679053277639344724",
      "exits": 0,
-     "mark_price": "0.000026074618875483546506148695965406315927850125903041",
-     "mark_source": "p3:dex_reserves_thin@49402932",
-     "market_value": "2.9560389090951093433345188515955471885900903509138",
+     "mark_price": "0.000035975233907239017379815429063798053278837366644147",
+     "mark_source": "p3_mark:dex_reserves_thin@52911467",
+     "market_value": "4.0784562068358933879753170438016724555556867414105",
      "pending_disposals": 0,
      "pending_lots": 0,
      "qty": "113368.44167162502502567",
      "realized": "0",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.057831177909545364417199867077220716737673583558637"
+     "unrealized": "1.0645861198312386802235983251289045502279228069381"
     },
     "327": {
      "cost_basis": "0",
@@ -741,16 +772,16 @@
     "39": {
      "cost_basis": "3.0113475294767162378936134701255721717588104690035",
      "exits": 0,
-     "mark_price": "0.0000023774304315590655454989437155876371105295673146221",
-     "mark_source": "p3:dex_reserves_thin@49402932",
-     "market_value": "2.9609516145119022073360699304067242159600827180848",
+     "mark_price": "0.0000033043759519542202352747230865778311091361003267729",
+     "mark_source": "p3_mark:dex_reserves_thin@52911467",
+     "market_value": "4.1154084594925289437689482695535207753001557350954",
      "pending_disposals": 0,
      "pending_lots": 0,
      "qty": "1245441.959187077688682901",
      "realized": "-0.0078488812185260106020729534838484679082878382884356",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.050395914964814030557543539718847955798727750918769"
+     "unrealized": "1.1040609300158127058753347994279486035413452660919"
     },
     "40": {
      "cost_basis": "0",
@@ -851,18 +882,18 @@
      "unrealized": "0"
     },
     "51": {
-     "cost_basis": "0",
+     "cost_basis": "0.058017273863916669866434193209170733069433645293722",
      "exits": 0,
-     "mark_price": null,
-     "mark_source": null,
-     "market_value": "0",
+     "mark_price": "0.012125214354554717788585688814067300009438202052579",
+     "mark_source": "p3:trade@51157916",
+     "market_value": "0.024250428709109435577171377628134600018876404105158",
      "pending_disposals": 0,
      "pending_lots": 1,
-     "qty": "0",
+     "qty": "2",
      "realized": "0",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "0"
+     "unrealized": "-0.033766845154807234289262815581036133050557241188564"
     },
     "53": {
      "cost_basis": "0",
@@ -1312,46 +1343,60 @@
      "unpriced_disposals": 0,
      "unrealized": "0"
     },
+    "93": {
+     "cost_basis": "0.1033317642712916065562385114361541387012340989605",
+     "exits": 0,
+     "mark_price": "0.028717612944998015815071368243843605285511531177162",
+     "mark_source": "p3:trade@51157926",
+     "market_value": "0.057435225889996031630142736487687210571023062354324",
+     "pending_disposals": 0,
+     "pending_lots": 0,
+     "qty": "2",
+     "realized": "0",
+     "unmarked_lots": 0,
+     "unpriced_disposals": 0,
+     "unrealized": "-0.04589653838129557492609577494846692813021103660618"
+    },
     "96": {
      "cost_basis": "3.0163368841572651605960029785442201393378799753723",
      "exits": 0,
-     "mark_price": "0.0000070448977156119374059009146880389588967633065232532",
-     "mark_source": "p3:dex_reserves_thin@49402932",
-     "market_value": "2.9492623313269256146650826202551058532761460994026",
+     "mark_price": "0.0000091136695189443638284874641131493784399784224910025",
+     "mark_source": "p3_mark:dex_reserves_thin@52911467",
+     "market_value": "3.8153289511670720732978734095223814968078842270987",
      "pending_disposals": 0,
      "pending_lots": 0,
      "qty": "418638.062663589051780483",
      "realized": "-0.0083195695400165650770637281303916971924197765902345",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.067074552830339545930920358289114286061733875969734"
+     "unrealized": "0.79899206700980691270187043097816135747000425172646"
     },
     "97": {
      "cost_basis": "3.2885303417906960181124049668561318182509908619315",
      "exits": 0,
-     "mark_price": "0.000012400064770487243387856666141204550594996847766048",
-     "mark_source": "p3:dex_reserves_thin@49402932",
-     "market_value": "3.238683084891395710205765964294290248162329114715",
+     "mark_price": "0.000018272171690933444008607730212878946532825237039464",
+     "mark_source": "p3_mark:dex_reserves_thin@52911467",
+     "market_value": "4.7723761508491094775236596651529980507814560155205",
      "pending_disposals": 0,
      "pending_lots": 0,
      "qty": "261182.755480408360768244",
      "realized": "0",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.049847256899300307906639002561841570088661747216555"
+     "unrealized": "1.4838458090584134594112546982968662325304651535889"
     }
    },
-   "exits": 16,
+   "exits": 62,
    "low_excluded": 0,
-   "market_value_usdc": "22.446764944531765186267357649831735898496465124512",
-   "open_basis_usdc": "22.768447677650502429899449270173045079995557516667",
-   "realized_usdc": "-3.5985585370470860093081218887154730891566335610199",
+   "market_value_usdc": "53.389985413541197248955005503439496711014096700205",
+   "open_basis_usdc": "54.789362887246543050726107196523762935504519419326",
+   "realized_usdc": "-117.37205741281516665015670034965490755157795511267",
    "unmarked_lots": 0,
    "unmarked_nft_lots": 4,
    "unpriced_disposals": 0,
-   "unrealized_usdc": "-0.32168273311873724363209162034130918149909239215533"
+   "unrealized_usdc": "-1.3993774737053458017711016930842662244904227191214"
   },
-  "as_of_block": 49402932,
+  "as_of_block": 52911467,
   "craft_lots": 1,
   "craft_split_equal_fallbacks": 0,
   "excl_low": {
@@ -1369,6 +1414,20 @@
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
      "unrealized": "-0.03720443036941993825022675605568359636764130063496"
+    },
+    "102": {
+     "cost_basis": "0.015454898191166471040527530754142262198422693224825",
+     "exits": 0,
+     "mark_price": "0.0077274490955832355202637653770711310992113466124125",
+     "mark_source": "p3:trade@51283821",
+     "market_value": "0.015454898191166471040527530754142262198422693224825",
+     "pending_disposals": 0,
+     "pending_lots": 0,
+     "qty": "2",
+     "realized": "0",
+     "unmarked_lots": 0,
+     "unpriced_disposals": 0,
+     "unrealized": "0"
     },
     "117": {
      "cost_basis": "0.047144938631386242148240270624075696093909787607424",
@@ -1469,46 +1528,46 @@
      "unrealized": "0"
     },
     "19": {
-     "cost_basis": "5.078108705072326496387235873731923663516214631078",
-     "exits": 2,
-     "mark_price": "0.044343104904388287645038434694976640074523015870999",
-     "mark_source": "p3:trade@49347048",
-     "market_value": "5.0187793049270084398176737770933226070715604972214",
-     "pending_disposals": 80,
-     "pending_lots": 10,
-     "qty": "113.180601939092889336",
-     "realized": "-3.5305177175435236391655203393949851811492677168319",
+     "cost_basis": "17.154826341856997426764621894229838527087951284253",
+     "exits": 11,
+     "mark_price": "0.061970300180951050427830576114448426052278900997314",
+     "mark_source": "p3_mark:dex_slot0@52911467",
+     "market_value": "11.46861471474034337965307092767574931802443715144",
+     "pending_disposals": 4,
+     "pending_lots": 0,
+     "qty": "185.066308881067227185",
+     "realized": "-80.448097990570628964426822593113623064104399196377",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.059329400145318056569562096638601056444654133856672"
+     "unrealized": "-5.6862116271166540471115509665540892090635141328134"
     },
     "2": {
-     "cost_basis": "0",
-     "exits": 0,
-     "mark_price": null,
-     "mark_source": null,
-     "market_value": "0",
-     "pending_disposals": 465,
-     "pending_lots": 0,
-     "qty": "0",
-     "realized": "0",
+     "cost_basis": "3.84237789137699836985542438755160955621325089634",
+     "exits": 39,
+     "mark_price": "2493.9571678934744211752079372229707158142086595515",
+     "mark_source": "p3_mark:dex_slot0@52911467",
+     "market_value": "3.8026266778865541775800480366764647563198983257805",
+     "pending_disposals": 295,
+     "pending_lots": 1,
+     "qty": "0.001524736161005704",
+     "realized": "-36.096929078163223235507414443314235698106391661129",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "0"
+     "unrealized": "-0.0397512134904441922753763508751447998933525705595"
     },
     "20": {
-     "cost_basis": "0",
-     "exits": 14,
-     "mark_price": null,
-     "mark_source": null,
-     "market_value": "0",
-     "pending_disposals": 14,
-     "pending_lots": 1,
-     "qty": "0",
-     "realized": "-0.0518723687450197944634648677062477429066582293094",
+     "cost_basis": "15.925015745107996573130647282901726301754883915664",
+     "exits": 12,
+     "mark_price": "1",
+     "mark_source": "p3_mark:numeraire@52911467",
+     "market_value": "15.916984",
+     "pending_disposals": 15,
+     "pending_lots": 2,
+     "qty": "15.916984",
+     "realized": "-0.07058115624936766775775347306211822431171097134191",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "0"
+     "unrealized": "-0.008031745107996573130647282901726301754883915664"
     },
     "201": {
      "cost_basis": "0",
@@ -2169,18 +2228,18 @@
      "unrealized": "0"
     },
     "51": {
-     "cost_basis": "0",
+     "cost_basis": "0.058017273863916669866434193209170733069433645293722",
      "exits": 0,
-     "mark_price": null,
-     "mark_source": null,
-     "market_value": "0",
+     "mark_price": "0.012125214354554717788585688814067300009438202052579",
+     "mark_source": "p3:trade@51157916",
+     "market_value": "0.024250428709109435577171377628134600018876404105158",
      "pending_disposals": 0,
      "pending_lots": 1,
-     "qty": "0",
+     "qty": "2",
      "realized": "0",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "0"
+     "unrealized": "-0.033766845154807234289262815581036133050557241188564"
     },
     "53": {
      "cost_basis": "0",
@@ -2630,6 +2689,20 @@
      "unpriced_disposals": 0,
      "unrealized": "0"
     },
+    "93": {
+     "cost_basis": "0.1033317642712916065562385114361541387012340989605",
+     "exits": 0,
+     "mark_price": "0.028717612944998015815071368243843605285511531177162",
+     "mark_source": "p3:trade@51157926",
+     "market_value": "0.057435225889996031630142736487687210571023062354324",
+     "pending_disposals": 0,
+     "pending_lots": 0,
+     "qty": "2",
+     "realized": "0",
+     "unmarked_lots": 0,
+     "unpriced_disposals": 0,
+     "unrealized": "-0.04589653838129557492609577494846692813021103660618"
+    },
     "96": {
      "cost_basis": "0",
      "exits": 0,
@@ -2659,43 +2732,44 @@
      "unrealized": "0"
     }
    },
-   "exits": 16,
-   "low_excluded": 38,
-   "market_value_usdc": "10.341829004706432310725920283280068392507816841396",
-   "open_basis_usdc": "10.438362835221170305545709135974353045320112275888",
-   "realized_usdc": "-3.5985764513023782710038327197869263927709604546928",
+   "exits": 62,
+   "low_excluded": 42,
+   "market_value_usdc": "36.608415645196593366389207115408923932568913981079",
+   "open_basis_usdc": "42.459278044817210926372367062325070900829074178547",
+   "realized_usdc": "-116.63179458999705470506683802217567045523753633738",
    "unmarked_lots": 0,
    "unmarked_nft_lots": 4,
    "unpriced_disposals": 0,
-   "unrealized_usdc": "-0.096533830514737994819788852694284652812295434491632"
+   "unrealized_usdc": "-5.8508623996206175599831599469161469682601601974667"
   },
   "excluded_rows": {
-   "spam": 265,
-   "untracked": 39
+   "spam": 494,
+   "untracked": 56
   },
-  "exit_basis_usdc": "318.81134371476028517891859099546126819722390602953",
-  "exit_display_mv_usdc": "3136.6538661787301148302989005285709976078197152953",
-  "exits": 69,
-  "exits_pending": 53,
-  "expenses_usdc": "6.0843948076772880559179145939237193706297345588247",
+  "exit_basis_usdc": "3389.8030145162245348850180489671662614418083394025",
+  "exit_display_mv_usdc": "3147.4878891074532009800666176435133665780282407232",
+  "exits": 78,
+  "exits_pending": 16,
+  "expenses_usdc": "6.3870242856451961148830978031311663536334926894946",
   "free_craft_lots": 3,
   "gas": {
    "fee_split_methods": {
-    "basis": 27
+    "basis": 35
    },
-   "gas_capitalized_usdc": "0.31324869100191045765146661206089670689351040401297",
-   "gas_disposals": 413,
-   "gas_entries": 407,
-   "gas_expense_resolved_usdc": "0",
-   "gas_expense_usdc": "6.0627511021806224970137566261056688979631329733965",
-   "gas_in_basis_usdc": "0.17824805913323320141542038674819291467514866995622",
-   "gas_mv_usdc": "6.3759997931825329546652232381665656048566433774095",
+   "gas_capitalized_usdc": "0.42337135589951531256981708546809406769521016361736",
+   "gas_disposals": 449,
+   "gas_entries": 449,
+   "gas_expense_resolved_usdc": "1.6021203111484920743349760632406676863377028647525",
+   "gas_expense_usdc": "6.3653805801485305559789398353131158809668911040664",
+   "gas_in_basis_usdc": "0.28434617403571744497011306995377768312334532893532",
+   "gas_mv_usdc": "6.7887519360480458685487569207812099486621012676839",
    "gas_on_pending_lots_usdc": "0",
-   "gas_pending_disposals": 413,
-   "gas_realized_usdc": "0"
+   "gas_pending_disposals": 270,
+   "gas_realized_usdc": "-0.56843922649996122532114240957847412147031435903874"
   },
   "holdings_by_location": {
    "100@wallet": "2",
+   "102@wallet": "2",
    "117@wallet": "1",
    "154@wallet": "1",
    "166@wallet": "10",
@@ -2703,14 +2777,14 @@
    "168@wallet": "1",
    "169@wallet": "176",
    "170@wallet": "1",
-   "19@escrow:0xa99c4b08201f2913db8d28e71d020c4298f29dbf": "0.24",
-   "19@wallet": "186.352708881067227185",
+   "19@wallet": "185.066308881067227185",
    "201@wallet": "1",
-   "20@wallet": "36.063241",
+   "20@wallet": "15.917054",
    "225@wallet": "1",
    "226@wallet": "1",
    "227@wallet": "1",
    "28@wallet": "113368.44167162502502567",
+   "2@wallet": "0.001524752161005704",
    "327@wallet": "1",
    "328@wallet": "3",
    "329@wallet": "1",
@@ -2754,7 +2828,7 @@
    "44@wallet": "2",
    "45@wallet": "4",
    "46@wallet": "30",
-   "51@wallet": "1",
+   "51@wallet": "3",
    "53@wallet": "1",
    "54@wallet": "1",
    "55@wallet": "1",
@@ -2787,22 +2861,23 @@
    "82@wallet": "1",
    "83@wallet": "1",
    "90@wallet": "1",
+   "93@wallet": "2",
    "96@wallet": "418638.062663589051780483",
    "97@wallet": "261182.755480408360768244"
   },
   "income_unpriced": 0,
-  "income_usdc": "0.14162696287137066493330087583504704313280079798697",
+  "income_usdc": "3375.8990867003199166568404362584787794214950628322",
   "open_cost_buckets": {},
-  "pending_disposals": 559,
-  "pending_lots_open": 92,
-  "pending_lots_total": 612,
+  "pending_disposals": 314,
+  "pending_lots_open": 84,
+  "pending_lots_total": 105,
   "pending_reasons": {
-   "deposit": 16,
-   "migration": 81,
-   "unrecorded_inflow": 515
+   "bridge_in": 3,
+   "deposit": 21,
+   "migration": 81
   }
  },
- "rows_after_as_of": 162,
- "state_at_as_of": "replay of ledger rows <= as_of_block (offline)",
- "tx_index_null_rows": 1319
+ "rows_after_as_of": 0,
+ "state_at_as_of": "fifo_run (db)",
+ "tx_index_null_rows": 1326
 }

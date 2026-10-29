@@ -1,0 +1,19 @@
+{
+ "chain": 8453,
+ "changes": 15,
+ "end_block": 52911467,
+ "internal_net_wei": "1100159886980823309",
+ "probe_points": 138,
+ "residual_first": [],
+ "residual_nonzero_points": 0,
+ "rows": 15,
+ "rows_in": 15,
+ "rpc": {
+  "cached": 152,
+  "errors": 0,
+  "requests": 19
+ },
+ "traced_txs": 30,
+ "unexplained": [],
+ "wallet": "0x2127aa7265d573aa467f1d73554d17890b872e76"
+}

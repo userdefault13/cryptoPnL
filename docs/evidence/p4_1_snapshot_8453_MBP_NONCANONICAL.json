@@ -1,0 +1,24 @@
+{
+ "chain": 8453,
+ "disposals": 633,
+ "engine_md5": "35661c8d6b8394f18482a40b6cdad391",
+ "fifo_lot_md5": "7c095c3ce617901052e451132ca2c6cc",
+ "fifo_run": 4,
+ "ledger_rows": 1207,
+ "lot_disposal_md5": "68937d8b97861bdbabbca32c94056d79",
+ "lots": 206,
+ "policy": {
+  "deposit": "pending",
+  "fee": "capitalize",
+  "fee_split": "basis_else_equal",
+  "fee_without_trade": "expense",
+  "internal_transfer": "carry",
+  "mark": "p3_mark_at_as_of",
+  "nft_mark": "p3_price_else_exclude",
+  "queue_split": "recipe_else_equal",
+  "recipe": "stored_craft_recipe_cost",
+  "shortfall": "pending",
+  "withdrawal": "exit"
+ },
+ "tx_index_null_rows": 1202
+}

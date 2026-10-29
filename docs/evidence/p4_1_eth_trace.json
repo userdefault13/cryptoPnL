@@ -1,0 +1,491 @@
+{
+ "changes": [
+  {
+   "block": 12795081,
+   "explained_by_traces_wei": 8987936119941153,
+   "recorded": [
+    [
+     "0xccbfe04a6920793f7000b61d74e0da342e65252efe3e73170ec2f751c5bc58c0",
+     "fee",
+     -2113313899848
+    ]
+   ],
+   "surplus_delta_wei": 8987936119941153,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 1,
+       "from": "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",
+       "path": [
+        "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad"
+       ],
+       "type": "CALL",
+       "value_wei": 8987936119941153
+      }
+     ],
+     "internal_sum_wei": 8987936119941153,
+     "selector": "0x3593564c",
+     "top_value_wei": 0,
+     "tx": "0xccbfe04a6920793f7000b61d74e0da342e65252efe3e73170ec2f751c5bc58c0",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 23210972,
+   "surplus_delta_wei": 52652326223033971,
+   "where": "between_recorded_blocks"
+  },
+  {
+   "block": 40749157,
+   "explained_by_traces_wei": 1014128302400000000,
+   "recorded": [
+    [
+     "0xcacfad72de1769c3cecdf63fdf0dd3f6ec958a23b53c2ef0839e3cdfa185f07f",
+     "fee",
+     -287188619137
+    ]
+   ],
+   "surplus_delta_wei": 1014128302400000000,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 1,
+       "from": "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11",
+       "path": [
+        "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11"
+       ],
+       "type": "CALL",
+       "value_wei": 1014128302400000000
+      }
+     ],
+     "internal_sum_wei": 1014128302400000000,
+     "selector": "0x2f52ebb7",
+     "top_value_wei": 0,
+     "tx": "0xcacfad72de1769c3cecdf63fdf0dd3f6ec958a23b53c2ef0839e3cdfa185f07f",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 40991112,
+   "explained_by_traces_wei": 1,
+   "recorded": [
+    [
+     "0x7ec336225394e882ff9bebdab66a69b5f44e93627d65aeb633593a288e5c5592",
+     "withdrawal",
+     -299948594263377715
+    ],
+    [
+     "0x7ec336225394e882ff9bebdab66a69b5f44e93627d65aeb633593a288e5c5592",
+     "fee",
+     -1676565887729
+    ]
+   ],
+   "surplus_delta_wei": 1,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 3,
+       "from": "0xaf14797ccf963b1e3d028a9d51853ace16aedba1",
+       "path": [
+        "0x3335733c454805df6a77f825f266e136fb4a3333",
+        "0xaf14797ccf963b1e3d028a9d51853ace16aedba1",
+        "0x1c7cc271ad9dbe625a07c653ae61b757fdfcbe91"
+       ],
+       "type": "CALL",
+       "value_wei": 1
+      }
+     ],
+     "internal_sum_wei": 1,
+     "selector": "0xe1fcde8e",
+     "top_value_wei": 299948594263377715,
+     "tx": "0x7ec336225394e882ff9bebdab66a69b5f44e93627d65aeb633593a288e5c5592",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0x3335733c454805df6a77f825f266e136fb4a3333"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 41679144,
+   "explained_by_traces_wei": 1,
+   "recorded": [
+    [
+     "0x4057b4a33188f6dcb9bf0900cc4deb2a5a3977edceeaa5fde0914e07cca7efef",
+     "withdrawal",
+     -299948594263377715
+    ],
+    [
+     "0x4057b4a33188f6dcb9bf0900cc4deb2a5a3977edceeaa5fde0914e07cca7efef",
+     "fee",
+     -3751261503732
+    ]
+   ],
+   "surplus_delta_wei": 1,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 3,
+       "from": "0xaf14797ccf963b1e3d028a9d51853ace16aedba1",
+       "path": [
+        "0x3335733c454805df6a77f825f266e136fb4a3333",
+        "0xaf14797ccf963b1e3d028a9d51853ace16aedba1",
+        "0x1c7cc271ad9dbe625a07c653ae61b757fdfcbe91"
+       ],
+       "type": "CALL",
+       "value_wei": 1
+      }
+     ],
+     "internal_sum_wei": 1,
+     "selector": "0xe1fcde8e",
+     "top_value_wei": 299948594263377715,
+     "tx": "0x4057b4a33188f6dcb9bf0900cc4deb2a5a3977edceeaa5fde0914e07cca7efef",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0x3335733c454805df6a77f825f266e136fb4a3333"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 46796145,
+   "explained_by_traces_wei": 82582369528891,
+   "recorded": [
+    [
+     "0x640a3418c684f3ae638a62494460d8690a285005a5b5757804a8269d54d70126",
+     "swap",
+     -3385877150684547
+    ],
+    [
+     "0x640a3418c684f3ae638a62494460d8690a285005a5b5757804a8269d54d70126",
+     "fee",
+     -3746474667233
+    ]
+   ],
+   "surplus_delta_wei": 82582369528891,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 1,
+       "from": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7",
+       "path": [
+        "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+       ],
+       "type": "CALL",
+       "value_wei": 82582369528891
+      }
+     ],
+     "internal_sum_wei": 82582369528891,
+     "selector": "0x3593564c",
+     "top_value_wei": 3385877150684547,
+     "tx": "0x640a3418c684f3ae638a62494460d8690a285005a5b5757804a8269d54d70126",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 46796599,
+   "explained_by_traces_wei": 248136263416683,
+   "recorded": [
+    [
+     "0x3c988c5bfbb7f577970d4eb3342a3a3b5b4989f75370f8ab3db11df6917a6732",
+     "swap",
+     -10169190548978311
+    ],
+    [
+     "0x3c988c5bfbb7f577970d4eb3342a3a3b5b4989f75370f8ab3db11df6917a6732",
+     "fee",
+     -2576599205383
+    ]
+   ],
+   "surplus_delta_wei": 248136263416683,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 1,
+       "from": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7",
+       "path": [
+        "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+       ],
+       "type": "CALL",
+       "value_wei": 248136263416683
+      }
+     ],
+     "internal_sum_wei": 248136263416683,
+     "selector": "0x3593564c",
+     "top_value_wei": 10169190548978311,
+     "tx": "0x3c988c5bfbb7f577970d4eb3342a3a3b5b4989f75370f8ab3db11df6917a6732",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 46860859,
+   "surplus_delta_wei": 14247209214890559,
+   "where": "between_recorded_blocks"
+  },
+  {
+   "block": 46904091,
+   "explained_by_traces_wei": 14050301010504,
+   "recorded": [
+    [
+     "0x0b09654a56af868a05a608b376158ac0f0d7c6bb5ed3bb882cc243fa85c4dce3",
+     "swap",
+     -579639474154007
+    ],
+    [
+     "0x0b09654a56af868a05a608b376158ac0f0d7c6bb5ed3bb882cc243fa85c4dce3",
+     "fee",
+     -2345174247248
+    ]
+   ],
+   "surplus_delta_wei": 14050301010504,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 1,
+       "from": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7",
+       "path": [
+        "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+       ],
+       "type": "CALL",
+       "value_wei": 14050301010504
+      }
+     ],
+     "internal_sum_wei": 14050301010504,
+     "selector": "0x3593564c",
+     "top_value_wei": 579639474154007,
+     "tx": "0x0b09654a56af868a05a608b376158ac0f0d7c6bb5ed3bb882cc243fa85c4dce3",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 46918238,
+   "explained_by_traces_wei": 135901291199612,
+   "recorded": [
+    [
+     "0x5d0d8221c923095f03bba141bf0293b63548a75312f34be3df808f145324839e",
+     "swap",
+     -5864846362150030
+    ],
+    [
+     "0x5d0d8221c923095f03bba141bf0293b63548a75312f34be3df808f145324839e",
+     "fee",
+     -3335057033418
+    ]
+   ],
+   "surplus_delta_wei": 135901291199612,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 1,
+       "from": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7",
+       "path": [
+        "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+       ],
+       "type": "CALL",
+       "value_wei": 135901291199612
+      }
+     ],
+     "internal_sum_wei": 135901291199612,
+     "selector": "0x3593564c",
+     "top_value_wei": 5864846362150030,
+     "tx": "0x5d0d8221c923095f03bba141bf0293b63548a75312f34be3df808f145324839e",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 49384073,
+   "explained_by_traces_wei": 2677209067684579,
+   "recorded": [
+    [
+     "0x86d7518cc1776125befa6652becf2ccc76614a0f2e701cc80cd34c5ecf2714fa",
+     "fee",
+     -1024385594549
+    ]
+   ],
+   "surplus_delta_wei": 2677209067684579,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 2,
+       "from": "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7",
+       "path": [
+        "0x2127aa7265d573aa467f1d73554d17890b872e76",
+        "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7"
+       ],
+       "type": "CALL",
+       "value_wei": 2677209067684579
+      }
+     ],
+     "internal_sum_wei": 2677209067684579,
+     "selector": "0xe9ae5c53",
+     "top_value_wei": 0,
+     "tx": "0x86d7518cc1776125befa6652becf2ccc76614a0f2e701cc80cd34c5ecf2714fa",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0x2127aa7265d573aa467f1d73554d17890b872e76"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 51007144,
+   "explained_by_traces_wei": 1985870250000000,
+   "recorded": [
+    [
+     "0xdf1d76981dc9c1a165abe88a4f37e9ae62c5b560a57e6a45e3834a48a082e0e8",
+     "fee",
+     -1783202808559
+    ]
+   ],
+   "surplus_delta_wei": 1985870250000000,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 4,
+       "from": "0x0a2854fbbd9b3ef66f17d47284e7f899b9509330",
+       "path": [
+        "0x2127aa7265d573aa467f1d73554d17890b872e76",
+        "0x9dda6ef3d919c9bc8885d5560999a3640431e8e6",
+        "0x0a2854fbbd9b3ef66f17d47284e7f899b9509330",
+        "0x7bcdf129fe328c817099c921406d345325f1be3f"
+       ],
+       "type": "CALL",
+       "value_wei": 1985870250000000
+      }
+     ],
+     "internal_sum_wei": 1985870250000000,
+     "selector": "0xe9ae5c53",
+     "top_value_wei": 0,
+     "tx": "0xdf1d76981dc9c1a165abe88a4f37e9ae62c5b560a57e6a45e3834a48a082e0e8",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0x2127aa7265d573aa467f1d73554d17890b872e76"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 51481414,
+   "explained_by_traces_wei": 42169919004273,
+   "recorded": [
+    [
+     "0x77b74a9f71a64c4c44eaf31893d15dd40c205da59a6a3ec495b0c3179409af00",
+     "withdrawal",
+     -182736315685186
+    ],
+    [
+     "0x77b74a9f71a64c4c44eaf31893d15dd40c205da59a6a3ec495b0c3179409af00",
+     "fee",
+     -3487789101842
+    ]
+   ],
+   "surplus_delta_wei": 42169919004273,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 3,
+       "from": "0x1a44076050125825900e736c501f859c50fe728c",
+       "path": [
+        "0x27a16dc786820b16e5c9028b75b99f6f604b5d26",
+        "0x5634c4a5fed09819e3c46d86a965dd9447d86e47",
+        "0x1a44076050125825900e736c501f859c50fe728c"
+       ],
+       "type": "CALL",
+       "value_wei": 42169919004273
+      }
+     ],
+     "internal_sum_wei": 42169919004273,
+     "selector": "0xcbef2aa9",
+     "top_value_wei": 182736315685186,
+     "tx": "0x77b74a9f71a64c4c44eaf31893d15dd40c205da59a6a3ec495b0c3179409af00",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0x27a16dc786820b16e5c9028b75b99f6f604b5d26"
+    }
+   ],
+   "where": "in_recorded_block"
+  },
+  {
+   "block": 51481437,
+   "explained_by_traces_wei": 42169574781273,
+   "recorded": [
+    [
+     "0x48bb74c6f76949013d223d1623f8d417110691886a69f3ce835b73f9b91e2b67",
+     "withdrawal",
+     -182734824052186
+    ],
+    [
+     "0x48bb74c6f76949013d223d1623f8d417110691886a69f3ce835b73f9b91e2b67",
+     "fee",
+     -3490664488194
+    ]
+   ],
+   "surplus_delta_wei": 42169574781273,
+   "traces": [
+    {
+     "internal_inflows": [
+      {
+       "depth": 3,
+       "from": "0x1a44076050125825900e736c501f859c50fe728c",
+       "path": [
+        "0x27a16dc786820b16e5c9028b75b99f6f604b5d26",
+        "0x5634c4a5fed09819e3c46d86a965dd9447d86e47",
+        "0x1a44076050125825900e736c501f859c50fe728c"
+       ],
+       "type": "CALL",
+       "value_wei": 42169574781273
+      }
+     ],
+     "internal_sum_wei": 42169574781273,
+     "selector": "0xcbef2aa9",
+     "top_value_wei": 182734824052186,
+     "tx": "0x48bb74c6f76949013d223d1623f8d417110691886a69f3ce835b73f9b91e2b67",
+     "tx_from": "0x2127aa7265d573aa467f1d73554d17890b872e76",
+     "tx_to": "0x27a16dc786820b16e5c9028b75b99f6f604b5d26"
+    }
+   ],
+   "where": "in_recorded_block"
+  }
+ ],
+ "end_block": 52112861,
+ "expected_path": "MBP cryptopnl_p3_base ETH rows (511 rows, 457 blocks; NOT the canonical ledger)",
+ "notes": [],
+ "pre_first_row": {
+  "balance_wei": 4916023986331809,
+  "block": 12795075
+ },
+ "probes": 117,
+ "requests": {
+  "hypersync": 0,
+  "hypersync_cached": 0,
+  "rpc": 125,
+  "rpc_cached": 4
+ },
+ "sum_changes_wei": 1095243862994491500,
+ "surplus_at_end_wei": 1100159886980823309,
+ "wallet": "0x2127aa7265d573aa467f1d73554d17890b872e76"
+}

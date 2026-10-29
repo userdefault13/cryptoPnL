@@ -1,0 +1,41 @@
+{
+ "as_of_block": 52112861,
+ "assets": {
+  "2": {
+   "label": "high",
+   "price": "2681.9724450203738120489128917773436092791791631747",
+   "source": "dex_slot0",
+   "status": "priced"
+  },
+  "20": {
+   "label": "high",
+   "price": "1",
+   "source": "numeraire",
+   "status": "priced"
+  },
+  "28": {
+   "reason": "swap_scan_gap",
+   "status": "no_valid_mark"
+  },
+  "39": {
+   "reason": "swap_scan_gap",
+   "status": "no_valid_mark"
+  },
+  "96": {
+   "reason": "swap_scan_gap",
+   "status": "no_valid_mark"
+  },
+  "97": {
+   "reason": "swap_scan_gap",
+   "status": "no_valid_mark"
+  }
+ },
+ "held_assets": 6,
+ "no_valid_mark": 4,
+ "priced": 2,
+ "reasons": {
+  "swap_scan_gap": 4
+ },
+ "rpc_calls": 12,
+ "seed_hits": 0
+}

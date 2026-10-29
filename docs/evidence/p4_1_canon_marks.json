@@ -1,0 +1,53 @@
+{
+ "as_of_block": 52911467,
+ "assets": {
+  "19": {
+   "label": "high",
+   "price": "0.061970300180951050427830576114448426052278900997314",
+   "source": "dex_slot0",
+   "status": "priced"
+  },
+  "2": {
+   "label": "high",
+   "price": "2493.9571678934744211752079372229707158142086595515",
+   "source": "dex_slot0",
+   "status": "priced"
+  },
+  "20": {
+   "label": "high",
+   "price": "1",
+   "source": "numeraire",
+   "status": "priced"
+  },
+  "28": {
+   "label": "low",
+   "price": "0.000035975233907239017379815429063798053278837366644147",
+   "source": "dex_reserves_thin",
+   "status": "priced"
+  },
+  "39": {
+   "label": "low",
+   "price": "0.0000033043759519542202352747230865778311091361003267729",
+   "source": "dex_reserves_thin",
+   "status": "priced"
+  },
+  "96": {
+   "label": "low",
+   "price": "0.0000091136695189443638284874641131493784399784224910025",
+   "source": "dex_reserves_thin",
+   "status": "priced"
+  },
+  "97": {
+   "label": "low",
+   "price": "0.000018272171690933444008607730212878946532825237039464",
+   "source": "dex_reserves_thin",
+   "status": "priced"
+  }
+ },
+ "held_assets": 7,
+ "no_valid_mark": 0,
+ "priced": 7,
+ "reasons": {},
+ "rpc_calls": 12,
+ "seed_hits": 0
+}

@@ -308,6 +308,100 @@ The ledger PG password comes from abra only (`cryptoPnL/CRYPTOPNL_LEDGER_PG_PASS
 Schema: `migrations/014_p4_rulings3.sql` (fifo_lot.basis_origin, the new view) with `migrations/rollback/014_down.sql` (run before 013_down).
 7. Status: the engine is proven on synthetic golden books and on the Base ledger (rebuild == incremental, identity within tolerance);
    **real-ledger acceptance is deferred to P4.1** (resolve the unexplained gaps: missing ETH / GHST inflows).
+- *P4 rulings 4 (PR #8 at 938fe75, 2026-10-28; revises the as_of rule from Q-F and ruling 3).*
+  - **Problem:** taking the minimum over tracked tokens of each token's latest priced block put as_of at block 49,402,932. That is about 81 days before the last ledger block, because the alchemica pools are stale (reported by my review; I haven't checked it on the omarchywin run).
+  - **New rule:** as_of_block is the last ledger block by default, or a block user_default chooses. The pricing step (P3 path, outside the engine) writes a mark for each held asset at that block, using the normal price order. A held asset with no valid mark is excluded from unrealized PnL and counted, the same as unpriced NFTs. The engine stays offline.
+  - **Gate:** every ledger row is at or before as_of and is reconciled. This moves to P4.1 along with the inflow fix.
+  - **PR #8:** approved for merge as the engine once the .env fallback is removed and migration 014 is wrapped in BEGIN/COMMIT.
+
+### P4.1 rulings (2026-10-28, architect)
+Inflow fix for the ETH unexplained gap found in P4 (sources: docs/P4_1_SOURCES.md). The GHST pocket outflows are covered by rule 7
+(the HyperSync trace of how GHST entered the pockets: docs/P4_1_SOURCES.md §2b).
+1. **Ingest**: contract-internal ETH to/from the wallet is recorded from traces (`cryptopnl/internal_eth.py`: eth_getBalance probes +
+   bisection, then debug_traceTransaction callTracer; CALL/CREATE/CREATE2/SELFDESTRUCT frames with value, below the top level, not in a
+   reverted subtree; DELEGATECALL/STATICCALL never move value), inside the RPC limit (30/min). Each frame is its own ledger leg
+   (`raw_event kind='internal_eth'`, `log_index = n − 100000`, DFS order), tied to its tx and `ledger_entry.trace_address` for ordering. The run
+   re-checks balance − expected = 0 at every probe. The ledger md5 is re-checked after ingest and the new baseline recorded.
+2. **Swap outputs** (Uniswap router, MetaMask Swaps via 7702 execute): the internal ETH is the swap's ETH in-leg, priced by the trade.
+   It must pair with a token out-leg already in the ledger for that tx; none → review.
+3. **Router refunds** of excess ETH and the 2 LayerZero refunds: netted against the ETH sent in the same tx (lowers that disposal's
+   qty; ref `eth_refund`), never a new lot. No ETH sent in the tx, or a refund larger than the ETH sent → review.
+4. **Bridges in** (Hop, Mayan Swift, Across): `bridge_in` custody move. Opens a pending lot with `basis_origin = bridge_in` (plus source
+   chain / tx when the bridge event gives them; ref `bridge_in:<bridge>[:chain[:tx]]`). Not income. Resolves only if the source chain is
+   tracked (P6) or via manual_basis.
+5. **1.0141 ETH claim from 0xf50326e1**: identified from free sources as the Aavegotchi Partial Treasury Distribution: a basescan-verified
+   `MerkleDistributor` (`claim(uint256,bytes32[])`, `Claimed` event) funded by the Aavegotchi "DAO Liquidity" Gnosis Safe 0x62DE…682E
+   (1,036.92 ETH at block 40400409, after 1,111 ETH arrived from the Base L2 Standard Bridge), announced by Aavegotchi on 2026-01-07,
+   amounts by voting power (pgendreau/aavegotchi-ptd, 1111 ETH total). A DAO reward/distribution → **income at FMV**.
+   **Ruling (architect, 2026-10-28 18:18 PT):** kept as income at FMV, tagged `income_subtype = dao_distribution` and
+   `source_ref = 0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11` (the PTD MerkleDistributor; `config.INTERNAL_ETH[...]["distribution_subtype"]`,
+   ledger_entry columns in migration 015). The report shows it as its own income line (`income_lines` in the P4 output; lines sum to
+   income_usdc). No return-of-capital path is built: that treatment is user_default's decision.
+   **FINAL (option a, user_default 2026-10-28 19:54 PT, via the architect): the whole 1.0141283024 ETH claim is income.** One ETH lot
+   at FMV (the P3 price at the claim block; pending `no_price` if unpriced, never 0) and income at FMV in the income total, tagged
+   `income_subtype = dao_distribution`, `source_ref = 0xf50326e1…`, its own income line. No return-of-capital, RF split or
+   basis_adjustment path. Background: the PTD allocation is not GHST-only (combined Snapshot VP incl. gotchis/wearables, REALM, GLTR LP
+   and pocket GHST, × governance participation, plus a gotchi rarity-farming pool): docs/P4_RESULTS.md §12. This supersedes the 19:48 PT
+   return-of-capital ruling (stopped at its step-0 gate; never built).
+   An unidentified distributor would be income at FMV flagged `source_unidentified` and listed for user_default (never pending).
+6. **1-wei Rubic dust**: if the wallet sent ETH in the same tx it is a refund under rule 3; otherwise income at FMV (≈ 0). Never spam for
+   native ETH.
+7. **Gotchi pocket inflows (architect ruling (a), 2026-10-28 20:21 PT).** A gotchi pocket (its escrow contract) is user_default's custody
+   while the wallet group owns that gotchi **at the deposit block** (the historical owner from the ledger's ERC721 legs, replayed in
+   chain order, not today's owner).
+   * **Income:** third-party inflows into such a pocket are income at FMV at the deposit block, booked at `pocket:<gotchiId>`. From the
+     rarity-farming relayer 0xf5239825… (`baseRelayerAddress` / `relayerPetter`, `batchDepositGHST`) they are tagged
+     `income_subtype = rarity_farming_payout`. From any other sender they are tagged `pocket_deposit`. Either way
+     `source_ref = <sender>:<tx hash>`. The RF season is **inferred** (from the payout's date and the RF tooling), never tagged: the
+     chain carries no season id. The report shows one income line per (subtype, sender), with its tx count.
+   * **Withdrawals:** `batchTransferEscrow` / `transferEscrow` to the wallet are internal custody moves (`transfer_internal`,
+     pocket:<id> → wallet). The lot keeps its basis, source and acquisition date and order; no PnL.
+   * **Owner mismatch / lending edge:** if the gotchi was out on a rental at the deposit (lending interval [executed, ended) by
+     (block, log index), from the indexed GotchiLendingExecute / End events of the wallet's listings) or the pocket's owner was not in
+     the wallet group, no income is booked. The leg is flagged `pocket_owner_mismatch` (one review_queue row per tx, reason
+     `pocket_owner_mismatch`, legs in the detail), counted, and reported (`pockets.pocket_owner_mismatch` in the P4 reconcile output).
+     A third-party move *out* of an owned pocket goes to review.
+   * **Non-GHST inflows (7.4; amended, the architect approved the three deviations, 2026-10-28 20:44 PT):**
+     - **The existing §8 unsolicited-token rule wins for tokens that aren't allowlisted.** A third-party pocket inflow of a
+       non-allowlisted token is `spam` at `pocket:<id>` (no lot, never in PnL, counted in the sender/token table), not a pending
+       income lot. On chain this is all 155 third-party non-GHST legs (21 contracts; none is canonical Base USDC or any other
+       allowlisted token, checked against `config/allowlist.txt`): 154 spam and 1 owner mismatch. Most of the ERC-20 ones carry a
+       spoofed USDC `from` (docs/P4_1_SOURCES.md §2c).
+     - **Allowlisted tokens** (alchemica, GLTR, USDC, …) from a third party are income at FMV via the P3 price order; unpriced, the
+       lot is pending (`no_price`) and flagged, never 0. Third-party NFTs that are allowlisted are income at FMV when priced;
+       unpriced, they are excluded from unrealized and counted (Q8).
+     - **`pocket_deposit`** is the income_subtype for non-relayer third-party income (`rarity_farming_payout` is relayer +
+       `batchDepositGHST` only). source_ref is `<sender>:<tx hash>` for both.
+     - **Mismatched legs** (owner not in the wallet group at the deposit block, or the gotchi out on a rental) go to review_queue
+       (reason `pocket_owner_mismatch`, legs in the detail) with **no ledger_entry**. So gotchi 10774's 28.8225 GHST (8 relayer
+       deposits before the wallet held it, withdrawn by its owner then) stays out of the wallet's quantities.
+     - **Wallet-group senders** are internal moves.
+     Counts before and after, by sender and token: docs/P4_RESULTS.md §12b.
+   * **Sources:** `scripts/p4_1_pockets.py` (read-only: Multicall3 gotchiEscrow / ownerOf / isAavegotchiLent / getGotchiLendingIdByToken,
+     HyperSync pocket Transfer / TransferSingle / TransferBatch logs, the wallet's lending txs, and the lending events) writes
+     docs/evidence/p4_1_pockets.json. `cryptopnl pockets` loads it with no network into gotchi_escrow, `raw_event kind='pocket_transfer'`
+     (third-party logs only; wallet-touching logs are already wallet-scoped rows), block / tx_position and `gotchi_lending` (015).
+     **Gate:** GHST pocket in = out (652.6299999999999975 GHST to the wei), the ETH and GHST qty gaps are 0, and reconcile closes.
+Payers are listed per chain in `config.INTERNAL_ETH` (bridge_in / distribution / swap / refund / dust); an unknown payer → review.
+**Ledger md5 (architect, 18:22 PT):** `ledger_md5_v1` (pre-P4.1 definition, unchanged) and `ledger_md5_v2` (v1 + income_subtype,
+source_ref, trace_address) are both reported, plus v1 over the pre-P4.1 rows (`trace_address IS NULL`); gates use **v2** from P4.1 on
+(definitions: docs/P4_RESULTS.md §12, `cryptopnl/evidence.py`).
+**Continuity hash (architect ruling on PR #9, 2026-10-28 22:48 PT):** `ledger_md5_v1_untouched_txs` = v1 over the rows of txs that NO
+P4.1 rule touched. The exclusion list is the union of (1) **internal-ETH txs**: every tx with a ledger row whose `trace_address IS NOT
+NULL` (rules 1–6), and (2) **rule 7 pocket txs**: every tx with a `raw_event` of kind `pocket_transfer` (loaded by `cryptopnl pockets`),
+both read from the P4.1 ledger (`--untouched-txs-from-db <P4.1 db>` when hashing a pre-P4.1 ledger). The evidence file reports
+`internal_eth_txs`, `pocket_txs` and `untouched_excluded_txs` (the union). Not gated; v2 stays the gate.
+**Income lines check:** lines must sum to the engine's `income_usdc` within `INCOME_LINES_TOL` = 1e-30 USDC (Decimal prec 50 rounds
+differently by summation order). The money columns are unconstrained `numeric` (no declared scale), so there is no column scale to
+quantize to; the tolerance is kept (architect ruling on PR #9, option kept when quantizing is not a small change). It is far below the
+0.01 USDC identity bound.
+**as_of (rulings 4)**: `--as-of` override, else the last ledger block. `cryptopnl marks` (P3 path) writes `p3_mark` for each held tracked
+fungible asset (positive balance at any location) at as_of: `priced` (normal price order) or `no_valid_mark` + reason. P4 reads
+`p3_mark` only; a missing or `no_valid_mark` asset is excluded from unrealized and counted (`marks` in the snapshot). Gate:
+`gate_all_rows_at_or_before_as_of`. Schema: `migrations/015_p4_1_inflows.sql` (ledger_entry.trace_address, income_subtype / source_ref, basis_origin `bridge_in`,
+p3_mark, gotchi_lending) with `migrations/rollback/015_down.sql`. **015 may keep changing until it is applied canonically; it freezes at
+P4.1 PR time** (architect, 20:44 PT). **Frozen 2026-10-28 23:05 PT** (applied canonically on omarchywin `cryptopnl_p41_base`);
+any later schema change is a new migration.
 
 ## 9. Gotchiverse coverage (v1.3, 2026-10-17)
 Source: read-only audit of main at bed74e9, aavegotchi-realm-diamond at b152ce2, aavegotchi-contracts at 301d04f, plus Base RPC and receipts. [F] = fact, [I] = inference. Full findings are in the review notes. **Covered today:** Baazaar listings (ERC721/1155), ERC1155 buy orders, GBM buyer side, instant paid crafts, normal alchemica claims and channeling (income), and REALM parcel migration.

@@ -1,0 +1,22 @@
+[2m▸ injecting 1 var(s) from cryptoPnL[0m
+== 1 source ledger md5 (cryptopnl_p41_base)
+{"chain_id": 8453, "ledger_rows": 1647, "ledger_min_block": 4328142, "ledger_max_block": 52911467, "ledger_md5_v1": "e2d0888c046bcbc473f5d2e94fc33ee9", "ledger_rows_pre_p4_1": 1632, "ledger_md5_v1_pre_p4_1": "9a6b57dc1eea30463b07a36ca7d2f632", "internal_eth_txs": 15, "pocket_txs": 154, "untouched_excluded_txs": 169, "untouched_txs_from": "self", "ledger_rows_untouched_txs": 1285, "ledger_md5_v1_untouched_txs": "fc5033e0967575cda70f44fd6db920f3", "ledger_md5_v2": "eaead37d4a6b3e7e678f5b375cc8b6fd", "ledger_md5_report": "bb50f055eafb1c836fb2972c0e6585cc", "review_rows": 10, "review_md5": "ec3acdc693b961a1d3db270c6b61698d"}
+v1 e2d0888c046bcbc473f5d2e94fc33ee9; v1 over pre-P4.1 rows 9a6b57dc1eea30463b07a36ca7d2f632 (1632 rows; moved by rule 2 by design; pre-P4.1 v1 was 210a71d811fd872a970b1d11770ced05)
+v1 over untouched-tx rows (continuity) fc5033e0967575cda70f44fd6db920f3 (1285 rows; excluded 169 P4.1-touched txs = 15 internal-ETH + 154 pocket); not gated
+== 2 copy cryptopnl_p41_base -> cryptopnl_p4_1_run, migrate the copy
+{"applied": []}
+== 3 full rebuild
+rebuild ('7a6a6b3ed4bd60ca44bbd6b49ac7c695', 'be396f7af8e9311100195ef90d537e7f', 'da188e201aa1a33e72ec3070ca85cb1e', 356, 770)
+== 4 incremental from block 38945509
+incremental == rebuild: OK
+== 5 reconciliation
+as_of_block=52911467 set_by=last ledger block acceptance=PASS identity_pass=True total_residual=0 exits=50 failures=[]
+no unexplained gap
+pockets (P4.1 rule 7): ghst_gate={'in_eq_out': True, 'in_raw': '652629999999999997500', 'out_raw': '652629999999999997500'} owner_mismatch_legs=10
+== 6 snapshot x2
+{"as_of": {"as_of_block": 52911467, "last_ledger_block": 52911467, "set_by": "last ledger block"}, "as_of_block": 52911467, "chain": 8453, "gate_all_rows_at_or_before_as_of": true, "income_lines": [{"entries": 1, "income_subtype": "dao_distribution", "source_ref": "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11", "unpriced_entries": 0, "usdc": "3175.4022700608818552424560829145276190693107143605"}, {"entries": 156, "income_subtype": "rarity_farming_payout", "source_ref": "0xf52398257a254d541f392667600901f710a006ed", "txs": 104, "unpriced_entries": 0, "usdc": "200.3551896765666907494510524681161133090515476738"}, {"entries": 31, "income_subtype": "general", "source_ref": null, "unpriced_entries": 0, "usdc": "0.14162696287137066493330087583504704313280079798697"}], "ledger_rows": 1647, "marks": {"missing": [], "no_valid_mark": {}, "priced": 7}, "pnl_snapshot_md5": "d6831484d717297034323e300833bc08", "pnl_snapshot_rows": 190, "policy": {"deposit": "pending", "fee": "capitalize", "fee_split": "basis_else_equal", "fee_without_trade": "expense", "internal_transfer": "carry", "mark": "p3_mark_at_as_of", "nft_mark": "p3_price_else_exclude", "queue_split": "recipe_else_equal", "recipe": "stored_craft_recipe_cost", "shortfall": "pending", "withdrawal": "exit"}, "rows_after_as_of": 0, "state_at_as_of": "fifo_run (db)", "tx_index_null_rows": 1326}
+{"as_of": {"as_of_block": 52911467, "last_ledger_block": 52911467, "set_by": "last ledger block"}, "as_of_block": 52911467, "chain": 8453, "gate_all_rows_at_or_before_as_of": true, "income_lines": [{"entries": 1, "income_subtype": "dao_distribution", "source_ref": "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11", "unpriced_entries": 0, "usdc": "3175.4022700608818552424560829145276190693107143605"}, {"entries": 156, "income_subtype": "rarity_farming_payout", "source_ref": "0xf52398257a254d541f392667600901f710a006ed", "txs": 104, "unpriced_entries": 0, "usdc": "200.3551896765666907494510524681161133090515476738"}, {"entries": 31, "income_subtype": "general", "source_ref": null, "unpriced_entries": 0, "usdc": "0.14162696287137066493330087583504704313280079798697"}], "ledger_rows": 1647, "marks": {"missing": [], "no_valid_mark": {}, "priced": 7}, "pnl_snapshot_md5": "d6831484d717297034323e300833bc08", "pnl_snapshot_rows": 190, "policy": {"deposit": "pending", "fee": "capitalize", "fee_split": "basis_else_equal", "fee_without_trade": "expense", "internal_transfer": "carry", "mark": "p3_mark_at_as_of", "nft_mark": "p3_price_else_exclude", "queue_split": "recipe_else_equal", "recipe": "stored_craft_recipe_cost", "shortfall": "pending", "withdrawal": "exit"}, "rows_after_as_of": 0, "state_at_as_of": "fifo_run (db)", "tx_index_null_rows": 1326}
+snapshot byte-identical: OK (f8034ab700c7e1567141f8c2bf0b5855)
+== 7 unit suites (pure engine)
+OK
+P4 PASS chain 8453 (12 s)
