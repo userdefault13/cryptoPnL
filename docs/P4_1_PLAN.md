@@ -155,3 +155,8 @@ responses keyed by request body), so ranges already traced repeat no request. Ha
   runs with `CRYPTOPNL_PRICE_RPC_CAP` = 250 − I1 actual − 20 (marks reserve). Per GHST block: 2 calls (v3 slot0 + USDC balanceOf) when
   the first pool is above the floor, up to ~9 when it falls through. Legs beyond the cap are never sent; they stay pending, never 0.
 - **M1** marks at as_of = 52911467: **expected 12–16, cap 20.**
+- **Counted before the live price pass (22:30 PT, 0 RPC):** I1 actual **19 new RPC** (152 cached, 0 errors, residual 0, 15 rows).
+  `price --seed-only` on scratch `cryptopnl_p41_pricecount` (0 RPC): 168 `no_price` entries = **116 distinct (asset, block) misses**:
+  **104 GHST RF blocks** (156 `rarity_farming_payout` entries, 104 txs, 0 seeded) + 12 asset-blocks over 6 swap blocks (12 entries).
+  Expected RPC: RF 104 × 2 = **208** (GHST v3 slot0 + USDC balanceOf); the 12 swap misses up to ~9 each if they fall through.
+  Live cap `CRYPTOPNL_PRICE_RPC_CAP` = 250 − 19 − 20 = **211**. Anything past the cap is not sent and stays `no_price` (pending), never 0.
