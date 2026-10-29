@@ -1,0 +1,45 @@
+[
+ {
+  "scenario": "low",
+  "requests": 352,
+  "by_kind": {
+   "other": 12,
+   "swap": 28,
+   "rf": 312
+  },
+  "rf_blocks": 104,
+  "rf_calls_per_block": {
+   "3": 104
+  },
+  "seed_hits": 762,
+  "selectors": {
+   "0x3850c7bd": 224,
+   "0x0902f1ac": 8,
+   "0x70a08231": 120
+  },
+  "pricer_calls": 352,
+  "rf_priced_in_dry_run": null
+ },
+ {
+  "scenario": "high",
+  "requests": 510,
+  "by_kind": {
+   "other": 12,
+   "swap": 30,
+   "rf": 468
+  },
+  "rf_blocks": 104,
+  "rf_calls_per_block": {
+   "6": 52,
+   "3": 52
+  },
+  "seed_hits": 762,
+  "selectors": {
+   "0x3850c7bd": 278,
+   "0x0902f1ac": 60,
+   "0x70a08231": 172
+  },
+  "pricer_calls": 510,
+  "rf_priced_in_dry_run": null
+ }
+]
