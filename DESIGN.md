@@ -391,7 +391,8 @@ fungible asset (positive balance at any location) at as_of: `priced` (normal pri
 `p3_mark` only; a missing or `no_valid_mark` asset is excluded from unrealized and counted (`marks` in the snapshot). Gate:
 `gate_all_rows_at_or_before_as_of`. Schema: `migrations/015_p4_1_inflows.sql` (ledger_entry.trace_address, income_subtype / source_ref, basis_origin `bridge_in`,
 p3_mark, gotchi_lending) with `migrations/rollback/015_down.sql`. **015 may keep changing until it is applied canonically; it freezes at
-P4.1 PR time** (architect, 20:44 PT). Every non-canonical DB is patched to match a fresh migrate whenever 015 changes.
+P4.1 PR time** (architect, 20:44 PT). **Frozen 2026-10-28 23:05 PT** (applied canonically on omarchywin `cryptopnl_p41_base`);
+any later schema change is a new migration.
 
 ## 9. Gotchiverse coverage (v1.3, 2026-10-17)
 Source: read-only audit of main at bed74e9, aavegotchi-realm-diamond at b152ce2, aavegotchi-contracts at 301d04f, plus Base RPC and receipts. [F] = fact, [I] = inference. Full findings are in the review notes. **Covered today:** Baazaar listings (ERC721/1155), ERC1155 buy orders, GBM buyer side, instant paid crafts, normal alchemica claims and channeling (income), and REALM parcel migration.
