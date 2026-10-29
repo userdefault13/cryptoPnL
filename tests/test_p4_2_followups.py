@@ -37,4 +37,19 @@ class Docstrings(unittest.TestCase):
     def test_seed_only_still_answers_not_seeded(self):
         p = Pricer(8453, None); p.seed_only = True; self.assertEqual(p.unpriced_reason(GHST, B), {"reason": "not_seeded"})
 
+class NoTestLinesInReqlog(unittest.TestCase):   # P4.2: fake requests in the unit suite must not reach an inherited NET_REQLOG
+    def test_net_test_modules_leave_an_inherited_reqlog_empty(self):
+        import subprocess, sys, tempfile
+        f = os.path.join(tempfile.mkdtemp(), "reqlog.txt"); open(f, "w").close()
+        env = dict(os.environ, NET_REQLOG=f, ENVIO_API_TOKEN="test")
+        r = subprocess.run([sys.executable, "-m", "unittest", "-q", "tests.test_net_retry", "tests.test_retry_after_full"],
+                           cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), env=env, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:]); self.assertEqual(open(f).read(), "")
+    def test_committed_reqlogs_hold_real_sources_only(self):
+        d = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "evidence")
+        for n in ("p4_1_reqlog.txt", "p4_1_rf_price_reqlog.txt"):
+            for l in open(os.path.join(d, n)):
+                ts, src = l.split()[:2]
+                self.assertIn(src, ("rpc", "hypersync", "blockscout", "defillama"), (n, l)); self.assertGreater(float(ts), 1.7e9, (n, l))
+
 if __name__ == "__main__": unittest.main()
