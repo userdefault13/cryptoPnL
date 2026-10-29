@@ -7,4 +7,6 @@ UPDATE fifo_lot SET basis_origin = NULL WHERE basis_origin = 'bridge_in';
 ALTER TABLE fifo_lot DROP CONSTRAINT IF EXISTS fifo_lot_basis_origin_check;
 ALTER TABLE fifo_lot ADD CONSTRAINT fifo_lot_basis_origin_check CHECK (basis_origin IN ('unrecorded_inflow'));
 ALTER TABLE ledger_entry DROP COLUMN IF EXISTS trace_address;
+ALTER TABLE ledger_entry DROP CONSTRAINT IF EXISTS ledger_entry_income_subtype_check;
+ALTER TABLE ledger_entry DROP COLUMN IF EXISTS income_subtype, DROP COLUMN IF EXISTS source_ref;
 COMMIT;

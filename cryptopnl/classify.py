@@ -276,6 +276,9 @@ def plan_full(chain, w, tx, legs, market, group, bn, esc, meta=None, warn=None):
     else: cat, out, upd = pre[0][1], [], []
     if pre and cat == "fee": cat = pre[0][1]   # a wallet-sent claim: gas + the internal inflow
     out = out + [L(l, c, ref=r) for l, c, r in pre]
+    sub = INTERNAL_ETH.get(chain, {}).get("distribution_subtype", {})
+    for o, (l, c, r) in zip(out[len(out) - len(pre):], pre):   # rule 5 ruling: identified distribution -> income_subtype + source_ref
+        if r.startswith("distribution:") and l["cp"] in sub: o.update(income_subtype=sub[l["cp"]], source_ref=l["cp"])
     if refunds:
         nat = [o for o in out if o["std"] == "native" and o["qty"] < 0 and o["li"] != -1]
         cats = {o["cat"] for o in nat}
@@ -470,12 +473,12 @@ def classify(conn, chain, log=print):
                 # gets par: it is priced from pools in P3 (cryptopnl price). Everything else is priced by the P3 pass.
                 par = l["contract"] == NUMERAIRE.get(chain) and not l["spam"]
                 eid = conn.execute("""INSERT INTO ledger_entry(wallet_id,asset_id,chain_id,tx_hash,log_index,block_number,ts,qty,category,
-                    trade_group,location,escrow_ref,pnl_excluded,price_usdc,price_source,price_confidence,price_confidence_label,tx_index,trace_address)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                    trade_group,location,escrow_ref,pnl_excluded,price_usdc,price_source,price_confidence,price_confidence_label,tx_index,trace_address,income_subtype,source_ref)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                     (wid, asset_id(conn, cache, chain, l["std"], l["contract"], l["token_id"]), chain, th, l["li"], d["bn"], d["ts"],
                      l["qty"], l["cat"], tg if l["cat"] in TRADE_CATS and l["ref"] != "eth_refund" else None, l["loc"], l["ref"], l["spam"],
                      1 if par else None, "numeraire" if par else None, CONFIDENCE["high"] if par else None, "high" if par else None, d["txi"],
-                     l.get("trace"))).fetchone()[0]
+                     l.get("trace"), l.get("income_subtype"), l.get("source_ref"))).fetchone()[0]
                 ids.append(eid); stats["entries"] += 1
                 if l["cat"] == "migration_in":
                     lot = conn.execute("""INSERT INTO fifo_lot(wallet_group,asset_id,open_entry_id,opened_at,open_block,qty_open,qty_remaining,

@@ -85,6 +85,7 @@ class Entry:
     # migration_in (§8): carried Polygon basis (P6) or user_default's manual entry; neither -> pending
     carry_basis: Optional[Decimal] = None; carry_source: Optional[str] = None; carry_label: Optional[str] = None; chain_origin: Optional[int] = None
     manual_basis: Optional[Decimal] = None; manual_basis_id: Optional[int] = None
+    income_subtype: Optional[str] = None; source_ref: Optional[str] = None   # P4.1 rule 5 ruling: own income line in the report
     def key(self): return (self.block, self.tx_index, self.tx, self.log_index, self.id)
     def value(self) -> Optional[Decimal]:
         """|qty| x unit price at the tx block, or None (unpriced). A 0 price is never accepted (prices are not invented)."""

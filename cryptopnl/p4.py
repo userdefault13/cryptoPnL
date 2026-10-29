@@ -20,7 +20,7 @@ def load_config(overrides=()):
 
 ROWS_SQL = """SELECT l.id, l.block_number, l.tx_index, encode(l.tx_hash,'hex'), l.log_index, l.asset_id, l.qty, l.category,
   l.wallet_id, w.wallet_group, l.location, l.escrow_ref, l.trade_group::text, l.price_usdc, l.price_source, l.price_confidence_label,
-  l.price_flag, l.pnl_excluded, a.standard, '0x'||encode(a.contract,'hex'), mb.id, mb.basis_usdc
+  l.price_flag, l.pnl_excluded, a.standard, '0x'||encode(a.contract,'hex'), mb.id, mb.basis_usdc, l.income_subtype, l.source_ref
   FROM ledger_entry l JOIN asset a ON a.id=l.asset_id LEFT JOIN wallet w ON w.id=l.wallet_id
   LEFT JOIN manual_basis mb ON mb.chain_id=l.chain_id AND mb.tx_hash=l.tx_hash AND mb.log_index=l.log_index AND mb.asset_id=l.asset_id
        AND mb.superseded_at IS NULL
@@ -43,7 +43,7 @@ def load_rows(conn, chain, cfg, stats=None):
     raw = conn.execute(ROWS_SQL, (chain,)).fetchall()
     n = check_tx_index([(r[1], r[2], r[3]) for r in raw])
     if stats is not None: stats["tx_index_null_rows"] = n
-    for (i, b, ti, tx, li, aid, q, cat, wid, wg, loc, ref, tg, px, ps, lab, fl, ex, std, c, mbid, mbv) in raw:
+    for (i, b, ti, tx, li, aid, q, cat, wid, wg, loc, ref, tg, px, ps, lab, fl, ex, std, c, mbid, mbv, isub, sref) in raw:
         nft = std in ("erc721", "erc1155")
         skip = ex or cat in ("spam", "untracked") or fl in ("spam", "untracked")
         if std == "native": d = 18
@@ -57,7 +57,7 @@ def load_rows(conn, chain, cfg, stats=None):
         out.append(fifo.Entry(id=i, block=b, tx="0x" + tx, log_index=li, asset=str(aid), qty=Decimal(q) / (Decimal(10) ** d), category=cat,
                               wallet=str(wid), group=group, location=loc, tx_index=0 if ti is None else ti, ref=ref, trade_group=tg,
                               price=None if px is None else Decimal(px), price_source=ps, label=lab, flag=fl, excluded=ex, nft=nft,
-                              manual_basis=None if mbv is None else Decimal(mbv), manual_basis_id=mbid))
+                              manual_basis=None if mbv is None else Decimal(mbv), manual_basis_id=mbid, income_subtype=isub, source_ref=sref))
     return out
 
 class Marks:
@@ -236,6 +236,19 @@ def snapshot(conn, chain, st, pol, as_of):
         FROM pnl_snapshot WHERE as_of_block=%s AND asset_id IN (SELECT id FROM asset WHERE chain_id=%s)""", (as_of, chain)).fetchone()[0]
     return rep, sm, len(rows)
 
+def income_lines(st, rows, total):
+    """Income in the report, one line per (income_subtype, source_ref) (rule 5 ruling: the PTD claim is its own line, dao_distribution
+    from 0xf50326e1), the rest as 'general'. Lines sum to the engine's income_usdc (checked). Unpriced income counts, never 0 USDC."""
+    tag = {e.id: (e.income_subtype, e.source_ref) for e in rows}; L = {}
+    for i, a, v in st.income:
+        s, r = tag.get(i, (None, None)); k = (s or "general", r or "")
+        x = L.setdefault(k, {"income_subtype": s or "general", "source_ref": r, "usdc": Decimal(0), "entries": 0, "unpriced_entries": 0})
+        x["entries"] += 1
+        if v is None: x["unpriced_entries"] += 1
+        else: x["usdc"] += v
+    out = [L[k] for k in sorted(L, key=lambda k: (k[0] == "general", k))]
+    if sum((x["usdc"] for x in out), Decimal(0)) != Decimal(total): raise ValueError("income lines do not sum to income_usdc")
+    return out
 def ledger_qty(rows):
     q = {}
     for e in rows:
@@ -291,7 +304,8 @@ def main(argv=None):
                     "marks": fm.coverage(held) if fm else None})
         if a.cmd == "snapshot":
             rep, sm, n = snapshot(conn, a.chain, st, pol, as_of)
-            out.update({"as_of_block": as_of, "pnl_snapshot_rows": n, "pnl_snapshot_md5": sm, "report": rep})
+            out.update({"as_of_block": as_of, "pnl_snapshot_rows": n, "pnl_snapshot_md5": sm, "report": rep,
+                        "income_lines": income_lines(st, rows, rep["income_usdc"])})
         else:
             rep = fifo.report(st, pol, as_of); g = fifo.gas(st)
             L = reconcile.ledger_side(rows, pol.mark, pol.nft_mark, as_of, pol.recipe, cfg)   # ledger rows only, never engine lots
@@ -303,7 +317,7 @@ def main(argv=None):
                         "excluded_rows")}, "unmarked_nft_lots": rep["all"]["unmarked_nft_lots"], "unmarked_lots": rep["all"]["unmarked_lots"],
                         "totals_all": {k: rep["all"][k] for k in ("realized_usdc", "unrealized_usdc", "market_value_usdc", "open_basis_usdc")},
                         "totals_excl_low": {k: rep["excl_low"][k] for k in ("realized_usdc", "unrealized_usdc", "market_value_usdc", "open_basis_usdc")},
-                        "income_usdc": rep["income_usdc"], "expenses_usdc": rep["expenses_usdc"], "exit_basis_usdc": rep["exit_basis_usdc"],
+                        "income_usdc": rep["income_usdc"], "income_lines": income_lines(st, rows, rep["income_usdc"]), "expenses_usdc": rep["expenses_usdc"], "exit_basis_usdc": rep["exit_basis_usdc"],
                         "exit_display_mv_usdc": rep["exit_display_mv_usdc"]})
             out["exit_rc"] = 0 if chk["acceptance"] == "PASS" else (3 if chk["identity_pass"] else 1)   # 3 = identity ok, gaps flagged
     txt = json.dumps(_j(out), indent=1, sort_keys=True) + "\n"

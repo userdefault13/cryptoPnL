@@ -234,6 +234,8 @@ INTERNAL_ETH = {8453: {
                   "0xc38e4e6a15593f908255214653d3d947ca1c2338": "mayan_swift",  # Mayan Swift
                   "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64": "across"},      # Across SpokePool (Base)
     "distribution": {"0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11": "aavegotchi_ptd"},   # rule 5: income at FMV (identified)
+    # rule 5 ruling (18:18 PT): income_subtype per distributor; source_ref = the distributor address (own income line in the report)
+    "distribution_subtype": {"0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11": "dao_distribution"},
     # rule 2: swap outputs (token -> ETH): DEX_ROUTERS plus these
     "swap": {"0x0a2854fbbd9b3ef66f17d47284e7f899b9509330": "metamask_swaps_spender",
              "0x9dda6ef3d919c9bc8885d5560999a3640431e8e6": "metamask_swaps_router"},

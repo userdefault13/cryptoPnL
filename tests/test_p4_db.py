@@ -86,3 +86,19 @@ class P4DbNoMark(P4Db):
         self.assertEqual(chk["acceptance"], "PASS", chk["failures"])
         pa = chk["per_asset"][g]; self.assertEqual((D(str(pa["engine_unrealized"])), D(str(pa["ledger_unrealized"]))), (D(0), D(0)))
         self.assertTrue(any(l.asset == g and l.qty > 0 for l in st.lots))   # held, just not marked
+
+class P4DbIncomeTag(P4Db):
+    """Migration 015 (rule 5 ruling): income_subtype only on income rows, dao_distribution only, with a 0x address source_ref."""
+    def test_rebuild_roundtrip_incremental_snapshot_reconcile(self): pass   # covered by P4Db
+    def test_check(self):
+        import psycopg
+        q = "UPDATE ledger_entry SET income_subtype=%s, source_ref=%s WHERE chain_id=%s AND block_number=%s AND category=%s"
+        for args in (("dao_distribution", "0x" + "f5" * 20, C, 2, "swap"), ("airdrop", "0x" + "f5" * 20, C, 1, "bridge_in"),
+                     ("dao_distribution", "PTD", C, 1, "bridge_in")):
+            self.c.execute("UPDATE ledger_entry SET category='income' WHERE chain_id=%s AND block_number=1", (C,)); self.c.commit()
+            with self.assertRaises(psycopg.errors.CheckViolation): self.c.execute(q, args[:4] + ("income" if args[4] == "bridge_in" else args[4],))
+            self.c.rollback()
+        self.c.execute("UPDATE ledger_entry SET category='income' WHERE chain_id=%s AND block_number=1", (C,))
+        self.c.execute(q, ("dao_distribution", "0x" + "f5" * 20, C, 1, "income")); self.c.commit()
+        rows = p4.load_rows(self.c, C, self.cfg); t = [(e.income_subtype, e.source_ref) for e in rows if e.block == 1]
+        self.assertEqual(t, [("dao_distribution", "0x" + "f5" * 20)])

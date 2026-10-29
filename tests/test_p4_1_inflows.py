@@ -101,3 +101,28 @@ class EngineRefundAndBridge(unittest.TestCase):
         with self.assertRaises(ValueError): reconcile.ledger_side(b.rows, MK, NFTX, 3)
 
 if __name__ == "__main__": unittest.main()
+
+def esc():
+    e = classify.Escrow(set()); e.type_cost = {}; return e
+
+class Rule5DaoDistributionTag(unittest.TestCase):
+    """Rule 5 ruling (architect, 18:18 PT): the PTD claim stays income at FMV, tagged income_subtype=dao_distribution and
+    source_ref=0xf50326e1… (the PTD MerkleDistributor), and the report shows it as its own income line. SYNTHETIC qty / prices."""
+    def test_classify_tags_the_claim(self):
+        cat, out, _ = classify.plan_full(8453, W, {"from": W, "to": PTD, "selector": "0x2f52ebb7"}, [il(PTD, 10**18)], [], set(), 1, esc())
+        self.assertEqual(cat, "income")
+        self.assertEqual([(o["cat"], o["ref"], o.get("income_subtype"), o.get("source_ref")) for o in out],
+                         [("income", "distribution:aavegotchi_ptd", "dao_distribution", PTD)])
+        self.assertEqual(PTD, "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11")
+    def test_other_income_untagged(self):
+        _, out, _ = classify.plan_full(8453, W, {"from": W, "to": ROUTER}, [tok(-5)], [], set(), 1, esc())   # no internal legs
+        self.assertTrue(all(o.get("income_subtype") is None for o in out))
+        _, out, _ = classify.plan_full(8453, W, SENT, [tok(-5), il(RUBIC, 1)], [], set(), 1, esc())   # rule 6 dust income: untagged
+        self.assertEqual([(o["ref"], o.get("income_subtype")) for o in out if o["cat"] == "income"], [("dust:rubic", None)])
+    def test_report_income_line(self):
+        from cryptopnl import p4
+        b = Book(); b.tx(1, L("ETH", "1", "income", "3000", income_subtype="dao_distribution", source_ref=PTD))
+        b.tx(2, L("GHST", "10", "income", "4")); b.tx(3, L("FUD", "5", "income"))   # FUD unpriced: counted, never 0
+        st = run(b.rows, RP()); lines = p4.income_lines(st, b.rows, fifo.report(st, RP(), 4)["income_usdc"])
+        self.assertEqual([(x["income_subtype"], x["source_ref"], x["usdc"], x["entries"], x["unpriced_entries"]) for x in lines],
+                         [("dao_distribution", PTD, D(3000), 1, 0), ("general", None, D(40), 2, 1)])
