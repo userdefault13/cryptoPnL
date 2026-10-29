@@ -6,7 +6,7 @@ CRYPTOPNL_DSN (run it on a COPY of the P3 DB).
   python -m cryptopnl.p4 snapshot    --chain 8453 --out FILE         # pnl_snapshot at as_of_block (byte-identical when repeated)
   python -m cryptopnl.p4 reconcile   --chain 8453 --out FILE
 Switches: cryptopnl/p4_policy.json (the rulings), override with --set key=value."""
-import argparse, json, os, sys, hashlib
+import argparse, os, json, os, sys, hashlib
 from decimal import Decimal
 from . import db, fifo, reconcile
 from .pricing import TOKENS
@@ -237,13 +237,15 @@ def snapshot(conn, chain, st, pol, as_of):
     return rep, sm, len(rows)
 
 def income_lines(st, rows, total):
-    """Income in the report, one line per (income_subtype, source_ref) (rule 5 ruling: the PTD claim is its own line, dao_distribution
-    from 0xf50326e1), the rest as 'general'. Lines sum to the engine's income_usdc (checked). Unpriced income counts, never 0 USDC."""
-    tag = {e.id: (e.income_subtype, e.source_ref) for e in rows}; L = {}
+    """Income in the report, one line per (income_subtype, source) (rule 5 ruling: the PTD claim is its own line, dao_distribution
+    from 0xf50326e1; rule 7: pocket custody income per subtype and sender, source_ref 'sender:tx' grouped by the sender, txs counted),
+    the rest as 'general'. Lines sum to the engine's income_usdc (checked). Unpriced income counts, never 0 USDC."""
+    tag = {e.id: (e.income_subtype, e.source_ref) for e in rows}; L = {}; T = {}
     for i, a, v in st.income:
-        s, r = tag.get(i, (None, None)); k = (s or "general", r or "")
-        x = L.setdefault(k, {"income_subtype": s or "general", "source_ref": r, "usdc": Decimal(0), "entries": 0, "unpriced_entries": 0})
+        s, r = tag.get(i, (None, None)); src = (r or "").split(":")[0]; k = (s or "general", src)
+        x = L.setdefault(k, {"income_subtype": s or "general", "source_ref": src or None, "usdc": Decimal(0), "entries": 0, "unpriced_entries": 0})
         x["entries"] += 1
+        if r and ":" in r: T.setdefault(k, set()).add(r.split(":")[1]); x["txs"] = len(T[k])
         if v is None: x["unpriced_entries"] += 1
         else: x["usdc"] += v
     out = [L[k] for k in sorted(L, key=lambda k: (k[0] == "general", k))]
@@ -310,6 +312,9 @@ def main(argv=None):
             rep = fifo.report(st, pol, as_of); g = fifo.gas(st)
             L = reconcile.ledger_side(rows, pol.mark, pol.nft_mark, as_of, pol.recipe, cfg)   # ledger rows only, never engine lots
             chk = reconcile.check(rep, g, L, engine_qty(st))
+            from .pockets import pocket_report   # P4.1 rule 7: pocket in / out per asset, owner-mismatch count, counts by sender and token
+            from .config import POCKETS
+            ev = POCKETS.get(a.chain, {}).get("evidence"); out["pockets"] = pocket_report(conn, a.chain, ev and os.path.join(os.path.dirname(__file__), "..", ev))
             out.update({"as_of_block": as_of, "reconciliation": chk, "ledger_side_gas_txs": L["gas_txs"],
                         "gas_share_on_pending_acquisitions_ledger": L["gas_share_on_pending_acquisitions"], "gas": g,
                         "identity_basis": fifo.identity(st), "counts": {k: rep[k] for k in ("pending_lots_open", "pending_lots_total",

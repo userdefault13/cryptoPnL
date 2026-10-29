@@ -47,12 +47,15 @@ rc=0; CRYPTOPNL_DSN="dbname=$DST" $PY -m cryptopnl.p4 reconcile --chain "$C" --o
 [ "$rc" = 0 ] || [ "$rc" = 3 ] || [ "$rc" = 1 ] || fail "reconcile crashed (rc $rc)"
 j "$E/p4_reconcile_$C.json" "'as_of_block=%s set_by=%s acceptance=%s identity_pass=%s total_residual=%s exits=%s failures=%s' % (d['as_of_block'], d['as_of']['set_by_assets'], d['reconciliation']['acceptance'], d['reconciliation']['identity_pass'], d['reconciliation']['total']['residual'], d['reconciliation']['exits'], d['reconciliation']['failures'])"
 j "$E/p4_reconcile_$C.json" "'\\n'.join('UNEXPLAINED GAP asset %s: qty %s in %s events, blocks %s..%s' % (a, g['qty'], g['events'], g['first_block'], g['last_block']) for a, g in sorted(d['reconciliation']['unexplained_gap'].items())) or 'no unexplained gap'"
+j "$E/p4_reconcile_$C.json" "'pockets (P4.1 rule 7): ghst_gate=%s owner_mismatch_legs=%s' % (d.get('pockets', {}).get('ghst_gate'), d.get('pockets', {}).get('pocket_owner_mismatch', {}).get('legs'))"
+pg=$($PY -c "import json,sys; g=json.load(open(sys.argv[1])).get('pockets',{}).get('ghst_gate'); print('ok' if (g is None or g['in_eq_out']) else 'bad')" "$E/p4_reconcile_$C.json")
+[ "$pg" = ok ] || fail "GHST pocket in != out (P4.1 rule 7 gate)"
 echo "== 6 snapshot x2"
 for n in 1 2; do CRYPTOPNL_DSN="dbname=$DST" $PY -m cryptopnl.p4 snapshot --chain "$C" --out "$E/p4_snapshot_${C}_$n.json" | tail -1; done
 cmp "$E/p4_snapshot_${C}_1.json" "$E/p4_snapshot_${C}_2.json" || fail "snapshots differ"
 echo "snapshot byte-identical: OK ($(md5sum < "$E/p4_snapshot_${C}_1.json" | cut -c1-32))"
 echo "== 7 unit suites (pure engine)"
-u=$($PY -m unittest -q tests.test_fifo_golden tests.test_fifo_recompute tests.test_fifo_rulings tests.test_p4_rulings3 tests.test_p4_adapter tests.test_entry_key tests.test_p4_1_inflows 2>&1 | tail -1); echo "$u"
+u=$($PY -m unittest -q tests.test_fifo_golden tests.test_fifo_recompute tests.test_fifo_rulings tests.test_p4_rulings3 tests.test_p4_adapter tests.test_entry_key tests.test_p4_1_inflows tests.test_p4_1_pockets 2>&1 | tail -1); echo "$u"
 [ "$u" = OK ] || fail "unit suites: $u"
 [ "$rc" != 1 ] || fail "reconciliation residual above 0.01 USDC or qty mismatch (see $E/p4_reconcile_$C.json)"
 if [ "$rc" = 3 ]; then
