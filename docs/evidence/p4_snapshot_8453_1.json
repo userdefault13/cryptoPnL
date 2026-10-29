@@ -1,9 +1,27 @@
 {
- "as_of_block": 52911410,
+ "as_of": {
+  "as_of_block": 49402932,
+  "latest_priced_block_per_asset": {
+   "19": 51283821,
+   "2": 52911410,
+   "20": 51481437,
+   "28": 49402932,
+   "39": 49402932,
+   "96": 49402932,
+   "97": 49402932
+  },
+  "set_by_assets": [
+   "28",
+   "39",
+   "96",
+   "97"
+  ]
+ },
+ "as_of_block": 49402932,
  "chain": 8453,
  "ledger_rows": 1321,
- "pnl_snapshot_md5": "fc4450f8d98cedcb27a44765e946e0b5",
- "pnl_snapshot_rows": 190,
+ "pnl_snapshot_md5": "4b17f839e5459a60ca6ffb9b6b504f07",
+ "pnl_snapshot_rows": 186,
  "policy": {
   "deposit": "pending",
   "fee": "capitalize",
@@ -22,6 +40,7 @@
    "by_asset": {
     "100": {
      "cost_basis": "0.4376528813329614930589064429251067066741902345575",
+     "exits": 0,
      "mark_price": "0.20022422548177077740433984343471155515327446696127",
      "mark_source": "p3:trade@42135784",
      "market_value": "0.40044845096354155480867968686942311030654893392254",
@@ -33,21 +52,9 @@
      "unpriced_disposals": 0,
      "unrealized": "-0.03720443036941993825022675605568359636764130063496"
     },
-    "102": {
-     "cost_basis": "0.015454898191166471040527530754142262198422693224825",
-     "mark_price": "0.0077274490955832355202637653770711310992113466124125",
-     "mark_source": "p3:trade@51283821",
-     "market_value": "0.015454898191166471040527530754142262198422693224825",
-     "pending_disposals": 0,
-     "pending_lots": 0,
-     "qty": "2",
-     "realized": "0",
-     "unmarked_lots": 0,
-     "unpriced_disposals": 0,
-     "unrealized": "0"
-    },
     "117": {
      "cost_basis": "0.047144938631386242148240270624075696093909787607424",
+     "exits": 0,
      "mark_price": "0.047144938631386242148240270624075696093909787607424",
      "mark_source": "p3:trade@34202337",
      "market_value": "0.047144938631386242148240270624075696093909787607424",
@@ -61,6 +68,7 @@
     },
     "154": {
      "cost_basis": "3.9880561772400200561325494250120456969515723180997",
+     "exits": 0,
      "mark_price": "3.9880561772400200561325494250120456969515723180997",
      "mark_source": "p3:trade@33652574",
      "market_value": "3.9880561772400200561325494250120456969515723180997",
@@ -74,6 +82,7 @@
     },
     "166": {
      "cost_basis": "0.42168401736243031200540582969295949920867203545823",
+     "exits": 0,
      "mark_price": "0.42168401736243031200540582969295949920867203545823",
      "mark_source": "p3:trade@33749044",
      "market_value": "0.42168401736243031200540582969295949920867203545823",
@@ -87,6 +96,7 @@
     },
     "167": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -100,6 +110,7 @@
     },
     "168": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -113,6 +124,7 @@
     },
     "169": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -126,6 +138,7 @@
     },
     "170": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -139,23 +152,25 @@
     },
     "19": {
      "cost_basis": "5.078108705072326496387235873731923663516214631078",
-     "mark_price": "0.064395409129860296002198044808926092493427888436771",
-     "mark_source": "p3:dex_slot0@51283821",
-     "market_value": "7.2883111674317461673010110392315570194921572063683",
-     "pending_disposals": 86,
-     "pending_lots": 8,
+     "exits": 2,
+     "mark_price": "0.044343104904388287645038434694976640074523015870999",
+     "mark_source": "p3:trade@49347048",
+     "market_value": "5.0187793049270084398176737770933226070715604972214",
+     "pending_disposals": 80,
+     "pending_lots": 10,
      "qty": "113.180601939092889336",
      "realized": "-3.5305177175435236391655203393949851811492677168319",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "2.2102024623594196709137751654996333559759425752902"
+     "unrealized": "-0.059329400145318056569562096638601056444654133856672"
     },
     "2": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
-     "pending_disposals": 515,
+     "pending_disposals": 465,
      "pending_lots": 0,
      "qty": "0",
      "realized": "0",
@@ -164,20 +179,22 @@
      "unrealized": "0"
     },
     "20": {
-     "cost_basis": "25.869850399620661873889817320698142647149396374036",
-     "mark_price": "1",
-     "mark_source": "p3:numeraire@51481437",
-     "market_value": "25.856803",
-     "pending_disposals": 21,
-     "pending_lots": 3,
-     "qty": "25.856803",
+     "cost_basis": "0",
+     "exits": 14,
+     "mark_price": null,
+     "mark_source": null,
+     "market_value": "0",
+     "pending_disposals": 14,
+     "pending_lots": 1,
+     "qty": "0",
      "realized": "-0.0518723687450197944634648677062477429066582293094",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.013047399620661873889817320698142647149396374036"
+     "unrealized": "0"
     },
     "201": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -191,6 +208,7 @@
     },
     "225": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -204,6 +222,7 @@
     },
     "226": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -217,6 +236,7 @@
     },
     "227": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -230,6 +250,7 @@
     },
     "28": {
      "cost_basis": "3.0138700870046547077517187186727679053277639344724",
+     "exits": 0,
      "mark_price": "0.000026074618875483546506148695965406315927850125903041",
      "mark_source": "p3:dex_reserves_thin@49402932",
      "market_value": "2.9560389090951093433345188515955471885900903509138",
@@ -243,6 +264,7 @@
     },
     "327": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -256,6 +278,7 @@
     },
     "328": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -269,6 +292,7 @@
     },
     "329": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -282,6 +306,7 @@
     },
     "330": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -295,6 +320,7 @@
     },
     "331": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -308,6 +334,7 @@
     },
     "332": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -321,6 +348,7 @@
     },
     "333": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -334,6 +362,7 @@
     },
     "334": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -347,6 +376,7 @@
     },
     "335": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -360,6 +390,7 @@
     },
     "336": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -373,6 +404,7 @@
     },
     "337": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -386,6 +418,7 @@
     },
     "35": {
      "cost_basis": "0.4657161155820457058133712939882417828755532690872",
+     "exits": 0,
      "mark_price": "0.4657161155820457058133712939882417828755532690872",
      "mark_source": "p3:trade@43748241",
      "market_value": "0.4657161155820457058133712939882417828755532690872",
@@ -399,6 +432,7 @@
     },
     "351": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -412,6 +446,7 @@
     },
     "352": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -425,6 +460,7 @@
     },
     "353": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -438,6 +474,7 @@
     },
     "354": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -451,6 +488,7 @@
     },
     "355": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -464,6 +502,7 @@
     },
     "356": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -477,6 +516,7 @@
     },
     "357": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -490,6 +530,7 @@
     },
     "358": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -503,6 +544,7 @@
     },
     "359": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -516,6 +558,7 @@
     },
     "360": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -529,6 +572,7 @@
     },
     "361": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -542,6 +586,7 @@
     },
     "362": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -555,6 +600,7 @@
     },
     "363": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -568,6 +614,7 @@
     },
     "364": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -581,6 +628,7 @@
     },
     "365": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -594,6 +642,7 @@
     },
     "366": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -607,6 +656,7 @@
     },
     "367": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -620,6 +670,7 @@
     },
     "368": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -633,6 +684,7 @@
     },
     "369": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -646,6 +698,7 @@
     },
     "370": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -659,6 +712,7 @@
     },
     "371": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -672,6 +726,7 @@
     },
     "372": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -685,6 +740,7 @@
     },
     "39": {
      "cost_basis": "3.0113475294767162378936134701255721717588104690035",
+     "exits": 0,
      "mark_price": "0.0000023774304315590655454989437155876371105295673146221",
      "mark_source": "p3:dex_reserves_thin@49402932",
      "market_value": "2.9609516145119022073360699304067242159600827180848",
@@ -698,6 +754,7 @@
     },
     "40": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -711,6 +768,7 @@
     },
     "41": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -724,6 +782,7 @@
     },
     "42": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -737,6 +796,7 @@
     },
     "43": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -750,6 +810,7 @@
     },
     "44": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -763,6 +824,7 @@
     },
     "45": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -776,6 +838,7 @@
     },
     "46": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -788,20 +851,22 @@
      "unrealized": "0"
     },
     "51": {
-     "cost_basis": "0.058017273863916669866434193209170733069433645293722",
-     "mark_price": "0.012125214354554717788585688814067300009438202052579",
-     "mark_source": "p3:trade@51157916",
-     "market_value": "0.024250428709109435577171377628134600018876404105158",
+     "cost_basis": "0",
+     "exits": 0,
+     "mark_price": null,
+     "mark_source": null,
+     "market_value": "0",
      "pending_disposals": 0,
      "pending_lots": 1,
-     "qty": "2",
+     "qty": "0",
      "realized": "0",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.033766845154807234289262815581036133050557241188564"
+     "unrealized": "0"
     },
     "53": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -815,6 +880,7 @@
     },
     "54": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -828,6 +894,7 @@
     },
     "55": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -841,6 +908,7 @@
     },
     "56": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -854,6 +922,7 @@
     },
     "57": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -867,6 +936,7 @@
     },
     "58": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -880,6 +950,7 @@
     },
     "59": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -893,6 +964,7 @@
     },
     "60": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -906,6 +978,7 @@
     },
     "61": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -919,6 +992,7 @@
     },
     "62": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -932,6 +1006,7 @@
     },
     "63": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -945,6 +1020,7 @@
     },
     "64": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -958,6 +1034,7 @@
     },
     "65": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -971,6 +1048,7 @@
     },
     "66": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -984,6 +1062,7 @@
     },
     "67": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -997,6 +1076,7 @@
     },
     "68": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1010,6 +1090,7 @@
     },
     "69": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1023,6 +1104,7 @@
     },
     "70": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1036,6 +1118,7 @@
     },
     "71": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1049,6 +1132,7 @@
     },
     "72": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1062,6 +1146,7 @@
     },
     "73": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1075,6 +1160,7 @@
     },
     "74": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1088,6 +1174,7 @@
     },
     "75": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1101,6 +1188,7 @@
     },
     "76": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1114,6 +1202,7 @@
     },
     "77": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1127,6 +1216,7 @@
     },
     "78": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1140,6 +1230,7 @@
     },
     "79": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1153,6 +1244,7 @@
     },
     "80": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1166,6 +1258,7 @@
     },
     "81": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1179,6 +1272,7 @@
     },
     "82": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1192,6 +1286,7 @@
     },
     "83": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1205,6 +1300,7 @@
     },
     "90": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1216,21 +1312,9 @@
      "unpriced_disposals": 0,
      "unrealized": "0"
     },
-    "93": {
-     "cost_basis": "0.1033317642712916065562385114361541387012340989605",
-     "mark_price": "0.028717612944998015815071368243843605285511531177162",
-     "mark_source": "p3:trade@51157926",
-     "market_value": "0.057435225889996031630142736487687210571023062354324",
-     "pending_disposals": 0,
-     "pending_lots": 0,
-     "qty": "2",
-     "realized": "0",
-     "unmarked_lots": 0,
-     "unpriced_disposals": 0,
-     "unrealized": "-0.04589653838129557492609577494846692813021103660618"
-    },
     "96": {
      "cost_basis": "3.0163368841572651605960029785442201393378799753723",
+     "exits": 0,
      "mark_price": "0.0000070448977156119374059009146880389588967633065232532",
      "mark_source": "p3:dex_reserves_thin@49402932",
      "market_value": "2.9492623313269256146650826202551058532761460994026",
@@ -1244,6 +1328,7 @@
     },
     "97": {
      "cost_basis": "3.2885303417906960181124049668561318182509908619315",
+     "exits": 0,
      "mark_price": "0.000012400064770487243387856666141204550594996847766048",
      "mark_source": "p3:dex_reserves_thin@49402932",
      "market_value": "3.238683084891395710205765964294290248162329114715",
@@ -1256,22 +1341,24 @@
      "unrealized": "-0.049847256899300307906639002561841570088661747216555"
     }
    },
+   "exits": 16,
    "low_excluded": 0,
-   "market_value_usdc": "50.670240359826774851998536556839934383705383993343",
-   "open_basis_usdc": "48.815102013597539051252466826270654861114044328182",
+   "market_value_usdc": "22.446764944531765186267357649831735898496465124512",
+   "open_basis_usdc": "22.768447677650502429899449270173045079995557516667",
    "realized_usdc": "-3.5985585370470860093081218887154730891566335610199",
    "unmarked_lots": 0,
    "unmarked_nft_lots": 4,
    "unpriced_disposals": 0,
-   "unrealized_usdc": "1.8551383462292358007460697305692795225913396651607"
+   "unrealized_usdc": "-0.32168273311873724363209162034130918149909239215533"
   },
-  "as_of_block": 52911410,
+  "as_of_block": 49402932,
   "craft_lots": 1,
   "craft_split_equal_fallbacks": 0,
   "excl_low": {
    "by_asset": {
     "100": {
      "cost_basis": "0.4376528813329614930589064429251067066741902345575",
+     "exits": 0,
      "mark_price": "0.20022422548177077740433984343471155515327446696127",
      "mark_source": "p3:trade@42135784",
      "market_value": "0.40044845096354155480867968686942311030654893392254",
@@ -1283,21 +1370,9 @@
      "unpriced_disposals": 0,
      "unrealized": "-0.03720443036941993825022675605568359636764130063496"
     },
-    "102": {
-     "cost_basis": "0.015454898191166471040527530754142262198422693224825",
-     "mark_price": "0.0077274490955832355202637653770711310992113466124125",
-     "mark_source": "p3:trade@51283821",
-     "market_value": "0.015454898191166471040527530754142262198422693224825",
-     "pending_disposals": 0,
-     "pending_lots": 0,
-     "qty": "2",
-     "realized": "0",
-     "unmarked_lots": 0,
-     "unpriced_disposals": 0,
-     "unrealized": "0"
-    },
     "117": {
      "cost_basis": "0.047144938631386242148240270624075696093909787607424",
+     "exits": 0,
      "mark_price": "0.047144938631386242148240270624075696093909787607424",
      "mark_source": "p3:trade@34202337",
      "market_value": "0.047144938631386242148240270624075696093909787607424",
@@ -1311,6 +1386,7 @@
     },
     "154": {
      "cost_basis": "3.9880561772400200561325494250120456969515723180997",
+     "exits": 0,
      "mark_price": "3.9880561772400200561325494250120456969515723180997",
      "mark_source": "p3:trade@33652574",
      "market_value": "3.9880561772400200561325494250120456969515723180997",
@@ -1324,6 +1400,7 @@
     },
     "166": {
      "cost_basis": "0.42168401736243031200540582969295949920867203545823",
+     "exits": 0,
      "mark_price": "0.42168401736243031200540582969295949920867203545823",
      "mark_source": "p3:trade@33749044",
      "market_value": "0.42168401736243031200540582969295949920867203545823",
@@ -1337,6 +1414,7 @@
     },
     "167": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1350,6 +1428,7 @@
     },
     "168": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1363,6 +1442,7 @@
     },
     "169": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1376,6 +1456,7 @@
     },
     "170": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1389,23 +1470,25 @@
     },
     "19": {
      "cost_basis": "5.078108705072326496387235873731923663516214631078",
-     "mark_price": "0.064395409129860296002198044808926092493427888436771",
-     "mark_source": "p3:dex_slot0@51283821",
-     "market_value": "7.2883111674317461673010110392315570194921572063683",
-     "pending_disposals": 86,
-     "pending_lots": 8,
+     "exits": 2,
+     "mark_price": "0.044343104904388287645038434694976640074523015870999",
+     "mark_source": "p3:trade@49347048",
+     "market_value": "5.0187793049270084398176737770933226070715604972214",
+     "pending_disposals": 80,
+     "pending_lots": 10,
      "qty": "113.180601939092889336",
      "realized": "-3.5305177175435236391655203393949851811492677168319",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "2.2102024623594196709137751654996333559759425752902"
+     "unrealized": "-0.059329400145318056569562096638601056444654133856672"
     },
     "2": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
-     "pending_disposals": 515,
+     "pending_disposals": 465,
      "pending_lots": 0,
      "qty": "0",
      "realized": "0",
@@ -1414,20 +1497,22 @@
      "unrealized": "0"
     },
     "20": {
-     "cost_basis": "25.869850399620661873889817320698142647149396374036",
-     "mark_price": "1",
-     "mark_source": "p3:numeraire@51481437",
-     "market_value": "25.856803",
-     "pending_disposals": 21,
-     "pending_lots": 3,
-     "qty": "25.856803",
+     "cost_basis": "0",
+     "exits": 14,
+     "mark_price": null,
+     "mark_source": null,
+     "market_value": "0",
+     "pending_disposals": 14,
+     "pending_lots": 1,
+     "qty": "0",
      "realized": "-0.0518723687450197944634648677062477429066582293094",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.013047399620661873889817320698142647149396374036"
+     "unrealized": "0"
     },
     "201": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1441,6 +1526,7 @@
     },
     "225": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1454,6 +1540,7 @@
     },
     "226": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1467,6 +1554,7 @@
     },
     "227": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1480,6 +1568,7 @@
     },
     "28": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1493,6 +1582,7 @@
     },
     "327": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1506,6 +1596,7 @@
     },
     "328": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1519,6 +1610,7 @@
     },
     "329": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1532,6 +1624,7 @@
     },
     "330": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1545,6 +1638,7 @@
     },
     "331": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1558,6 +1652,7 @@
     },
     "332": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1571,6 +1666,7 @@
     },
     "333": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1584,6 +1680,7 @@
     },
     "334": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1597,6 +1694,7 @@
     },
     "335": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1610,6 +1708,7 @@
     },
     "336": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1623,6 +1722,7 @@
     },
     "337": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1636,6 +1736,7 @@
     },
     "35": {
      "cost_basis": "0.4657161155820457058133712939882417828755532690872",
+     "exits": 0,
      "mark_price": "0.4657161155820457058133712939882417828755532690872",
      "mark_source": "p3:trade@43748241",
      "market_value": "0.4657161155820457058133712939882417828755532690872",
@@ -1649,6 +1750,7 @@
     },
     "351": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1662,6 +1764,7 @@
     },
     "352": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1675,6 +1778,7 @@
     },
     "353": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1688,6 +1792,7 @@
     },
     "354": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1701,6 +1806,7 @@
     },
     "355": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1714,6 +1820,7 @@
     },
     "356": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1727,6 +1834,7 @@
     },
     "357": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1740,6 +1848,7 @@
     },
     "358": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1753,6 +1862,7 @@
     },
     "359": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1766,6 +1876,7 @@
     },
     "360": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1779,6 +1890,7 @@
     },
     "361": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1792,6 +1904,7 @@
     },
     "362": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1805,6 +1918,7 @@
     },
     "363": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1818,6 +1932,7 @@
     },
     "364": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1831,6 +1946,7 @@
     },
     "365": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1844,6 +1960,7 @@
     },
     "366": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1857,6 +1974,7 @@
     },
     "367": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1870,6 +1988,7 @@
     },
     "368": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1883,6 +2002,7 @@
     },
     "369": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1896,6 +2016,7 @@
     },
     "370": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1909,6 +2030,7 @@
     },
     "371": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1922,6 +2044,7 @@
     },
     "372": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1935,6 +2058,7 @@
     },
     "39": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1948,6 +2072,7 @@
     },
     "40": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1961,6 +2086,7 @@
     },
     "41": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1974,6 +2100,7 @@
     },
     "42": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -1987,6 +2114,7 @@
     },
     "43": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2000,6 +2128,7 @@
     },
     "44": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2013,6 +2142,7 @@
     },
     "45": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2026,6 +2156,7 @@
     },
     "46": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2038,20 +2169,22 @@
      "unrealized": "0"
     },
     "51": {
-     "cost_basis": "0.058017273863916669866434193209170733069433645293722",
-     "mark_price": "0.012125214354554717788585688814067300009438202052579",
-     "mark_source": "p3:trade@51157916",
-     "market_value": "0.024250428709109435577171377628134600018876404105158",
+     "cost_basis": "0",
+     "exits": 0,
+     "mark_price": null,
+     "mark_source": null,
+     "market_value": "0",
      "pending_disposals": 0,
      "pending_lots": 1,
-     "qty": "2",
+     "qty": "0",
      "realized": "0",
      "unmarked_lots": 0,
      "unpriced_disposals": 0,
-     "unrealized": "-0.033766845154807234289262815581036133050557241188564"
+     "unrealized": "0"
     },
     "53": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2065,6 +2198,7 @@
     },
     "54": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2078,6 +2212,7 @@
     },
     "55": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2091,6 +2226,7 @@
     },
     "56": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2104,6 +2240,7 @@
     },
     "57": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2117,6 +2254,7 @@
     },
     "58": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2130,6 +2268,7 @@
     },
     "59": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2143,6 +2282,7 @@
     },
     "60": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2156,6 +2296,7 @@
     },
     "61": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2169,6 +2310,7 @@
     },
     "62": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2182,6 +2324,7 @@
     },
     "63": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2195,6 +2338,7 @@
     },
     "64": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2208,6 +2352,7 @@
     },
     "65": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2221,6 +2366,7 @@
     },
     "66": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2234,6 +2380,7 @@
     },
     "67": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2247,6 +2394,7 @@
     },
     "68": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2260,6 +2408,7 @@
     },
     "69": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2273,6 +2422,7 @@
     },
     "70": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2286,6 +2436,7 @@
     },
     "71": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2299,6 +2450,7 @@
     },
     "72": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2312,6 +2464,7 @@
     },
     "73": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2325,6 +2478,7 @@
     },
     "74": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2338,6 +2492,7 @@
     },
     "75": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2351,6 +2506,7 @@
     },
     "76": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2364,6 +2520,7 @@
     },
     "77": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2377,6 +2534,7 @@
     },
     "78": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2390,6 +2548,7 @@
     },
     "79": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2403,6 +2562,7 @@
     },
     "80": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2416,6 +2576,7 @@
     },
     "81": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2429,6 +2590,7 @@
     },
     "82": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2442,6 +2604,7 @@
     },
     "83": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2455,6 +2618,7 @@
     },
     "90": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2466,21 +2630,9 @@
      "unpriced_disposals": 0,
      "unrealized": "0"
     },
-    "93": {
-     "cost_basis": "0.1033317642712916065562385114361541387012340989605",
-     "mark_price": "0.028717612944998015815071368243843605285511531177162",
-     "mark_source": "p3:trade@51157926",
-     "market_value": "0.057435225889996031630142736487687210571023062354324",
-     "pending_disposals": 0,
-     "pending_lots": 0,
-     "qty": "2",
-     "realized": "0",
-     "unmarked_lots": 0,
-     "unpriced_disposals": 0,
-     "unrealized": "-0.04589653838129557492609577494846692813021103660618"
-    },
     "96": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2494,6 +2646,7 @@
     },
     "97": {
      "cost_basis": "0",
+     "exits": 0,
      "mark_price": null,
      "mark_source": null,
      "market_value": "0",
@@ -2506,43 +2659,43 @@
      "unrealized": "0"
     }
    },
+   "exits": 16,
    "low_excluded": 38,
-   "market_value_usdc": "38.565304420001441976457099190288266877716735710228",
-   "open_basis_usdc": "36.485017171168206926898726692071962826438599087403",
+   "market_value_usdc": "10.341829004706432310725920283280068392507816841396",
+   "open_basis_usdc": "10.438362835221170305545709135974353045320112275888",
    "realized_usdc": "-3.5985764513023782710038327197869263927709604546928",
    "unmarked_lots": 0,
    "unmarked_nft_lots": 4,
    "unpriced_disposals": 0,
-   "unrealized_usdc": "2.0802872488332350495583724982163040512781366228245"
+   "unrealized_usdc": "-0.096533830514737994819788852694284652812295434491632"
   },
   "excluded_rows": {
-   "spam": 340,
-   "untracked": 56
+   "spam": 265,
+   "untracked": 39
   },
   "exit_basis_usdc": "318.81134371476028517891859099546126819722390602953",
-  "exit_display_mv_usdc": "3157.7144360220527398631677777555821723621120673311",
-  "exits": 81,
-  "exits_pending": 65,
-  "expenses_usdc": "6.4004255280647672274190042318808704228227953719507",
+  "exit_display_mv_usdc": "3136.6538661787301148302989005285709976078197152953",
+  "exits": 69,
+  "exits_pending": 53,
+  "expenses_usdc": "6.0843948076772880559179145939237193706297345588247",
   "free_craft_lots": 3,
   "gas": {
    "fee_split_methods": {
-    "basis": 32
+    "basis": 27
    },
-   "gas_capitalized_usdc": "0.40997011347994420003391065671838999850590748116138",
-   "gas_disposals": 457,
-   "gas_entries": 449,
+   "gas_capitalized_usdc": "0.31324869100191045765146661206089670689351040401297",
+   "gas_disposals": 413,
+   "gas_entries": 407,
    "gas_expense_resolved_usdc": "0",
-   "gas_expense_usdc": "6.3787818225681016685148462640628199501561937865225",
-   "gas_in_basis_usdc": "0.27094493161614633243420664120407361393404264647934",
-   "gas_mv_usdc": "6.788751936048045868548756920781209948662101267684",
+   "gas_expense_usdc": "6.0627511021806224970137566261056688979631329733965",
+   "gas_in_basis_usdc": "0.17824805913323320141542038674819291467514866995622",
+   "gas_mv_usdc": "6.3759997931825329546652232381665656048566433774095",
    "gas_on_pending_lots_usdc": "0",
-   "gas_pending_disposals": 457,
+   "gas_pending_disposals": 413,
    "gas_realized_usdc": "0"
   },
   "holdings_by_location": {
    "100@wallet": "2",
-   "102@wallet": "2",
    "117@wallet": "1",
    "154@wallet": "1",
    "166@wallet": "10",
@@ -2550,9 +2703,10 @@
    "168@wallet": "1",
    "169@wallet": "176",
    "170@wallet": "1",
-   "19@wallet": "185.066308881067227185",
+   "19@escrow:0xa99c4b08201f2913db8d28e71d020c4298f29dbf": "0.24",
+   "19@wallet": "186.352708881067227185",
    "201@wallet": "1",
-   "20@wallet": "45.917054",
+   "20@wallet": "36.063241",
    "225@wallet": "1",
    "226@wallet": "1",
    "227@wallet": "1",
@@ -2600,7 +2754,7 @@
    "44@wallet": "2",
    "45@wallet": "4",
    "46@wallet": "30",
-   "51@wallet": "3",
+   "51@wallet": "1",
    "53@wallet": "1",
    "54@wallet": "1",
    "55@wallet": "1",
@@ -2633,20 +2787,22 @@
    "82@wallet": "1",
    "83@wallet": "1",
    "90@wallet": "1",
-   "93@wallet": "2",
    "96@wallet": "418638.062663589051780483",
    "97@wallet": "261182.755480408360768244"
   },
   "income_unpriced": 0,
   "income_usdc": "0.14162696287137066493330087583504704313280079798697",
   "open_cost_buckets": {},
-  "pending_disposals": 622,
+  "pending_disposals": 559,
   "pending_lots_open": 92,
-  "pending_lots_total": 664,
+  "pending_lots_total": 612,
   "pending_reasons": {
-   "deposit": 21,
+   "deposit": 16,
    "migration": 81,
-   "unrecorded_inflow": 562
+   "unrecorded_inflow": 515
   }
- }
+ },
+ "rows_after_as_of": 162,
+ "state_at_as_of": "replay of ledger rows <= as_of_block (offline)",
+ "tx_index_null_rows": 1319
 }

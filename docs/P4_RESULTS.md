@@ -1,112 +1,130 @@
-# P4 results: FIFO engine, rulings 2026-10-28 (+ rulings 2), real Base ledger copy
+# P4 results: FIFO engine, rulings 2026-10-28 (+ rulings 2, rulings 3), real Base ledger copy
 
-**Verdict: `scripts/p4_test.sh` PASSES on chain 8453.** Rebuild == incremental; the reconciliation holds per asset and in total at 0.01 USDC; open quantity equals the ledger's net quantity, with the only differences explained by unrecorded inflows; two snapshots are byte-identical.
-**Caveat:** the reconciliation covers only the resolved slice of the book. 664 of the 736 root lots and 622 of the 680 disposals are pending (counted and excluded on both sides, per Q-C). Every ETH lot is pending, so no gas falls inside resolved PnL on this ledger. The gas part of the identity is proven by the golden fixtures only (G13–G14).
+**Verdict: the engine is proven; real-ledger acceptance is deferred to P4.1.** `scripts/p4_test.sh` ends **P4 FLAGGED** (exit 3) on chain 8453:
+- rebuild == incremental;
+- the reconciliation holds per asset (realized and unrealized separately) and in total at 0.01 USDC, against a ledger side rebuilt independently from ledger_entry rows alone;
+- engine open qty == the ledger side's own running balance;
+- the snapshots are byte-identical;
+- **but** the ledger's own running balance has **UNEXPLAINED GAPS**: ETH and GHST leave balances the ledger never recorded arriving. They are reported and flagged, never passed (P4 rulings 3).
 
-Run: omarchywin, worktree `~/dev/cryptoPnL-p4` at 901cb56, `scripts/with_ledger_pg.sh scripts/p4_test.sh 8453 cryptopnl_p3_base cryptopnl_p4_base` (14 s, offline: no HyperSync, no RPC; marks come from stored P3 prices). Log: `docs/evidence/p4_test_8453.log`.
-Writes went only to `cryptopnl_p4_base` (`createdb -T cryptopnl_p3_base`); the template was read-only. Envio PG 5439/5440 were not touched.
+Run: omarchywin, worktree `~/dev/cryptoPnL-p4` at 75452b9:
+`PY=~/dev/cryptoPnL-p3/.venv/bin/python scripts/with_ledger_pg.sh scripts/p4_test.sh 8453 cryptopnl_p3_base cryptopnl_p4_base`
+- 10 s, offline: no HyperSync, no RPC; marks come from stored P3 prices. Log: `docs/evidence/p4_test_8453.log`.
+- Writes went only to `cryptopnl_p4_base` (`createdb -T cryptopnl_p3_base`). Envio PG 5439/5440 were not touched.
+- The ledger PG password came from the compose .env fallback. abra was locked, and `cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD` is not known to exist (see §10).
 
-## 1. Ledger md5 (P3 follow-up c), read-only
+## 1. Ledger md5, read-only
 `docs/evidence/p4_ledger_md5_8453.txt`:
 - `ledger_rows=1321`, blocks 4328142–52911467.
-- `ledger_md5_narrow=210a71d811fd872a970b1d11770ced05` (equals the P3 value).
+- `ledger_md5_narrow=210a71d811fd872a970b1d11770ced05` (unchanged).
 - `ledger_md5_report=58cc79730edcf6b11a1e8ee39ea3ab97`.
-- `review_rows=1`.
 
-The copy after migrating 013 is identical (`p4_ledger_md5_8453_copy.txt`).
+The copy after migrating is identical (`p4_ledger_md5_8453_copy.txt`).
 
-## 2. Migration 013
-- **Applied** on the copy only: `{"applied": ["013_p4_fifo.sql"]}`.
-- **Local up/down/up (MBP PG 16):** up == up2 (483 schema lines, md5 3c1ec586cc882d08a19322d36f4dd12a); down == 001..012 (353 lines); 5 constraint tests OK (`docs/evidence/p4_migration_013_local.txt`).
-- **manual_basis** is never under ON DELETE CASCADE from ledger_entry.
-- **P2 lots:** the copy's 82 P2 classify lots for the chain (81 pending migration lots + 1) are replaced by the P4 projection. manual_basis had 0 rows.
+## 2. Migrations 013 + 014
+- **Applied** on the copy: `{"applied": ["013_p4_fifo.sql", "014_p4_rulings3.sql"]}`.
+- **014** adds `fifo_lot.basis_origin` (CHECK `unrecorded_inflow`). It also sets `lot_disposal_pnl.realized_usdc` to NULL for exits and adds `realized_display_usdc`, which is 0 for an exit with known cost (display only).
+- **Local up/down/up** (MBP PG 16, `docs/evidence/p4_migration_014_local.txt`):
+  - up == up2 (489 lines, md5 550706dc9f63d80a7284b5402634e280);
+  - 014 down == 001..013 (483 lines);
+  - 013 down == 001..012 (353 lines);
+  - 7 constraint and view tests OK.
 
-## 3. Rebuild vs incremental (`p4_rebuild_8453.json`, `p4_incremental_8453.json`)
-| | rebuild | incremental (split at median block 40422429: 661 + 660 rows, state reloaded from the DB) |
+## 3. Rebuild vs incremental
+| | rebuild | incremental (split at 40422429: 661 + 660 rows, state reloaded from the DB) |
 |---|---|---|
-| engine md5 | f198ed6c64c6c66ea49db87cfde82e6c | f198ed6c64c6c66ea49db87cfde82e6c |
-| fifo_lot table md5 | c227629aa3f8b422ae98ef6bd48a1219 | c227629aa3f8b422ae98ef6bd48a1219 |
+| engine md5 | 1a0367245a6c6a5915727746fc542699 | 1a0367245a6c6a5915727746fc542699 |
+| fifo_lot table md5 | 46ad52a42db6cc6161e917cb57b19076 | 46ad52a42db6cc6161e917cb57b19076 |
 | lot_disposal table md5 | b9c2d064d8b791653a9bad39c8d98031 | b9c2d064d8b791653a9bad39c8d98031 |
 | lots / disposals | 755 / 680 | 755 / 680 |
 
-The head state's md5 is unchanged by the DB round trip (2bb2cdd0e1457ca2bc2302e894e29ca6 both ways).
+- The head state's md5 is unchanged by the DB round trip: 1474eaf68efc4df5717af77df2749953.
+- The engine and fifo_lot md5s changed from b2089fc because `basis_origin` was added. lot_disposal is unchanged.
+- Row order: (block, log_index, id). `tx_index_null_rows` = 1319 of 1321, all in single-tx blocks, which passes the check.
 
-## 4. Reconciliation (`p4_reconcile_8453.json`), as_of_block 52911410, tolerance 0.01 USDC, exact Decimal
-- **Total:** engine realized + unrealized − gas_expense(resolved) = −1.74342019081785020856… USDC. The ledger side gives the same value; residual 2.8e-48.
-- **Per asset:** 15 assets compared; the largest |residual| is 8.3e-48. Examples:
-  - GHST (asset 19): engine −1.32031525518 = ledger (S 6.057006, A 163.963175, MV 7.288311, X 149.297542).
-  - USDC (asset 20): −0.06491976836 = ledger.
-  - FOMO (96): −0.07539412237. FUD (39): −0.05824479618. KEK (28): −0.05783117790. ALPHA (97): −0.04984725689.
-- **Skipped:** 3 NFT assets (4 open lots) have no P3 price (Q8), so they are left out of both sides and counted. Engine PnL inside skipped assets is 0.
-- **Quantity check:** open lot quantity equals the ledger's net quantity for every asset except two. Both differences equal the `unrecorded_inflow` quantity exactly:
-  - ETH: engine 0 vs ledger −1.098635134819817605.
-  - GHST: engine 185.066308881067227185 vs ledger −467.563691118932770315 (diff 652.6299999999999975).
-- **Basis identity** (engine self-check): residual −1.5e-47.
+## 4. as_of_block = 49402932 (rulings 3: MIN over tracked assets of each one's latest stored price)
+- **Set by** KEK (28), FUD (39), FOMO (96) and ALPHA (97), whose last stored P3 price is at 49402932.
+- **Latest stored price for the others:** GHST (19) 51283821, USDC (20) 51481437, ETH (2) 52911410.
+- **State at as_of:** the snapshot and reconcile replay the 1159 rows with block ≤ 49402932 offline. 162 rows come after as_of.
 
-## 5. Totals at as_of_block 52911410 (resolved lots only; USDC; marks = latest stored P3 price at or before the block, source per row in the snapshot `mark_source`)
+## 5. Reconciliation (`p4_reconcile_8453.json`), tolerance 0.01 USDC, exact Decimal; the ledger side reads ledger rows only
+- **Total:** engine R + U − gas_expense(resolved) = −3.92024127016582325294… USDC = the ledger side; **residual 0**.
+- **Per asset** (93 assets): max |realized residual| 1e-50, max |unrealized residual| 1e-51. The ledger side's own formula S + MV + X + C + M − A equals its R + U to within 1.1e-47.
+- **Engine R + U per asset**, for the 7 assets with a nonzero value; all match the ledger side:
+
+  | asset | R + U | realized | unrealized |
+  |---|---|---|---|
+  | GHST (19) | −3.5898471177 | −3.5305177175 | −0.0593294001 |
+  | USDC (20) | −0.0518723687 | −0.0518723687 | 0 |
+  | FOMO (96) | −0.0753941224 | −0.0083195695 | −0.0670745528 |
+  | FUD (39) | −0.0582447962 | −0.0078488812 | −0.0503959150 |
+  | KEK (28) | −0.0578311779 | 0 | −0.0578311779 |
+  | ALPHA (97) | −0.0498472569 | 0 | −0.0498472569 |
+
+  - GHST terms: S 6.0570, MV 5.0188, X 149.2975, A 163.9632.
+- **Quantity:** engine open qty == the ledger side's running balance for every asset (0 mismatches).
+- **UNEXPLAINED GAP** (the ledger side's balance went short; flagged, not passed):
+  - **ETH (2):** 1.095603323941304014 ETH over 455 out-legs, blocks 12795076–49402932 (fee 406, withdrawal 36, swap 10, nft_buy 3).
+  - **GHST (19):** 652.6299999999999975 GHST over 60 pocket → wallet legs, blocks 38141654–40216494.
+- **Exits:** 69 exit disposal rows in the engine (53 pending, 16 resolved). On the ledger side, 7 withdrawal events consume resolved balance. Exit basis 318.81134371476028517891; display MV 3136.65386617873011483030 (not PnL; realized NULL).
+- **Gas attribution (ledger side):** 367 expense, 25 into basis, 15 off proceeds, 0 NFT-sale txs at as_of. The NFT-sale rule is covered by golden G18.
+
+## 6. Totals at as_of_block 49402932 (resolved lots only; USDC; marks = latest stored P3 price at or before the block; `mark_source` per row)
 | variant | realized | unrealized | market value | open basis |
 |---|---|---|---|---|
-| all | −3.59855853704708600931 | 1.85513834622923580075 | 50.67024035982677485200 | 48.81510201359753905125 |
-| excl_low | −3.59857645130237827100 | 2.08028724883323504956 | 38.56530442000144197646 | 36.48501717116820692690 |
+| all | −3.59855853704708600931 | −0.32168273311873724363 | 22.44676494453176518627 | 22.76844767765050242990 |
+| excl_low | −3.59857645130237827100 | −0.09653383051473799482 | 10.34182900470643231073 | 10.43836283522117030555 |
 
-- **Income:** 0.14162696287137066493 (31 rows, FMV).
-- **Expenses:** 6.40042552806476722742 (gas plus 1 spend).
-- **Exits:** 81 (65 pending, 16 resolved). Exit basis 318.81134371476028517891; exit market value for display 3157.71443602205273986317 (not PnL).
+- **Income:** 0.14162696287137066493.
+- **Expenses:** 6.08439480767728805592.
+- **Basis identity** (engine self-check): residual −2e-47.
 
-## 6. Counts
-- **Pending (root lots, 664):**
-  - deposit 21 (ETH 12 = 0.000101142; GHST 3 = 127.697652688894130102; USDC 6 = 159.123837).
-  - migration 81 (NFTs, P6 carry pending).
-  - unrecorded_inflow 562 (ETH 502 lots = 1.098635134819817605 ETH; GHST 60 lots = 652.6299999999999975).
-- **Open and pending:** 92 lots open pending; 622 pending disposals.
-- **NFT-excluded:** 3 assets / 4 open lots with no P3 price (left out of unrealized and counted); 81 migration NFT lots pending. 15 resolved NFT lots are open, over 11 assets; the 4 unmarked lots are among them, and the rest are marked at a stored P3 price.
-- **Gas:**
-  - 449 gas entries → 457 FIFO ETH disposals. **All 457 are pending**, because every ETH lot is a pending deposit or unrecorded inflow.
-  - Gas market value 6.78875193604804586855. gas_expense 6.37878182256810166851 (resolved part 0). Capitalized 0.40997011347994420003.
-  - In resolved basis: 0.27094493161614633243 over 32 lots (split_method basis 32, equal 0). On pending lots: 0.
-  - Ledger-side attribution: 30 txs into basis, 16 off proceeds, 403 gas_expense.
-- **Crafts:** 1 craft lot with inputs (single asset, split_method single); **0 equal fallbacks**; 3 free crafts (basis 0). `craft_recipe_cost` has 0 rows. No recipe RPC was needed: no Base craft mints several assets under one ref.
-- **Excluded rows:** spam 340, untracked 56.
-- **Snapshot:** 190 pnl_snapshot rows (95 per variant), table md5 fc4450f8d98cedcb27a44765e946e0b5. The file md5 is ea3cf48ed5ea767f568c1444cf7996f0 for both runs (`cmp` identical).
+## 7. Counts at as_of
+- **Pending root lots (612):**
+  - deposit 16;
+  - migration 81 (NFTs, P6 carry);
+  - unrecorded_inflow 515.
+- **Q-H confirmed on the DB copy** (full rebuild state in `fifo_lot`): 562 root lots with `pending_reason=unrecorded_inflow`, all `basis_status=pending`, `basis_usdc` NULL, `basis_origin=unrecorded_inflow`, and `open_block` = the block of the shortfall out-leg (562/562). 5 custody children carry the same basis_origin.
+- **Pending activity:** 92 pending lots open; 559 pending disposals.
+- **NFTs:** 4 open NFT lots unmarked (no stored P3 price, Q8; counted, not valued).
+- **Gas:** 407 entries → 413 ETH disposals, all pending (every ETH lot is a deposit or an unrecorded inflow).
+  - MV 6.37599979318253295467; gas_expense 6.06275110218062249701 (resolved part 0).
+  - Capitalized 0.31324869100191045765; in resolved basis 0.17824805913323320142.
+- **Crafts:** 1 craft lot, 0 equal fallbacks, 3 free crafts.
+- **Snapshot:** 186 pnl_snapshot rows, table md5 4b17f839e5459a60ca6ffb9b6b504f07. File md5 4fc87550f661d46e9ad6643a7734ae0a on both runs (`cmp` identical).
 
-## 7. Likely cause of the pending mass (not tuned)
-- **ETH:** the ledger records native inflows of only 0.000101142 ETH (12 deposits), but outflows of 1.0988 ETH:
-  - withdrawals 1.00057771652161008200
-  - swaps 0.09263725807013363400
-  - nft_buys 0.00331086333386720000
-  - gas 0.00221043889420668900
+## 8. Likely cause of the gaps (not tuned)
+- **ETH:** native ETH reached the wallet by a path ingest does not record. Likely an L1→L2 bridge deposit, or internal ETH transfers from contracts. The ledger records only 0.000101142 ETH of deposits.
+- **GHST:** pocket balances were pulled into the wallet (3 txs) with no recorded inflow into the pockets. Likely channeling, or gotchis migrated from Polygon.
 
-  So native ETH reached the wallet by a path ingest does not record. Likely an L1→L2 bridge deposit, or internal ETH transfers from contracts.
-- **GHST:** 3 txs (blocks 38141654, 38622419, 40216494) move GHST out of 20 gotchi pockets into the wallet. No row ever records GHST arriving in those pockets (likely pocket balances from channeling or from gotchis migrated from Polygon).
+These are ingest gaps, not engine errors. Resolving them is P4.1.
 
-Both are ledger (ingest) gaps, not engine errors. Under `shortfall=pending` they become counted pending lots instead of stopping the run.
+## 9. Tests
+**MBP:** full suite **249 tests OK** (8 skipped: the 7 migration tests, which run in p4_migration_test.sh and pass there, plus 1 skipped before P4).
 
-## 8. Tests
-- **MBP** (Python 3.9, local PG 16 scratch DB): full suite 234 tests OK (6 skipped: the 5 migration tests that need their own scratch DB, which run in p4_migration_test.sh and pass, plus 1 that was skipped before P4).
-- **New in P4:**
-  - golden FIFO 44 (G1–G12)
-  - recompute 3
-  - rulings 15 (G13 gas from an ETH lot bought at a different price; G14 fee split basis/equal-on-pending; G15 pending exit; G16 Q-G recipe / equal fallback / free craft; G17 shortfall; plus recompute under the rulings at every block boundary)
-  - DB adapter 1
-  - follow-ups (a) 8, (b) 3, (c) 4
-  - migration 5
-- **omarchywin** (Python 3.14): the pure engine suites pass in p4_test.sh.
+New for rulings 3:
+- `tests/test_p4_rulings3.py`, 9 tests:
+  - G18 NFT-sale gas: nft_sale 500 GHST with gas 2 → proceeds 498, realized 298, GHST basis 500; the auction seller likewise.
+  - G19 exit realized NULL.
+  - G20 basis_origin carried to custody children.
+  - MutationLifo, 3 tests: a LIFO `_take` is caught by the reconciliation (ETH realized −1000 / unrealized +1000 residuals, while the total residual is 0) and by golden G1.
+  - The independent ledger side agrees with the engine on golden G1–G4, G13 and G14.
+- `tests/test_p4_adapter.py`, 4 tests: as_of = MIN (set by the asset with the oldest latest price; NFTs don't gate it), the tx_index NULL check, no coalesce.
+- `test_p4_migration`, +2: exit NULL in the view; basis_origin CHECK.
+- G17 now expects an UNEXPLAINED GAP (flagged), not a pass.
 
-## 9. Not verified
-- The gas part of the identity on real data: no resolved gas exists (all ETH lots pending). It is verified only by the fixtures.
-- The basis of the 562 unrecorded inflows and 21 deposits is unknown, by design. It needs manual_basis, reclassification, or an ingest fix.
-- Reading recipe costs over RPC is not implemented. The table and the engine path exist and Base needed 0 recipes.
-- Only the `all` variant is reconciled; `excl_low` totals are reported but not reconciled.
-- Mark staleness: each asset's mark is its latest stored P3 price at or before 52911410, which can be older than that block (`mark_source` gives the block).
+**omarchywin:** the engine suites (golden, recompute, rulings, rulings3, adapter) give OK in p4_test.sh.
 
-## 10. Open questions (owner)
-1. **Q-H shortfall** (architect): confirm `shortfall=pending`, or rule otherwise.
-2. **Missing native ETH inflows (~1.0986 ETH) and GHST pocket inflows (652.63 GHST)** (architect + ingest owner; user_default for the facts):
-   - Is the ETH a bridge deposit?
-   - Were the pocket balances channeled or migrated?
-   - Should ingest add native internal transfers and pocket inflows?
-3. **fee_split with mixed resolved and pending acquisitions in one tx:** equal is my reading of ruling 2(a) (architect).
-4. **Swap gas** goes into the bought asset's basis, not off the sold asset's proceeds (architect).
-5. **as_of_block** = the latest block with any stored P3 price; marks are the latest price at or before it (architect).
-6. **Q-G for one input ref joined across several queues:** the items are unknown until claim, so the split is equal and flagged (architect).
-7. **Exit rows in the stored column:** `lot_disposal.realized_pnl_usdc` stays proceeds − cost, so it is NULL for exits. The view `lot_disposal_pnl.realized_usdc` gives 0 (architect).
+## 10. Not verified / follow-ups
+- **abra:** omarchywin's abra was locked, so whether `cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD` exists could not be checked. Nothing was created or unlocked.
+  - user_default needs to add it: `abra set cryptoPnL CRYPTOPNL_LEDGER_PG_PASSWORD`.
+  - `with_ledger_pg.sh` uses abra when it is unlocked and the var exists; otherwise it falls back to the compose .env.
+- **Gas on real data:** no resolved gas exists (all ETH lots are pending), so the gas part is proven by fixtures only.
+- **excl_low:** reported, not reconciled.
+- **Upgrade, destroy and bundle:** the ledger side doesn't model them (none on Base); it raises if they appear.
+
+## 11. Open questions (owner)
+1. **The missing ETH and GHST inflows** (architect + ingest owner; user_default for the facts). This is P4.1.
+2. **fee_split equal when any acquisition of the tx is pending** (architect; `pending_architect`).
+3. **Swap gas into the bought asset's basis** (architect; `pending_architect`).
+4. **Q-G, one input ref shared by several queues, split equal** (architect; `pending_architect`).
