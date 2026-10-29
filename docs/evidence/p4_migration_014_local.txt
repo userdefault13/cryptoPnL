@@ -12,7 +12,7 @@ test_no_cascade_path_from_ledger_entry_to_manual_basis (tests.test_p4_migration.
 test_pending_lot_needs_null_source (tests.test_p4_migration.Migration013) ... ok
 
 ----------------------------------------------------------------------
-Ran 7 tests in 0.120s
+Ran 7 tests in 0.119s
 
 OK
 P4 MIGRATIONS 013+014 PASS (up/down/up)
