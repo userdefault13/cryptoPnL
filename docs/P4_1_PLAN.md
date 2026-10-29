@@ -103,3 +103,31 @@ never unlocked here), so the canonical run waits and everything below runs on th
   (free tier, host limiter 5/min + 12 s): **expected 1–4 requests, hard cap 7** (8 minus the 403 at 20:04). RPC 0.
   **Actual (20:18:49–20:19:15 PT): 1 HyperSync request, HTTP 200**, the whole range in one page (346 rows, 149 txs). RPC 0. Facts in
   P4_1_SOURCES.md §2b. Canonical run not started (ledger PG password missing).
+
+## Rule 7 round (architect ruling (a) on pocket inflows, 20:21 PT): source choice and request budget (written before running)
+Facts known for 0 requests (MBP copy, non-canonical): one wallet in the group (0x2127…2e76); 24 gotchis ever held on the Diamond
+(wallet-scoped ERC721 legs, first at block 33205609); the gotchi_escrow cache is **empty** on the MBP copy (canonical has it), which is
+why the 4 pocket txs sit in review there. The wallet's own lending txs (raw `tx` selectors): batchAddGotchiListing 42180165,
+agreeGotchiLending 42190763 (wallet as borrower), claimAndEndGotchiLending 42750753, plus 16 EIP-7702 `execute` txs whose inner
+calls are not stored. Every H3 deposit block (35315787–39595007) is **before** the first wallet listing tx.
+
+**Source choice (cheapest correct):**
+- **Historical owner at the deposit block:** the ledger's wallet-scoped ERC721 legs on the Diamond, replayed in classify order
+  (`esc.gotchis`). 0 requests. Cross-check: one Multicall3 `aggregate` eth_call of `ownerOf` for the 24 gotchis at the first pocket
+  inflow block.
+- **Rental status at the deposit block:** lending events, not per-block eth_calls (per (gotchi, deposit block) eth_calls would cost
+  roughly 150–350 RPC). A rental needs a listing; a listing needs a tx from the lender or a lending operator. So:
+  HS1 = the wallet's txs to the Diamond with a lending selector or the 7702 `execute` selector (inputs plus their logs, JoinAll): this
+  gives the listingIds (GotchiLendingAdd topic1) and shows whether any `setLendingOperator` / `batchSetLendingOperator` was ever sent.
+  Listings that predate the window (carried over at migration) are caught by one Multicall3 eth_call of `getGotchiLendingIdByToken`
+  plus `isAavegotchiLent` for the 24 gotchis at the first pocket inflow block (the same call as the owner cross-check).
+  HS3 = the indexed lending events (GotchiLendingExecute / End / Cancel, topic1 = listingId) for those listingIds. That gives exact
+  rental intervals. If HS1 shows a lending operator, stop and report, because an operator's listings would not show up in HS1.
+- **Pocket legs:** one escrow-address resolution (Multicall3 of `gotchiEscrow` for the 24 gotchis at block 52911467) and HS2 = Transfer
+  (ERC20/ERC721) plus TransferSingle/TransferBatch (ERC1155) into or out of the 24 escrows, blocks 0–52911467, txs and blocks joined.
+  This supersedes H3 (20 pockets, up to 40216494) and covers the post-40216494 inflows.
+
+**Budget:** HyperSync HS1 1–2, HS2 1–3, HS3 1 (0 if there are no listingIds): **expected 3–6, hard cap 7**, at 5/min with a 12 s gap
+(aavegotchi-envio-indexers/ENVIO_API_TOKEN, by name). RPC: 2 Multicall3 eth_calls (escrows at 52911467; owner and lending at the
+first inflow block): **expected 2, hard cap 6**, 30/min. Everything is cached in logs/p4_1_cache. The facts go to
+docs/evidence/p4_1_pockets.json (chain data only). Canonical later reuses the cache (0 new requests unless the range grows).
