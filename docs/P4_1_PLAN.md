@@ -131,3 +131,9 @@ calls are not stored. Every H3 deposit block (35315787–39595007) is **before**
 (aavegotchi-envio-indexers/ENVIO_API_TOKEN, by name). RPC: 2 Multicall3 eth_calls (escrows at 52911467; owner and lending at the
 first inflow block): **expected 2, hard cap 6**, 30/min. Everything is cached in logs/p4_1_cache. The facts go to
 docs/evidence/p4_1_pockets.json (chain data only). Canonical later reuses the cache (0 new requests unless the range grows).
+- **Actual (20:29:58–20:33:15 PT):** HyperSync **4** (HS2, HS1, HS3, then HS2 again with `block.hash` added, which raw_event / block need;
+  all HTTP 200), RPC **2** (R1, R2; HTTP 200). Under the caps of 7 / 6. Facts: 24 escrows; 381 pocket rows (320 in); 1 listing
+  (gotchi 954, listing 1151: added 42180165, executed 42195157, ended 42750753); 0 lending-operator calls or events; nothing lent at the
+  first inflow block (35315787); RPC ownerOf at that block equals the ledger replay for all 24 gotchis.
+- **M1 re-run on the MBP copy after rule 7** (written before running): GHST is now held at as_of 52112861 (pocket income booked) and
+  has no p3_mark row. `cryptopnl marks` re-marks every held asset: **expected 12–16 RPC, cap 30** (the earlier run was 12).
