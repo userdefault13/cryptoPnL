@@ -376,3 +376,311 @@
 1793234389.659 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
 1793234444.419 rpc attempt
 1793234444.591 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235147.405 rpc attempt
+1793235147.664 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235148.918 rpc attempt
+1793235150.093 rpc outcome host=base.drpc.org endpoint=<redacted> status=408 retry_after=- attempt=1
+1793235151.841 rpc attempt
+1793235153.119 rpc outcome host=base.drpc.org endpoint=<redacted> status=408 retry_after=- attempt=2
+1793235155.135 rpc attempt
+1793235155.740 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=3
+1793235156.653 rpc attempt
+1793235157.635 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235158.172 rpc attempt
+1793235158.559 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235159.684 rpc attempt
+1793235160.501 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235161.201 rpc attempt
+1793235162.366 rpc outcome host=base.drpc.org endpoint=<redacted> status=408 retry_after=- attempt=1
+1793235163.517 rpc attempt
+1793235164.443 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=2
+1793235165.032 rpc attempt
+1793235165.772 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235166.552 rpc attempt
+1793235166.916 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235168.073 rpc attempt
+1793235168.841 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235169.594 rpc attempt
+1793235170.744 rpc outcome host=base.drpc.org endpoint=<redacted> status=408 retry_after=- attempt=1
+1793235172.300 rpc attempt
+1793235173.102 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=2
+1793235173.811 rpc attempt
+1793235174.719 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235175.331 rpc attempt
+1793235175.585 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235176.852 rpc attempt
+1793235177.415 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235178.372 rpc attempt
+1793235179.253 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235570.912 rpc attempt
+1793235571.177 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235572.432 rpc attempt
+1793235572.652 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235573.953 rpc attempt
+1793235574.277 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235575.473 rpc attempt
+1793235575.716 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235576.994 rpc attempt
+1793235577.301 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235578.513 rpc attempt
+1793235578.776 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235580.033 rpc attempt
+1793235580.342 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235581.552 rpc attempt
+1793235581.767 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235583.071 rpc attempt
+1793235583.289 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235584.592 rpc attempt
+1793235584.820 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235586.111 rpc attempt
+1793235586.324 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235587.629 rpc attempt
+1793235587.836 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235659.561 rpc attempt
+1793235661.079 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235661.081 rpc attempt
+1793235661.260 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235662.595 rpc attempt
+1793235662.801 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235664.116 rpc attempt
+1793235664.557 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235665.637 rpc attempt
+1793235666.324 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235667.148 rpc attempt
+1793235667.593 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235668.668 rpc attempt
+1793235668.850 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235670.180 rpc attempt
+1793235671.434 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235671.699 rpc attempt
+1793235672.896 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235673.218 rpc attempt
+1793235673.485 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235674.736 rpc attempt
+1793235674.926 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235676.253 rpc attempt
+1793235676.449 rpc outcome host=base.drpc.org endpoint=<redacted> status=200 retry_after=- attempt=1
+1793235914.948 t_4444668288 attempt
+1793235914.948 t_4444668288 outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=1
+1793235914.948 t_4444668288 attempt
+1793235914.948 t_4444668288 outcome host=x endpoint=<redacted> status=RemoteDisconnected retry_after=- attempt=2
+1793235914.948 t_4444668288 attempt
+1793235914.948 t_4444668288 outcome host=x endpoint=<redacted> status=BrokenPipeError retry_after=- attempt=3
+1793235914.948 t_4444668288 attempt
+1793235914.948 t_4444668288 outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=4
+1793235914.949 t_fail attempt
+1793235914.949 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=1
+1793235914.949 t_fail attempt
+1793235914.949 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=2
+1793235914.949 t_fail attempt
+1793235914.949 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=3
+1793235914.949 p_4445722464 attempt
+1793235914.949 p_4445722464 outcome host=x endpoint=<redacted> status=InvalidURL retry_after=- attempt=1
+1793235914.949 p_html attempt
+1793235914.949 p_html outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=1 err=JSONDecodeError
+1793235914.949 p_html attempt
+1793235914.949 p_html outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=2
+1793235914.949 p_4445713344 attempt
+1793235914.949 p_4445713344 outcome host=x endpoint=<redacted> status=SSLCertVerificationError retry_after=- attempt=1
+1793235914.950 p_4445796416 attempt
+1793235914.950 p_4445796416 outcome host=x endpoint=<redacted> status=SSLCertVerificationError retry_after=- attempt=1
+1793235914.950 p_eof attempt
+1793235914.950 p_eof outcome host=x endpoint=<redacted> status=SSLEOFError retry_after=- attempt=1
+1793235914.950 p_eof attempt
+1793235914.950 p_eof outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=200 attempt=1
+1000200.000 hypersync attempt
+1000200.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=600 attempt=1
+1000600.000 hypersync attempt
+1000600.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1793235948.867 t_4412278592 attempt
+1793235948.867 t_4412278592 outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=1
+1793235948.867 t_4412278592 attempt
+1793235948.867 t_4412278592 outcome host=x endpoint=<redacted> status=RemoteDisconnected retry_after=- attempt=2
+1793235948.867 t_4412278592 attempt
+1793235948.867 t_4412278592 outcome host=x endpoint=<redacted> status=BrokenPipeError retry_after=- attempt=3
+1793235948.867 t_4412278592 attempt
+1793235948.867 t_4412278592 outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=4
+1793235948.867 t_fail attempt
+1793235948.867 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=1
+1793235948.868 t_fail attempt
+1793235948.868 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=2
+1793235948.868 t_fail attempt
+1793235948.868 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=3
+1793235948.868 p_4414384160 attempt
+1793235948.868 p_4414384160 outcome host=x endpoint=<redacted> status=InvalidURL retry_after=- attempt=1
+1793235948.868 p_html attempt
+1793235948.868 p_html outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=1 err=JSONDecodeError
+1793235948.868 p_html attempt
+1793235948.868 p_html outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=2
+1793235948.868 p_4414346304 attempt
+1793235948.868 p_4414346304 outcome host=x endpoint=<redacted> status=SSLCertVerificationError retry_after=- attempt=1
+1793235948.868 p_4414429376 attempt
+1793235948.868 p_4414429376 outcome host=x endpoint=<redacted> status=SSLCertVerificationError retry_after=- attempt=1
+1793235948.868 p_eof attempt
+1793235948.868 p_eof outcome host=x endpoint=<redacted> status=SSLEOFError retry_after=- attempt=1
+1793235948.868 p_eof attempt
+1793235948.869 p_eof outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=200 attempt=1
+1000200.000 hypersync attempt
+1000200.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=600 attempt=1
+1000600.000 hypersync attempt
+1000600.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1793236007.581 t_4487156928 attempt
+1793236007.581 t_4487156928 outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=1
+1793236007.581 t_4487156928 attempt
+1793236007.581 t_4487156928 outcome host=x endpoint=<redacted> status=RemoteDisconnected retry_after=- attempt=2
+1793236007.581 t_4487156928 attempt
+1793236007.581 t_4487156928 outcome host=x endpoint=<redacted> status=BrokenPipeError retry_after=- attempt=3
+1793236007.581 t_4487156928 attempt
+1793236007.582 t_4487156928 outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=4
+1793236007.582 t_fail attempt
+1793236007.582 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=1
+1793236007.582 t_fail attempt
+1793236007.582 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=2
+1793236007.582 t_fail attempt
+1793236007.582 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=3
+1793236007.582 p_4487212096 attempt
+1793236007.582 p_4487212096 outcome host=x endpoint=<redacted> status=InvalidURL retry_after=- attempt=1
+1793236007.582 p_html attempt
+1793236007.582 p_html outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=1 err=JSONDecodeError
+1793236007.582 p_html attempt
+1793236007.582 p_html outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=2
+1793236007.582 p_4487233344 attempt
+1793236007.583 p_4487233344 outcome host=x endpoint=<redacted> status=SSLCertVerificationError retry_after=- attempt=1
+1793236007.583 p_4486507200 attempt
+1793236007.583 p_4486507200 outcome host=x endpoint=<redacted> status=SSLCertVerificationError retry_after=- attempt=1
+1793236007.583 p_eof attempt
+1793236007.583 p_eof outcome host=x endpoint=<redacted> status=SSLEOFError retry_after=- attempt=1
+1793236007.583 p_eof attempt
+1793236007.583 p_eof outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=200 attempt=1
+1000200.000 hypersync attempt
+1000200.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=600 attempt=1
+1000600.000 hypersync attempt
+1000600.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1793236081.939 t_4413974976 attempt
+1793236081.940 t_4413974976 outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=1
+1793236081.940 t_4413974976 attempt
+1793236081.940 t_4413974976 outcome host=x endpoint=<redacted> status=RemoteDisconnected retry_after=- attempt=2
+1793236081.940 t_4413974976 attempt
+1793236081.940 t_4413974976 outcome host=x endpoint=<redacted> status=BrokenPipeError retry_after=- attempt=3
+1793236081.940 t_4413974976 attempt
+1793236081.940 t_4413974976 outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=4
+1793236081.940 t_fail attempt
+1793236081.940 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=1
+1793236081.940 t_fail attempt
+1793236081.940 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=2
+1793236081.940 t_fail attempt
+1793236081.940 t_fail outcome host=x endpoint=<redacted> status=ConnectionResetError retry_after=- attempt=3
+1793236081.940 p_4415831296 attempt
+1793236081.941 p_4415831296 outcome host=x endpoint=<redacted> status=InvalidURL retry_after=- attempt=1
+1793236081.941 p_html attempt
+1793236081.941 p_html outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=1 err=JSONDecodeError
+1793236081.941 p_html attempt
+1793236081.941 p_html outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=2
+1793236081.941 p_4415647168 attempt
+1793236081.941 p_4415647168 outcome host=x endpoint=<redacted> status=SSLCertVerificationError retry_after=- attempt=1
+1793236081.941 p_4416192832 attempt
+1793236081.941 p_4416192832 outcome host=x endpoint=<redacted> status=SSLCertVerificationError retry_after=- attempt=1
+1793236081.941 p_eof attempt
+1793236081.941 p_eof outcome host=x endpoint=<redacted> status=SSLEOFError retry_after=- attempt=1
+1793236081.941 p_eof attempt
+1793236081.941 p_eof outcome host=x endpoint=<redacted> status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=200 attempt=1
+1000200.000 hypersync attempt
+1000200.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=600 attempt=1
+1000600.000 hypersync attempt
+1000600.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2
+1000000.000 hypersync attempt
+1000000.000 hypersync outcome host=base.hypersync.xyz endpoint=/query status=429 retry_after=- attempt=1
+1000012.010 hypersync attempt
+1000012.010 hypersync outcome host=base.hypersync.xyz endpoint=/query status=200 retry_after=- attempt=2

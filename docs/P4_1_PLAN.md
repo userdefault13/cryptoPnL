@@ -70,3 +70,22 @@ Expected wall time: HyperSync ≤ 28 × 12 s ≈ 6 min; RPC ≤ 370 / 30 per min
 - **Revision 2** (before running): drpc's free tier rejects wide `eth_getLogs` ranges (HTTP 400, jsonrpc code 35), so R3 is dropped. Used so far: RPC 38 attempts (6 OK = the 3 receipts + 3 txs; 32 rejected getLogs, half of them repeated by a rerun because errors were not cached; now fixed). Replacement:
   - **B3** Blockscout `tokentx` (GHST only), one per pocket: **20**. Blockscout cap raised to **30**.
   - **R4** `eth_getTransactionByHash` per distinct pocket-source tx: ≤ 40, inside the RPC cap.
+
+## P4.1 implementation round (architect review of step 1, 17:44 PT): request budget
+Counted before each run; caps are hard stops. abra on omarchywin was **locked** at 17:44 / 17:49 / 17:58 PT (rechecked every few minutes,
+never unlocked here), so the canonical run waits and everything below runs on the MBP's **non-canonical** copy `cryptopnl_p4_1_mbp`
+(= `cryptopnl_p22_base` + migrations 009–015 + the 553 stored P3 price points of `cryptopnl_p3_base`).
+- **I1 internal ETH ingest** (`python -m cryptopnl.internal_eth`, RPC 30/min, cap 40). *Not counted in this file before it ran* (cap set in
+  the command only; noted here afterwards): expected 0–16 new (balances and step-1 traces are cached; the 16 wallet-sent 7702 self-calls are
+  traced always). **Used: 14 new requests**, 160 cached, 0 errors.
+- **P1 re-price after re-classify** (`cryptopnl price --seed-only`): stored points answer 507 of 542 (asset, block) pairs; the 35 others
+  (alchemica / GHST blocks with no stored point) stay unpriced on this copy. **Expected RPC: 0.**
+- **M1 marks at as_of** (`cryptopnl marks`, as_of = the copy's last ledger block 52112861): ETH (2–3 calls), GHST (routed, ≤ 6), each
+  alchemica / GLTR held (dex then thin tier; no swap scan on the MBP → no_valid_mark, ≤ 6 each), USDC numeraire (0). **Expected ≤ 60, cap 80.**
+- **Canonical (only once omarchywin's abra is unlocked):** name check of `cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD` (abra ls, names only);
+  **H3** GHST Transfer logs into / out of the 20 pockets (HyperSync, 2–6 requests, cap 8); I1 on the canonical DB over the cache
+  (new range 52112862–52911467: ≤ 120 RPC); P1 seeded from the canonical price_point (≤ 20); M1 at the canonical last block (≤ 60).
+  Total canonical RPC cap 250.
+- **Actuals (MBP, non-canonical, 18:00–18:08 PT):** P1 0 RPC (613 seed hits). M1 **12 + 12 = 24 RPC** (the second run re-checked the
+  held rule after the any-location fix; marks are not cached), 0 errors, under the cap of 80. I1 re-run after the log_index fix: 0 new
+  (174 cached). HyperSync this round: **0**. RPC this round total: **38** (14 + 24).

@@ -1,0 +1,11 @@
+# cryptoPnL ledger md5 evidence (P3 follow-up c). Produced by: python -m cryptopnl ledger-md5 --chain 8453 --out docs/evidence/p4_1_ledger_md5_8453_MBP_NONCANONICAL.txt
+# ledger_md5_narrow = md5 of string_agg(concat_ws('|', hex(tx_hash), log_index, asset_id, qty, category, location, escrow_ref), ',' ORDER BY tx_hash, log_index, asset_id, location, qty) over ledger_entry WHERE chain_id
+# ledger_md5_report = classify.checksum ledger_md5 (also printed by `classify`)
+chain_id=8453
+ledger_rows=1207
+ledger_min_block=4328142
+ledger_max_block=52112861
+ledger_md5_narrow=799e27209042e75206757ca6b4119744
+ledger_md5_report=62458dbbddb2e5701e7054f7c348a55a
+review_rows=4
+review_md5=d0b501fa11f67645498e2c77a7ac258a
