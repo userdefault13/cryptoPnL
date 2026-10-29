@@ -160,3 +160,6 @@ responses keyed by request body), so ranges already traced repeat no request. Ha
   **104 GHST RF blocks** (156 `rarity_farming_payout` entries, 104 txs, 0 seeded) + 12 asset-blocks over 6 swap blocks (12 entries).
   Expected RPC: RF 104 × 2 = **208** (GHST v3 slot0 + USDC balanceOf); the 12 swap misses up to ~9 each if they fall through.
   Live cap `CRYPTOPNL_PRICE_RPC_CAP` = 250 − 19 − 20 = **211**. Anything past the cap is not sent and stays `no_price` (pending), never 0.
+- **Actuals (canonical, 22:20–23:05 PT):** I1 19 · pockets 0 · price 211 (stopped at the cap; run without `--reuse-stored`, so it
+  re-fetched stored blocks: operator error, see P4_RESULTS §12c; ledger prices restored from stored points with 0 RPC) · marks 12 ·
+  **total 242 / 250 RPC, 0 HyperSync.** RF payout blocks priced: 0 / 104 (156 entries pending). Pricing them needs a new budget (≈ 208 RPC).
