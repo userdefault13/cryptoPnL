@@ -341,6 +341,9 @@ wait on the HyperSync trace of how GHST entered the pockets.
 6. **1-wei Rubic dust**: if the wallet sent ETH in the same tx it is a refund under rule 3; otherwise income at FMV (≈ 0). Never spam for
    native ETH.
 Payers are listed per chain in `config.INTERNAL_ETH` (bridge_in / distribution / swap / refund / dust); an unknown payer → review.
+**Ledger md5 (architect, 18:22 PT):** `ledger_md5_v1` (pre-P4.1 definition, unchanged) and `ledger_md5_v2` (v1 + income_subtype,
+source_ref, trace_address) are both reported, plus v1 over the pre-P4.1 rows (`trace_address IS NULL`); gates use **v2** from P4.1 on
+(definitions: docs/P4_RESULTS.md §12, `cryptopnl/evidence.py`).
 **as_of (rulings 4)**: `--as-of` override, else the last ledger block. `cryptopnl marks` (P3 path) writes `p3_mark` for each held tracked
 fungible asset (positive balance at any location) at as_of: `priced` (normal price order) or `no_valid_mark` + reason. P4 reads
 `p3_mark` only; a missing or `no_valid_mark` asset is excluded from unrealized and counted (`marks` in the snapshot). Gate:

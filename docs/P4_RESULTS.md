@@ -132,13 +132,37 @@ Status: **not run canonically.** The canonical rerun on `cryptopnl_p4_base` (oma
 (locked at every check 17:44–18:17 PT). Numbers marked *MBP non-canonical* come from the MBP copy `cryptopnl_p4_1_mbp` (P2.2 base + stored
 P3 prices; evidence `docs/evidence/*_MBP_NONCANONICAL*`) and are **not** results; the canonical cells stay empty until the run.
 
-**Ledger md5 baseline after the P4.1 ingest + classify (canonical):**
-- `ledger_rows` = _TBD (canonical run)_
-- `ledger_md5_narrow` = _TBD (canonical run)_
-- `ledger_md5_report` = _TBD (canonical run)_ (also replaces the hard-coded EXP in `scripts/p4_test.sh`)
-- *MBP non-canonical, for comparison only:* 1207 rows, narrow `799e27209042e75206757ca6b4119744`, report `62458dbbddb2e5701e7054f7c348a55a`.
-- Note: the md5 definitions do not include the new `trace_address` / `income_subtype` / `source_ref` columns (unchanged definitions).
+**Ledger md5 (P4.1 md5 ruling, architect 18:22 PT): both are reported; gates use v2 from P4.1 on.** Definitions
+(`cryptopnl/evidence.py`, also written into every `*ledger_md5*.txt` evidence file):
+- **`ledger_md5_v1`** = the pre-P4.1 definition, unchanged (SQL byte-identical; formerly `ledger_md5_narrow`): md5 of
+  `string_agg(concat_ws('|', hex(tx_hash), log_index, asset_id, qty, category, location, escrow_ref), ',' ORDER BY tx_hash, log_index,
+  asset_id, location, qty)` over `ledger_entry WHERE chain_id`.
+- **`ledger_md5_v1_pre_p4_1`** = v1 over the pre-P4.1 row set only: `... AND trace_address IS NULL` (every P4.1 internal-ETH leg has a
+  trace address; no other row does). On a schema before migration 015 it equals v1.
+- **`ledger_md5_v2`** = v1's fields + `coalesce(income_subtype,'')`, `coalesce(source_ref,'')`, `coalesce(trace_address,'')` (NULL kept
+  in place as ''), `ORDER BY` v1's order + trace_address. **The canonical baseline from P4.1 on**; `scripts/p4_test.sh` gates on v2 and
+  rows (`EXP_LEDGER_MD5_V2`, `EXP_LEDGER_ROWS`, no default until the canonical values below exist) and prints v1 / v1_pre, not gated.
 
+| | canonical (`cryptopnl_p4_base`, omarchywin) | MBP non-canonical (`cryptopnl_p4_1_mbp`) | MBP pre-P4.1 control (`cryptopnl_p4_1_mbp_ctl`) |
+|---|---|---|---|
+| ledger_rows | _TBD_ | 1207 | 1191 |
+| ledger_md5_v1 | _TBD_ (pre-P4.1: `210a71d811fd872a970b1d11770ced05`, 1321 rows) | `799e27209042e75206757ca6b4119744` | `3238fee8e7aa888d390f549b60d05200` |
+| ledger_rows_pre_p4_1 | _TBD_ | 1192 | 1191 |
+| ledger_md5_v1_pre_p4_1 | _TBD_ | `e7e254065b990e90a1550d545b8ca951` | `3238fee8e7aa888d390f549b60d05200` |
+| **ledger_md5_v2** | **_TBD (canonical baseline)_** | `1646af93a2f1d766f9efb1c192450d4a` | `6df1b9aee68bdb0b0a7e67cb7b04987f` |
+| ledger_md5_report | _TBD_ | `62458dbbddb2e5701e7054f7c348a55a` | `3bfb41e4d854f9f3fdaa104ffaefd5f7` |
+
+The control is the same copy classified by the same code without the 15 internal-ETH raw rows (= the copy's pre-P4.1 ledger).
+Evidence: `docs/evidence/p4_1_ledger_md5_8453_MBP_NONCANONICAL.txt`, `..._MBP_NONCANONICAL_pre_p4_1_control.txt`.
+
+**Old rows are NOT unchanged on the MBP copy, as is: v1_pre_p4_1 `e7e25406…` (1192 rows) ≠ the control's `3238fee8…` (1191 rows).**
+Row diff (all three inside txs that gained an internal-ETH leg; rule 2 swap outputs):
+- block 49384073, tx 0x86d7518c…, USDC −5: `withdrawal` → `swap` (ETH in-leg now paired);
+- block 51007144, tx 0xdf1d7698…, USDC −5: `withdrawal` → `swap`;
+- block 12795081, tx 0xccbfe04a…, USDC −30 `swap`: a new non-internal row (the tx was in review before; now a swap).
+Rows of txs with no internal-ETH leg are byte-identical: v1 over them = `ccea8cbf4d81d8af2114ccc3ceab3695` (1161 rows) on both copies
+(diagnostic, run by hand: v1 `AND tx_hash NOT IN (<the 15 internal-ETH txs>)`). So on canonical, v1_pre_p4_1 is expected to differ
+from `210a71d8…` by the same rule-2 rows if those txs are in it; to be reported as is.
 **as_of (rulings 4):** last ledger block = _TBD (canonical)_; set_by = last ledger block unless user_default passes `--as-of`.
 
 **Counted exclusions: held assets with no valid mark at as_of** (excluded from unrealized, counted; never marked at basis or 0):
