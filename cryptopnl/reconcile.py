@@ -1,162 +1,246 @@
-"""P4 reconciliation (DESIGN §8 'P4 rulings (2026-10-28)' Q-C and 'P4 rulings 2' gas). The right-hand side is rebuilt from ledger rows
-and ledger quantities with NO code shared with the lot engine (cryptopnl/fifo.py is not called here):
+"""P4 reconciliation (DESIGN §8 P4 rulings Q-C, rulings 2 gas, rulings 3 independence). The ledger side is rebuilt from ledger_entry
+rows ALONE: no engine code is called and nothing is read from the lot tables (fifo_lot / lot_disposal / the engine State).
 
-    Σ_asset (realized + unrealized) − gas_expense  ==  Σ_asset [ S + MV + X + C − A ] − gas_expense_ledger      (each within 0.01 USDC)
-
-  S  sale proceeds: |qty| x unit price of every priced out-leg that is a trade, spend, craft input or gas payment, for the part of it
-     that consumed resolved lots; minus the gas share of a tx with a sale and no acquisition (gas comes off the sale's proceeds)
-  MV market value of the open resolved quantity at as_of_block (ledger in-qty of resolved lots − resolved out-qty) x the stored mark
-  X  basis of exited lots (Q-B exit: realized 0)          C  cost of resolved lots disposed without a price (counted; never 0)
-  A  acquisition basis of resolved lots: buys (trade value), income at FMV, bridge_in, migration carry/manual, craft outputs (the value
-     of the craft inputs under the same ref), plus the gas of the tx when it went into the acquisitions' basis (pro rata to basis when
-     all of the tx's acquisitions are resolved with bases > 0, else equal; a pending acquisition's share stays outside both sides)
-  gas_expense_ledger: gas of txs with no trade leg, the resolved part.
-The only inputs taken from the lot tables are the masks the ruling allows: which part of each out-leg consumed pending lots, whether
-the lot an in-leg opened is pending, exit basis, and unpriced-disposal cost. Pending lots are excluded from both sides and counted.
-NFT assets left unmarked (Q8: no P3 price) are excluded from both sides and counted. Exact Decimal arithmetic."""
+Ledger side, per asset:
+  * pending vs resolved comes from ledger categories: deposit -> pending (Q-B); migration_in -> carried / manual basis, else pending;
+    trade, income (FMV), bridge_in, craft outputs -> resolved when a value is known (trade-implied for the single unpriced leg of a
+    trade group), else pending; gift_in -> basis 0.
+  * its own running quantity balance per (asset, location), consumed oldest first, carried through custody legs (escrow, pocket,
+    lending, own wallets). An out-leg larger than the balance is an UNEXPLAINED GAP (asset, qty, entry, block): the missing qty is
+    carried as pending so the run can continue, and the gap is reported and flagged, never passed.
+  * gas (rulings 2 + 3): every gas leg is an ETH disposal at market value; it comes off an NFT sale's proceeds (nft_sale / auction
+    seller), else goes into the tx's acquisitions' basis (pro rata to basis when all resolved with bases > 0, else equal; a pending
+    acquisition keeps its share outside), else off the tx's sale proceeds, else gas_expense.
+  * exits (Q-B withdrawal): no realized PnL, basis X counted.
+Identity (Q-C): Σ(realized + unrealized) = S + MV + X + C + M − A per asset, where S = proceeds of resolved priced disposals (gas
+already deducted where it applies), MV = market value of marked open resolved quantity, X = exited basis, C = cost of resolved lots
+disposed without a price, M = basis of open resolved lots left unmarked (Q8 NFTs), A = acquisition basis of resolved lots (incl. gas).
+check() compares the engine's realized and unrealized per asset with the ledger side's (and the totals minus gas_expense) at 0.01 USDC,
+and the engine's open quantity with the ledger side's balance. Exact Decimal arithmetic."""
 from decimal import Decimal
 from typing import Callable, Dict, List, Optional
 
 D0 = Decimal(0); TOL = Decimal("0.01")
-TRADE = ("swap", "nft_buy", "nft_sale", "auction")
+TRADE = ("swap", "nft_buy", "nft_sale", "auction"); NFT_SALE = ("nft_sale", "auction")
 CUSTODY = ("escrow_out", "escrow_return", "transfer_internal")
-OUT_VALUED = TRADE + ("spend", "craft", "craft_pending", "fee")
-UNSUPPORTED = ("upgrade", "destroy_refund")   # Base ledger has none; the ledger side does not model them (fails loudly)
+RULINGS = {"deposit": "pending", "withdrawal": "exit", "fee": "capitalize", "fee_without_trade": "expense", "fee_split": "basis_else_equal",
+           "internal_transfer": "carry", "shortfall": "pending"}
 
 def _skip(e): return e.excluded or e.category in ("spam", "untracked") or e.flag in ("spam", "untracked")
 def _v(e): return None if e.price is None else abs(e.qty) * e.price
+def _refs(r): return [x for x in (r or "").split(";") if x]
 
-def masks(st) -> dict:
-    """Pending / exit / unpriced masks from the lot state (data only, no engine code)."""
-    out_res: Dict[int, Decimal] = {}; in_res: Dict[int, bool] = {}; X: Dict[str, Decimal] = {}; C: Dict[str, Decimal] = {}
-    lot = {l.id: l for l in st.lots}
-    for d in st.disposals:
-        a = lot[d.lot].asset
-        if d.lot_status == "pending": continue
-        out_res[d.entry] = out_res.get(d.entry, D0) + d.qty
-        if d.kind == "exit": X[a] = X.get(a, D0) + d.cost
-        elif d.proceeds is None and d.cost is not None: C[a] = C.get(a, D0) + d.cost
-    for l in st.lots:
-        if l.parent is None and l.kind != "unrecorded": in_res[l.open_entry] = l.status != "pending"
-    unrec: Dict[str, Decimal] = {}
-    for l in st.lots:
-        if l.parent is None and l.kind == "unrecorded": unrec[l.asset] = unrec.get(l.asset, D0) + l.qty_open
-    return {"out_res": out_res, "in_res": in_res, "exit_basis": X, "unpriced_cost": C, "unrecorded_qty": unrec}
+class _Chunk:
+    __slots__ = ("qty_open", "qty", "basis", "out", "order", "seq", "nft", "gap")
+    def __init__(self, qty, basis, order, seq, nft, gap=False):
+        self.qty_open = self.qty = qty; self.basis = basis; self.out = D0; self.order = order; self.seq = seq; self.nft = nft; self.gap = gap
+    def cost(self, q):   # basis of q units leaving (exact remainder on the last unit); None while pending
+        if self.basis is None: return None
+        c = self.basis - self.out if q == self.qty else self.basis * q / self.qty_open
+        self.out += c; return c
 
-def ledger_side(rows: List, m: dict, mark: Callable, nft_mark: Callable, as_of_block: int, recipe: Optional[Callable] = None) -> dict:
-    live = [e for e in rows if not _skip(e)]
-    bad = sorted({e.category for e in live if e.category in UNSUPPORTED})
-    if bad: raise ValueError(f"ledger side does not model {bad}")
-    by_tx: Dict[tuple, list] = {}
-    for e in live: by_tx.setdefault((e.block, e.tx_index, e.tx), []).append(e)
-    S: Dict[str, Decimal] = {}; A: Dict[str, Decimal] = {}; Q: Dict[str, Decimal] = {}; nft: Dict[str, bool] = {}
-    add = lambda dct, a, v: dct.__setitem__(a, dct.get(a, D0) + v)
-    ge = D0; n_gas_exp = n_gas_buy = n_gas_sell = 0; gas_pending_share = D0
-    res_frac = lambda e: (m["out_res"].get(e.id, D0) / abs(e.qty)) if e.qty else D0
-    for k in sorted(by_tx):
-        es = by_tx[k]
-        for e in es: nft[e.asset] = nft.get(e.asset, False) or e.nft
-        # trade-implied unit value of the single unpriced leg of a trade group (same rule as the books: other side all priced)
-        val: Dict[int, Optional[Decimal]] = {e.id: _v(e) for e in es}
-        groups: Dict[str, list] = {}
-        for e in es:
-            if e.category in TRADE: groups.setdefault(e.trade_group or e.tx, []).append(e)
-        for G in groups.values():
-            for side, other in ((lambda x: x.qty < 0, lambda x: x.qty > 0), (lambda x: x.qty > 0, lambda x: x.qty < 0)):
-                un = [x for x in G if side(x) and val[x.id] is None]; ot = [x for x in G if other(x)]
-                if len(un) == 1 and ot and all(val[x.id] is not None for x in ot): val[un[0].id] = sum(val[x.id] for x in ot)
-        acq = []   # (entry, basis value or None) of acquisitions that take gas
-        crafts: Dict[str, list] = {}
-        for e in es:
-            if e.category in CUSTODY: continue
-            if e.qty < 0:
-                if e.category in ("withdrawal",): Q[e.asset] = Q.get(e.asset, D0) - m["out_res"].get(e.id, D0); continue
-                rq = m["out_res"].get(e.id, D0); Q[e.asset] = Q.get(e.asset, D0) - rq
-                if e.category in OUT_VALUED and e.category != "fee" and val[e.id] is not None: add(S, e.asset, val[e.id] * rq / abs(e.qty))
-                if e.category in ("craft", "craft_pending"):
-                    for r in [x for x in (e.ref or "craft:unref").split(";") if x] or ["craft:unref"]:
-                        c = crafts.setdefault(r, [D0]); n = len([x for x in (e.ref or "craft:unref").split(";") if x]) or 1
-                        c[0] = None if (c[0] is None or val[e.id] is None) else c[0] + val[e.id] / n
-            elif e.qty > 0:
-                ok = m["in_res"].get(e.id, False)
-                if ok: Q[e.asset] = Q.get(e.asset, D0) + e.qty
-                if e.category in TRADE:
-                    acq.append((e, val[e.id], ok))
-                    if ok: add(A, e.asset, val[e.id])
-                elif e.category in ("income", "bridge_in", "deposit") and ok: add(A, e.asset, val[e.id])
-                elif e.category == "migration_in" and ok: add(A, e.asset, e.carry_basis if e.carry_basis is not None else e.manual_basis)
-        # craft outputs: basis = the inputs' value under the same ref (split per unit; recipe split when several assets)
-        mints = [e for e in es if e.category in ("craft", "craft_pending") and e.qty > 0]
-        for r in sorted({x.ref or "craft:unref" for x in mints}):
-            ms = [x for x in mints if (x.ref or "craft:unref") == r]
-            if r not in crafts: continue                       # free craft (basis 0) or a claim of an earlier queue (not on Base)
-            tot = crafts[r][0]; w = [x.qty for x in ms]
-            if len({x.asset for x in ms}) > 1 and recipe is not None:
-                rc = [recipe(x.asset, x.block) for x in ms]
-                if all(c is not None and c > 0 for c in rc): w = [x.qty * c for x, c in zip(ms, rc)]
-            W = sum(w)
-            for x, wi in zip(ms, w):
-                b = None if tot is None else tot * wi / W
-                acq.append((x, b, m["in_res"].get(x.id, False)))
-                if m["in_res"].get(x.id, False) and b is not None: add(A, x.asset, b)
-        # gas (rulings 2): into the acquisitions' basis, else off the sales' proceeds, else gas_expense
-        for f in [e for e in es if e.category == "fee"]:
-            g = _v(f); fr = res_frac(f)
-            if g is None: continue
-            add(S, f.asset, g * fr)                               # the ETH gas disposal at market value (resolved part)
-            sales = [e for e in es if e.category in TRADE and e.qty < 0 and val[e.id] is not None]
-            if acq:
-                n_gas_buy += 1
-                allres = all(ok for _, _, ok in acq) and all(b is not None for _, b, _ in acq) and sum(b for _, b, _ in acq) > 0
-                W = sum(b for _, b, _ in acq) if allres else Decimal(len(acq))
-                for x, b, ok in acq:
-                    sh = g * (b if allres else Decimal(1)) / W
-                    if ok: add(A, x.asset, sh)
-                    else: gas_pending_share += sh
-            elif sales:
-                n_gas_sell += 1; W = sum(val[e.id] for e in sales)
-                for e in sales: add(S, e.asset, -g * val[e.id] / W * res_frac(e))
-            else: n_gas_exp += 1; ge += g * fr
-    per = {}; excl_nft = []; unmarked = []
-    for a in sorted(set(S) | set(A) | set(Q) | set(m["exit_basis"]) | set(m["unpriced_cost"])):
-        q = Q.get(a, D0); mv = D0; mk = None
-        if q != 0:
-            mk = nft_mark(a, as_of_block, None) if nft.get(a) else mark(a, as_of_block)
-            if mk is None:
-                (excl_nft if nft.get(a) else unmarked).append(a); continue
-            mv = q * mk.price
-        per[a] = {"S": S.get(a, D0), "MV": mv, "X": m["exit_basis"].get(a, D0), "C": m["unpriced_cost"].get(a, D0), "A": A.get(a, D0),
-                  "open_resolved_qty": q, "mark_price": None if mk is None else mk.price}
-        per[a]["rhs"] = per[a]["S"] + per[a]["MV"] + per[a]["X"] + per[a]["C"] - per[a]["A"]
-    return {"per_asset": per, "gas_expense_resolved": ge, "excluded_nft_assets": excl_nft, "unmarked_assets": unmarked,
-            "gas_txs": {"into_basis": n_gas_buy, "off_proceeds": n_gas_sell, "expense": n_gas_exp},
-            "gas_share_on_pending_acquisitions": gas_pending_share}
+class Ledger:
+    def __init__(self, recipe=None):
+        self.pools: Dict[tuple, List[_Chunk]] = {}; self.seq = 0; self.recipe = recipe; self.buckets: Dict[str, Optional[Decimal]] = {}
+        self.a: Dict[str, dict] = {}; self.gaps: List[dict] = []; self.ge_total = D0; self.ge_res = D0
+        self.gas_txs = {"nft_sale": 0, "into_basis": 0, "off_proceeds": 0, "expense": 0}; self.gas_on_pending = D0
+    def A(self, asset):
+        return self.a.setdefault(asset, {"R": D0, "S": D0, "X": D0, "C": D0, "A": D0, "exits": 0, "unpriced": 0, "pending_disposals": 0})
+    def chunk(self, e, asset, loc, qty, basis):
+        self.seq += 1; c = _Chunk(qty, basis, e.key(), self.seq, e.nft); self.pools.setdefault((asset, loc), []).append(c)
+        if basis is not None: self.A(asset)["A"] += basis
+        return c
+    def take(self, e, loc=None):
+        """FIFO parts [(chunk, qty)] for |e.qty| of e.asset at loc (default e.location); a shortfall is an unexplained gap."""
+        loc = loc or e.location; need = abs(e.qty); pool = sorted((c for c in self.pools.get((e.asset, loc), []) if c.qty > 0), key=lambda c: (c.order, c.seq))
+        out = []
+        for c in pool:
+            if need <= 0: break
+            q = min(c.qty, need); out.append((c, q)); need -= q
+        if need > 0:
+            self.gaps.append({"asset": e.asset, "location": loc, "qty": need, "entry": e.id, "block": e.block, "category": e.category})
+            self.seq += 1; g = _Chunk(need, None, e.key(), self.seq, e.nft, gap=True); self.pools.setdefault((e.asset, loc), []).append(g)
+            out.append((g, need))
+        return out
+    def consume(self, e, loc=None):
+        """-> (resolved qty, resolved cost, pending qty); the chunks are reduced."""
+        rq = rc = pq = D0
+        for c, q in self.take(e, loc):
+            k = c.cost(q); c.qty -= q
+            if k is None: pq += q
+            else: rq += q; rc += k
+        return rq, rc, pq
 
-def check(engine_report: dict, engine_gas: dict, L: dict, engine_open_qty: Dict[str, Decimal], ledger_net_qty: Dict[str, Decimal],
-          unrecorded_qty: Dict[str, Decimal]) -> dict:
-    """Per-asset and total residuals (engine − ledger side) at TOL; open lot qty vs ledger net qty per asset."""
+def ledger_side(rows: List, mark: Callable, nft_mark: Callable, as_of_block: int, recipe: Optional[Callable] = None,
+                switches: Optional[dict] = None) -> dict:
+    if switches is not None:
+        bad = {k: switches.get(k) for k in RULINGS if switches.get(k) != RULINGS[k]}
+        if bad: raise ValueError(f"the ledger side models the ruled switches only; differs: {bad}")
+    L = Ledger(recipe); live = [e for e in rows if not _skip(e) and e.block <= as_of_block]
+    for e in live:
+        if e.category in ("upgrade", "destroy_refund") or any(r.startswith("bundle:parcel:") for r in _refs(e.ref)):
+            raise ValueError(f"ledger side does not model {e.category} / bundles (none on Base)")
+    txs: Dict[tuple, list] = {}
+    for e in live: txs.setdefault(e.key()[:3], []).append(e)
+    for k in sorted(txs): _tx(L, sorted(txs[k], key=lambda e: e.key()))
+    # open positions at the marks
+    per = {}
+    for (asset, loc), cs in L.pools.items():
+        for c in cs:
+            if c.qty <= 0 or c.basis is None: continue
+            a = L.A(asset); a.setdefault("MV", D0); a.setdefault("U", D0); a.setdefault("M", D0); a.setdefault("unmarked", 0)
+            a.setdefault("open_resolved_qty", D0); rb = c.basis - c.out; a["open_resolved_qty"] += c.qty
+            m = nft_mark(asset, as_of_block, None) if c.nft else mark(asset, as_of_block)
+            if m is None: a["M"] += rb; a["unmarked"] += 1; continue
+            mv = c.qty * m.price; a["MV"] += mv; a["U"] += mv - rb
+    open_qty: Dict[str, Decimal] = {}
+    for (asset, loc), cs in L.pools.items():
+        for c in cs:
+            if c.qty > 0: open_qty[asset] = open_qty.get(asset, D0) + c.qty
+    for asset, a in L.a.items():
+        for k in ("MV", "U", "M", "open_resolved_qty"): a.setdefault(k, D0)
+        a.setdefault("unmarked", 0)
+        a["formula"] = a["S"] + a["MV"] + a["X"] + a["C"] + a["M"] - a["A"]; a["R_plus_U"] = a["R"] + a["U"]
+        per[asset] = a
+    gap = {}
+    for g in L.gaps:
+        x = gap.setdefault(g["asset"], {"qty": D0, "events": 0, "first_block": g["block"], "last_block": g["block"], "by_category": {}})
+        x["qty"] += g["qty"]; x["events"] += 1; x["last_block"] = g["block"]; x["by_category"][g["category"]] = x["by_category"].get(g["category"], 0) + 1
+    net: Dict[str, Decimal] = {}
+    for e in live: net[e.asset] = net.get(e.asset, D0) + e.qty
+    return {"per_asset": per, "gas_expense_total": L.ge_total, "gas_expense_resolved": L.ge_res, "gas_txs": L.gas_txs,
+            "gas_share_on_pending_acquisitions": L.gas_on_pending, "unexplained_gap": gap, "open_qty": open_qty,
+            "ledger_net_qty": {a: q for a, q in net.items() if q != 0}, "rows": len(live)}
+
+def _tx(L: Ledger, es: list):
+    # 1 custody legs: pair out/in (asset, category, |qty|, ref); the balance moves location, nothing is realized
+    cus = [e for e in es if e.category in CUSTODY]; ins = [e for e in cus if e.qty > 0]
+    for n in [e for e in cus if e.qty < 0]:
+        m = next((i for i in ins if i.asset == n.asset and i.category == n.category and i.qty == -n.qty and i.ref == n.ref), None)
+        if m is None: raise ValueError(f"entry {n.id}: custody out-leg without its in-leg")
+        ins.remove(m)
+        for c, q in L.take(n):
+            if q == c.qty: L.pools[(n.asset, n.location)].remove(c); L.pools.setdefault((m.asset, m.location), []).append(c); continue
+            k = c.cost(q); c.qty -= q; L.seq += 1; ch = _Chunk(q, k, c.order, L.seq, c.nft, c.gap); L.pools.setdefault((m.asset, m.location), []).append(ch)
+    if ins: raise ValueError(f"entry {ins[0].id}: custody in-leg without its out-leg")
+    rest = [e for e in es if e.category not in CUSTODY]
+    acq = []; sales = []
+    # 2 crafts: inputs are disposals at value; the minted items' basis = the inputs' value under the same ref
+    now: Dict[str, Optional[Decimal]] = {}
+    for e in [x for x in rest if x.category in ("craft", "craft_pending") and x.qty < 0]:
+        sales.append(_out(L, e, _v(e), "craft_input"))
+        rs = _refs(e.ref) or ["craft:unref"]; tgt = L.buckets if e.category == "craft_pending" else now
+        for r in rs:
+            v = _v(e); tgt[r] = None if (r in tgt and tgt[r] is None) or v is None else tgt.get(r, D0) + v / len(rs)
+    mints = [x for x in rest if x.category in ("craft", "craft_pending") and x.qty > 0]
+    for r in sorted({m.ref or "" for m in mints}):
+        ms = [m for m in mints if (m.ref or "") == r]
+        if r in now: tot = now.pop(r); free = False
+        elif r in L.buckets: tot = L.buckets.pop(r); free = False
+        elif r.startswith("craft:queue:"):
+            for m in ms: acq.append((m, L.chunk(m, m.asset, m.location, m.qty, None)))   # queue cost never seen: pending, still a gas target
+            continue
+        else: tot, free = D0, True
+        w = [m.qty for m in ms]
+        if not free and len({m.asset for m in ms}) > 1 and L.recipe is not None:
+            rc = [L.recipe(m.asset, m.block) for m in ms]
+            if all(c is not None and c > 0 for c in rc): w = [m.qty * c for m, c in zip(ms, rc)]
+        W = sum(w)
+        for m, wi in zip(ms, w):
+            c = L.chunk(m, m.asset, m.location, m.qty, None if tot is None else tot * wi / W)
+            if not free: acq.append((m, c))
+    # 3 trades and other flows, per trade group (outs, then ins)
+    groups: Dict[str, list] = {}
+    for e in rest:
+        if e.category not in ("craft", "craft_pending", "fee"): groups.setdefault(e.trade_group or e.tx, []).append(e)
+    for g in sorted(groups):
+        G = groups[g]; outs = [e for e in G if e.qty < 0]; ins_ = [e for e in G if e.qty > 0]
+        def other(es):
+            vs = [_v(x) for x in es]; return None if not es or any(v is None for v in vs) else sum(vs)
+        for e in outs:
+            v = _v(e)
+            if v is None and e.category in TRADE and sum(1 for x in outs if _v(x) is None) == 1: v = other(ins_)
+            if e.category in TRADE: sales.append(_out(L, e, v, "sale"))
+            elif e.category == "spend": sales.append(_out(L, e, v, "spend"))
+            elif e.category == "withdrawal":
+                rq, rc, pq = L.consume(e); a = L.A(e.asset)
+                if rq: a["X"] += rc; a["exits"] += 1
+                if pq: a["pending_disposals"] += 1
+            else: raise ValueError(f"entry {e.id}: outflow category {e.category!r} not modelled")
+        for e in ins_:
+            v = _v(e)
+            if e.category in TRADE:
+                if v is None and sum(1 for x in ins_ if _v(x) is None) == 1: v = other(outs)
+                acq.append((e, L.chunk(e, e.asset, e.location, e.qty, v)))
+            elif e.category in ("income", "bridge_in"): L.chunk(e, e.asset, e.location, e.qty, v)
+            elif e.category == "deposit": L.chunk(e, e.asset, e.location, e.qty, None)          # Q-B: unknown basis
+            elif e.category == "gift_in": L.chunk(e, e.asset, e.location, e.qty, D0)
+            elif e.category == "migration_in":
+                L.chunk(e, e.asset, e.location, e.qty, e.carry_basis if e.carry_basis is not None else e.manual_basis)
+            else: raise ValueError(f"entry {e.id}: inflow category {e.category!r} not modelled")
+    # 4 gas
+    for f in [e for e in rest if e.category == "fee"]:
+        g = _v(f); d = _out(L, f, g, "gas")
+        if g is None: _close(L, d); continue
+        nft_s = [s for s in sales if s["kind"] == "sale" and s["nft"] and s["cat"] in NFT_SALE and s["v"] is not None]
+        if nft_s: L.gas_txs["nft_sale"] += 1; _deduct(nft_s, g)
+        elif acq:
+            L.gas_txs["into_basis"] += 1
+            ok = all(c.basis is not None for _, c in acq) and sum(c.basis for _, c in acq) > 0
+            W = sum(c.basis for _, c in acq) if ok else Decimal(len(acq))
+            for e, c in acq:
+                sh = g * (c.basis if ok else Decimal(1)) / W
+                if c.basis is None: L.gas_on_pending += sh
+                else: c.basis += sh; L.A(e.asset)["A"] += sh
+        else:
+            sl = [s for s in sales if s["kind"] == "sale" and s["v"] is not None]
+            if sl: L.gas_txs["off_proceeds"] += 1; _deduct(sl, g)
+            else:
+                L.gas_txs["expense"] += 1; L.ge_total += g; L.ge_res += g * d["rq"] / d["q"]
+        _close(L, d)
+    for s in sales: _close(L, s)
+
+def _out(L, e, v, kind):
+    rq, rc, pq = L.consume(e)
+    return {"asset": e.asset, "v": v, "q": abs(e.qty), "rq": rq, "rc": rc, "pq": pq, "kind": kind, "nft": e.nft, "cat": e.category, "done": False}
+def _deduct(ss, g):
+    W = sum(s["v"] for s in ss)
+    for s in ss: s["v"] = s["v"] - g * s["v"] / W
+def _close(L, s):
+    if s["done"]: return
+    s["done"] = True; a = L.A(s["asset"])
+    if s["pq"]: a["pending_disposals"] += 1
+    if not s["rq"]: return
+    if s["v"] is None: a["C"] += s["rc"]; a["unpriced"] += 1; return
+    p = s["v"] * s["rq"] / s["q"]; a["S"] += p; a["R"] += p - s["rc"]
+
+def check(engine_report: dict, engine_gas: dict, L: dict, engine_open_qty: Dict[str, Decimal]) -> dict:
+    """Engine vs ledger side per asset (realized, unrealized) and in total (minus gas_expense), at TOL; the ledger-side formula
+    against its own realized + unrealized; engine open qty vs the ledger side's running balance. Gaps are flagged, never passed."""
     by = engine_report["all"]["by_asset"]; rows = {}; fails = []
-    lhs_tot = rhs_tot = D0
-    for a, r in L["per_asset"].items():
-        e = by.get(a, {}); lhs = Decimal(e.get("realized", "0")) + Decimal(e.get("unrealized", "0"))
-        res = lhs - r["rhs"]; lhs_tot += lhs; rhs_tot += r["rhs"]
-        rows[a] = {"engine": lhs, "ledger": r["rhs"], "residual": res, **{k: r[k] for k in ("S", "MV", "X", "C", "A", "open_resolved_qty")}}
-        if abs(res) > TOL: fails.append(f"asset {a}: residual {res}")
-    skipped = set(L["excluded_nft_assets"]) | set(L["unmarked_assets"])
-    skipped_engine = sum((Decimal(v.get("realized", "0")) + Decimal(v.get("unrealized", "0")) for a, v in by.items() if a in skipped), D0)
-    ge_e = Decimal(engine_gas["gas_expense_resolved_usdc"]); ge_l = L["gas_expense_resolved"]
-    tot_res = (lhs_tot - ge_e) - (rhs_tot - ge_l)
-    if abs(tot_res) > TOL: fails.append(f"total: residual {tot_res}")
-    if abs(ge_e - ge_l) > TOL: fails.append(f"gas_expense: engine {ge_e} vs ledger {ge_l}")
+    tE = tL = D0
+    for a in sorted(set(L["per_asset"]) | set(by)):
+        e = by.get(a, {}); l = L["per_asset"].get(a, {})
+        rE, uE = Decimal(e.get("realized", "0")), Decimal(e.get("unrealized", "0")); rL, uL = l.get("R", D0), l.get("U", D0)
+        rr, ru = rE - rL, uE - uL; tE += rE + uE; tL += rL + uL
+        rows[a] = {"engine_realized": rE, "ledger_realized": rL, "realized_residual": rr, "engine_unrealized": uE, "ledger_unrealized": uL,
+                   "unrealized_residual": ru, "residual": rr + ru, **{k: l.get(k, D0) for k in ("S", "MV", "X", "C", "M", "A", "open_resolved_qty")},
+                   "formula_minus_ledger": l.get("formula", D0) - l.get("R_plus_U", D0), "exits": l.get("exits", 0)}
+        if abs(rr) > TOL or abs(ru) > TOL: fails.append(f"asset {a}: realized residual {rr}, unrealized residual {ru}")
+        if abs(rows[a]["formula_minus_ledger"]) > TOL: fails.append(f"asset {a}: ledger formula off by {rows[a]['formula_minus_ledger']}")
+    geE = Decimal(engine_gas["gas_expense_resolved_usdc"]); geL = L["gas_expense_resolved"]
+    total = (tE - geE) - (tL - geL)
+    if abs(total) > TOL: fails.append(f"total: residual {total}")
+    if abs(geE - geL) > TOL: fails.append(f"gas_expense: engine {geE} vs ledger {geL}")
     qty = {}
-    for a in sorted(set(engine_open_qty) | set(ledger_net_qty)):
-        eq, lq, uq = engine_open_qty.get(a, D0), ledger_net_qty.get(a, D0), unrecorded_qty.get(a, D0)
-        if eq != lq: qty[a] = {"engine_open": eq, "ledger_net": lq, "diff": eq - lq, "unrecorded_inflow": uq, "explained": eq - lq == uq}
-    qfail = [a for a, v in qty.items() if not v["explained"]]
-    if qfail: fails.append(f"open qty != ledger net qty (not explained by unrecorded_inflow) for {len(qfail)} assets")
-    return {"pass": not fails, "failures": fails, "tolerance_usdc": TOL, "per_asset": rows,
-            "total": {"engine_realized_plus_unrealized": lhs_tot, "engine_gas_expense_resolved": ge_e, "engine_side": lhs_tot - ge_e,
-                      "ledger_side_before_gas": rhs_tot, "ledger_gas_expense_resolved": ge_l, "ledger_side": rhs_tot - ge_l, "residual": tot_res},
-            "skipped_assets": {"nft_unmarked": len(L["excluded_nft_assets"]), "fungible_unmarked": len(L["unmarked_assets"]),
-                               "engine_pnl_in_skipped_assets": skipped_engine},
-            "qty_mismatches": qty, "qty_unexplained": qfail}
+    for a in sorted(set(engine_open_qty) | set(L["open_qty"])):
+        x, y = engine_open_qty.get(a, D0), L["open_qty"].get(a, D0)
+        if x != y: qty[a] = {"engine_open": x, "ledger_balance": y}
+    if qty: fails.append(f"engine open qty != ledger running balance for {len(qty)} assets")
+    gaps = L["unexplained_gap"]; identity_ok = not fails
+    return {"identity_pass": identity_ok, "failures": fails, "tolerance_usdc": TOL, "per_asset": rows,
+            "acceptance": "FAIL" if not identity_ok else ("FLAGGED: UNEXPLAINED GAP" if gaps else "PASS"),
+            "unexplained_gap": gaps, "qty_mismatch_engine_vs_ledger": qty,
+            "total": {"engine_realized_plus_unrealized": tE, "engine_gas_expense_resolved": geE, "engine_side": tE - geE,
+                      "ledger_realized_plus_unrealized": tL, "ledger_gas_expense_resolved": geL, "ledger_side": tL - geL, "residual": total},
+            "exits": sum(r["exits"] for r in rows.values())}

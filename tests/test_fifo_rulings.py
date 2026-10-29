@@ -4,6 +4,11 @@ import unittest
 from decimal import Decimal as D
 from cryptopnl.fifo import Policy, PolicyRequired, run, report, gas, identity, Mark
 from cryptopnl import reconcile
+def eqty(st):
+    q = {}
+    for l in st.lots:
+        if l.qty > 0: q[l.asset] = q.get(l.asset, D(0)) + l.qty
+    return q
 from tests.fifo_fixtures import Book, L, marks
 
 MK = marks({"GHST": "4", "USDC": "1", "ETH": "3000", "FUD": "0.004"})
@@ -52,17 +57,19 @@ class G13GasFromEthLot(unittest.TestCase):
                           D(g["gas_in_basis_usdc"]), D(g["gas_on_pending_lots_usdc"])), (3, D(9), D(3), D(6), D(3), D(3), D(0)))
         self.assertEqual(self.r["excluded_rows"], {"untracked": 1}); self.assertEqual(D(identity(self.st)["residual"]), 0)
     def test_reconciliation(self):
-        L_ = reconcile.ledger_side(self.b.rows, reconcile.masks(self.st), MK, NFTX, 6)
+        L_ = reconcile.ledger_side(self.b.rows, MK, NFTX, 6)      # ledger rows only
         P = L_["per_asset"]
-        self.assertEqual({a: P[a]["rhs"] for a in P}, {"ETH": D(1000), "GHST": D(-3), "USDC": D(-3)})   # = engine realized + unrealized per asset
-        c = reconcile.check(self.r, gas(self.st), L_, {"USDC": D(7850), "ETH": D("0.997"), "GHST": D(25)},
-                            {"USDC": D(7850), "ETH": D("0.997"), "GHST": D(25)}, {})
-        self.assertTrue(c["pass"], c["failures"]); self.assertEqual((c["total"]["engine_side"], c["total"]["ledger_side"]), (D(991), D(991)))
-        self.assertEqual(L_["gas_txs"], {"into_basis": 1, "off_proceeds": 1, "expense": 1})
+        self.assertEqual({a: P[a]["formula"] for a in P}, {"ETH": D(1000), "GHST": D(-3), "USDC": D(-3)})   # S+MV+X+C+M-A
+        self.assertEqual({a: P[a]["R_plus_U"] for a in P}, {"ETH": D(1000), "GHST": D(-3), "USDC": D(-3)})
+        c = reconcile.check(self.r, gas(self.st), L_, eqty(self.st))
+        self.assertEqual((c["identity_pass"], c["acceptance"]), (True, "PASS"), c["failures"])
+        self.assertEqual((c["total"]["engine_side"], c["total"]["ledger_side"]), (D(991), D(991)))
+        self.assertEqual(L_["open_qty"], {"USDC": D(7850), "ETH": D("0.997"), "GHST": D(25)})
+        self.assertEqual(L_["gas_txs"], {"nft_sale": 0, "into_basis": 1, "off_proceeds": 1, "expense": 1})
     def test_reconciliation_catches_an_engine_error(self):
         r = report(self.st, RP(), 6); r["all"]["by_asset"]["GHST"]["unrealized"] = "-2.98"      # 0.02 off
-        c = reconcile.check(r, gas(self.st), reconcile.ledger_side(self.b.rows, reconcile.masks(self.st), MK, NFTX, 6), {}, {}, {})
-        self.assertFalse(c["pass"]); self.assertIn("asset GHST: residual 0.02", c["failures"][0])
+        c = reconcile.check(r, gas(self.st), reconcile.ledger_side(self.b.rows, MK, NFTX, 6), eqty(self.st))
+        self.assertEqual((c["identity_pass"], c["acceptance"]), (False, "FAIL")); self.assertIn("asset GHST: realized residual 0, unrealized residual 0.02", c["failures"][0])
 
 class G14FeeSplit(unittest.TestCase):
     """bridge_in 100 USDC and 1 ETH @2000. tx2: 30 USDC -> 10 GHST @1 (10) + 5 FUD @4 (20), gas 3: split 1:2 by basis -> GHST 11, FUD 22.
@@ -82,9 +89,9 @@ class G14FeeSplit(unittest.TestCase):
         self.assertEqual(D(gas(self.st)["gas_on_pending_lots_usdc"]), D(3))
     def test_reconciliation_excludes_pending_on_both_sides(self):
         mk = marks({"GHST": "4", "USDC": "1", "ETH": "3000", "FUD": "0.004"}); r = report(self.st, RP(mark=mk), 4)
-        L_ = reconcile.ledger_side(self.b.rows, reconcile.masks(self.st), mk, NFTX, 4)
-        self.assertEqual({a: v["rhs"] for a, v in L_["per_asset"].items()}, {"ETH": D(1000), "FUD": D("-21.98"), "GHST": D(29), "USDC": D(0)})
-        c = reconcile.check(r, gas(self.st), L_, {}, {}, {}); self.assertTrue(c["pass"], c["failures"])
+        L_ = reconcile.ledger_side(self.b.rows, mk, NFTX, 4)
+        self.assertEqual({a: v["formula"] for a, v in L_["per_asset"].items()}, {"ETH": D(1000), "FUD": D("-21.98"), "GHST": D(29), "USDC": D(0)})
+        c = reconcile.check(r, gas(self.st), L_, eqty(self.st)); self.assertEqual(c["acceptance"], "PASS", c["failures"])
         self.assertEqual(L_["gas_share_on_pending_acquisitions"], D(3))
 
 class G15Exit(unittest.TestCase):
@@ -120,19 +127,25 @@ class G16CraftSplit(unittest.TestCase):
         self.assertEqual(c.exception.question, "Q-G")
 
 class G17Shortfall(unittest.TestCase):
-    """Q-H (proposal, pending the architect): 100 FUD leave pocket:1 for the wallet but the ledger never recorded them arriving in the
-    pocket. shortfall=pending opens a pending lot (unrecorded_inflow) at the pocket for the 100, which the custody move carries to the
-    wallet; engine open qty 100 vs ledger net qty 0 is explained by it."""
+    """Q-H (P4 rulings 3): 100 FUD leave pocket:1 for the wallet but the ledger never recorded them arriving in the pocket.
+    shortfall=pending opens a pending lot, basis_origin=unrecorded_inflow, at the shortfall block, which the custody move carries to the
+    wallet. The independent ledger side finds the same 100 missing from its own running balance: an UNEXPLAINED GAP, flagged, not a pass."""
     def test_pending_unrecorded_inflow(self):
         b = Book(); b.tx(1, L("FUD", "-100", "transfer_internal", "0.1", location="pocket:1", ref="pocket:1"),
                          L("FUD", "100", "transfer_internal", "0.1", ref="pocket:1"))
         with self.assertRaises(PolicyRequired) as c: run(b.rows, RP(shortfall=None))
         self.assertEqual(c.exception.question, "Q-H")
-        st = run(b.rows, RP()); r = report(st, RP(), 2); m = reconcile.masks(st)
-        self.assertEqual((r["pending_reasons"], r["holdings_by_location"], m["unrecorded_qty"]), ({"unrecorded_inflow": 1}, {"FUD@wallet": "100"}, {"FUD": D(100)}))
-        L_ = reconcile.ledger_side(b.rows, m, MK, NFTX, 2)
-        c = reconcile.check(r, gas(st), L_, {"FUD": D(100)}, {}, m["unrecorded_qty"])
-        self.assertTrue(c["pass"], c["failures"]); self.assertEqual(c["qty_mismatches"]["FUD"]["explained"], True)
+        st = run(b.rows, RP()); r = report(st, RP(), 2)
+        self.assertEqual((r["pending_reasons"], r["holdings_by_location"]), ({"unrecorded_inflow": 1}, {"FUD@wallet": "100"}))
+        root = [l for l in st.lots if l.kind == "unrecorded"]; kid = [l for l in st.lots if l.parent is not None]
+        self.assertEqual([(l.status, l.basis_origin, l.pending_reason, l.open_block, l.location, l.basis) for l in root],
+                         [("pending", "unrecorded_inflow", "unrecorded_inflow", 1, "wallet", None)])   # opened at pocket:1, moved whole
+        self.assertEqual(kid, [])
+        L_ = reconcile.ledger_side(b.rows, MK, NFTX, 2)
+        c = reconcile.check(r, gas(st), L_, eqty(st))
+        self.assertEqual((c["identity_pass"], c["acceptance"]), (True, "FLAGGED: UNEXPLAINED GAP"), c["failures"])
+        g = c["unexplained_gap"]["FUD"]; self.assertEqual((g["qty"], g["events"], g["first_block"]), (D(100), 1, 1))
+        self.assertEqual(L_["ledger_net_qty"], {})   # the ledger alone nets 0: the 100 exist only because the pocket was never funded
 
 class RecomputeUnderRulings(unittest.TestCase):
     """rebuild == incremental (md5 of lots/disposals and the report) at every block boundary of the rulings books."""
