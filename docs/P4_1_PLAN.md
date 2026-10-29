@@ -140,3 +140,6 @@ docs/evidence/p4_1_pockets.json (chain data only). Canonical later reuses the ca
   **Actual (20:38 PT): 12 RPC**, 0 errors (GHST priced at as_of, dex_slot0). Rule 7 round total: HyperSync 4, RPC 14.
 - **Canonical gate re-check (20:43 PT, exact-name filter, yes/no only):** `cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD` **no** (abra ls rc 0,
   unlocked; control `ENVIO_API_TOKEN` yes). Canonical run not started; stopped after pushing (per the 20:21 PT instruction).
+- **Rule 7.4 check (20:45 PT, local evidence, 0 requests):** none of the 12 third-party ERC-20 contracts is canonical Base USDC or any
+  other allowlisted token, so no leg moves from spam to pocket_deposit. **Key re-check (20:46 PT, yes/no only):**
+  `cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD` **no** (abra ls rc 0). Stopped after pushing.
