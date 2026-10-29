@@ -11,8 +11,11 @@ ROWS = [  # (tx_hash, log_index, qty, category, location, escrow_ref, block, inc
     (bytes.fromhex("aa" * 32), 1, Decimal("-3"), "swap", "wallet", None, 100, None, None, None),
     (bytes.fromhex("0b" * 32), 7, Decimal("1"), "transfer_internal", "escrow:0xdiamond", "listing:9", 105, None, None, None),
     # a P4.1 internal-ETH leg (trace_address set), tagged dao_distribution
-    (bytes.fromhex("0c" * 32), -99998, Decimal("2"), "income", "wallet", "distribution:x", 106, "dao_distribution", "0x" + "f5" * 20, "0.1")]
-OLD = ROWS[:3]
+    (bytes.fromhex("0c" * 32), -99998, Decimal("2"), "income", "wallet", "distribution:x", 106, "dao_distribution", "0x" + "f5" * 20, "0.1"),
+    # a pre-existing row of the same tx (a tx P4.1 touched): in the pre-P4.1 set, not in the untouched-tx set
+    (bytes.fromhex("0c" * 32), 4, Decimal("-1"), "fee", "wallet", None, 106, None, None, None)]
+OLD = ROWS[:3] + ROWS[4:]          # trace_address IS NULL
+UNTOUCHED = ROWS[:3]               # txs with no internal-ETH leg
 
 class LedgerMd5(unittest.TestCase):
     def setUp(self):
@@ -38,9 +41,16 @@ class LedgerMd5(unittest.TestCase):
         return hashlib.md5(",".join(parts).encode()).hexdigest()
     def test_narrow_md5_matches_independent_computation(self):
         r = evidence.ledger_md5(self.c, C)
-        self.assertEqual((r["ledger_rows"], r["ledger_min_block"], r["ledger_max_block"]), (4, 100, 106))
+        self.assertEqual((r["ledger_rows"], r["ledger_min_block"], r["ledger_max_block"]), (5, 100, 106))
         self.assertEqual(r["ledger_md5_v1"], self.expected()); self.assertRegex(r["ledger_md5_report"], "^[0-9a-f]{32}$")
-        self.assertEqual((r["ledger_rows_pre_p4_1"], r["ledger_md5_v1_pre_p4_1"]), (3, self.expected(OLD)))
+        self.assertEqual((r["ledger_rows_pre_p4_1"], r["ledger_md5_v1_pre_p4_1"]), (4, self.expected(OLD)))
+        self.assertEqual((r["internal_eth_txs"], r["untouched_txs_from"], r["ledger_rows_untouched_txs"], r["ledger_md5_v1_untouched_txs"]),
+                         (1, "self", 3, self.expected(UNTOUCHED)))
+    def test_untouched_with_an_external_tx_list(self):   # e.g. a pre-P4.1 ledger hashed over the txs a P4.1 ledger did not touch
+        r = evidence.ledger_md5(self.c, C, untouched_txs=[], untouched_from="other")
+        self.assertEqual((r["ledger_rows_untouched_txs"], r["ledger_md5_v1_untouched_txs"], r["untouched_txs_from"]), (5, r["ledger_md5_v1"], "other"))
+        r = evidence.ledger_md5(self.c, C, untouched_txs=[bytes.fromhex("aa" * 32)])
+        self.assertEqual(r["ledger_md5_v1_untouched_txs"], self.expected(ROWS[2:]))
         self.assertEqual(r["ledger_md5_v2"], self.expected_v2())
     def test_v1_ignores_new_fields_v2_does_not(self):
         b = evidence.ledger_md5(self.c, C)
@@ -60,13 +70,14 @@ class LedgerMd5(unittest.TestCase):
         kv = dict(l.split("=", 1) for l in first.splitlines() if not l.startswith("#"))
         self.assertEqual((kv["chain_id"], kv["ledger_rows"], kv["ledger_md5_v1"], kv["ledger_rows_pre_p4_1"], kv["ledger_md5_v1_pre_p4_1"],
                           kv["ledger_md5_v2"], kv["review_rows"], kv["review_md5"]),
-                         (str(C), "4", self.expected(), "3", self.expected(OLD), self.expected_v2(), "0", "none"))
+                         (str(C), "5", self.expected(), "4", self.expected(OLD), self.expected_v2(), "0", "none"))
+        self.assertEqual((kv["ledger_rows_untouched_txs"], kv["ledger_md5_v1_untouched_txs"]), ("3", self.expected(UNTOUCHED)))
         for bad in ("postgres", "password", "host=", os.environ.get("CRYPTOPNL_DSN", "\0")): self.assertNotIn(bad, first)
     def test_md5_changes_when_a_row_changes(self):
         before = evidence.ledger_md5(self.c, C)
         self.c.execute("UPDATE ledger_entry SET qty=qty+1 WHERE chain_id=%s AND log_index=7", (C,))
         after = evidence.ledger_md5(self.c, C)
-        for k in ("ledger_md5_v1", "ledger_md5_v1_pre_p4_1", "ledger_md5_v2"): self.assertNotEqual(after[k], before[k], k)
+        for k in ("ledger_md5_v1", "ledger_md5_v1_pre_p4_1", "ledger_md5_v1_untouched_txs", "ledger_md5_v2"): self.assertNotEqual(after[k], before[k], k)
     def test_empty_chain(self):
         r = evidence.ledger_md5(self.c, C + 1)
         self.assertEqual((r["ledger_rows"], r["ledger_md5_v1"], r["ledger_md5_v2"]), (0, None, None)); self.assertIn("ledger_md5_v2=none", evidence.render(r, "x"))
