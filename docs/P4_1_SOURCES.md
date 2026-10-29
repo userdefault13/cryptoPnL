@@ -91,6 +91,7 @@ The ledger has these as `transfer_internal` pocket → wallet legs, so the walle
 ## 3. Left unexplained (and why)
 1. **The GHST source for each of the 20 pockets.** Not traced. This needs a full-history `Transfer(*, pocket)` query, but:
    - **HyperSync:** HTTP 403 with the MBP abra's `ENVIO_API_TOKEN`. The token P3 used is in omarchywin's abra, which was **locked** and was not unlocked.
+   - **2026-10-28 20:04 PT, omarchywin abra unlocked:** H3 (`scripts/p4_1_ghst_pockets.py`) with omarchywin's `ENVIO_API_TOKEN` also got **HTTP 403** (1 request). That token last got HTTP 200 on 2026-10-24 17:21 PT. Still not traced; the token needs renewing (user_default).
    - **Free RPC `eth_getLogs`:** base.drpc.org's free tier rejects wide ranges (HTTP 400, code 35).
    - **Blockscout API:** behind a Cloudflare challenge (403).
 

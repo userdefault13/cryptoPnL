@@ -89,3 +89,12 @@ never unlocked here), so the canonical run waits and everything below runs on th
 - **Actuals (MBP, non-canonical, 18:00–18:08 PT):** P1 0 RPC (613 seed hits). M1 **12 + 12 = 24 RPC** (the second run re-checked the
   held rule after the any-location fix; marks are not cached), 0 errors, under the cap of 80. I1 re-run after the log_index fix: 0 new
   (174 cached). HyperSync this round: **0**. RPC this round total: **38** (14 + 24).
+
+## Canonical round (abra unlocked, 20:03 PT): request budget (written before running)
+- Name check (`XDG_RUNTIME_DIR` set, `abra ls cryptoPnL`, names only): **CRYPTOPNL_LEDGER_PG_PASSWORD is missing**; the project holds
+  only `ENVIO_API_TOKEN`. The canonical run (ledger PG) is blocked; only H3 may run.
+- **H3** `scripts/p4_1_ghst_pockets.py` (omarchywin worktree `~/dev/cryptoPnL-p41` at df0393d): one HyperSync query (Transfer in/out of
+  the 20 pockets, all tokens, blocks 0–40216494, txs joined), paged. **Expected 1–4 requests, hard cap 8.** RPC 0.
+- **Actual (20:04:54 PT): 1 HyperSync request, HTTP 403** (`base.hypersync.xyz/query`, attempt 1, no retry). The same abra token got
+  HTTP 200 on 2026-10-24 17:21 PT (P3 run log `~/dev/cryptoPnL-p3/logs/net_requests_p3.log`). Stopped: a 403 is an auth/plan refusal,
+  so retrying would only spend the cap. RPC 0. No ledger PG access.
