@@ -332,8 +332,11 @@ wait on the HyperSync trace of how GHST entered the pockets.
 5. **1.0141 ETH claim from 0xf50326e1**: identified from free sources as the Aavegotchi Partial Treasury Distribution: a basescan-verified
    `MerkleDistributor` (`claim(uint256,bytes32[])`, `Claimed` event) funded by the Aavegotchi "DAO Liquidity" Gnosis Safe 0x62DE…682E
    (1,036.92 ETH at block 40400409, after 1,111 ETH arrived from the Base L2 Standard Bridge), announced by Aavegotchi on 2026-01-07,
-   amounts by voting power (pgendreau/aavegotchi-ptd, 1111 ETH total). A DAO reward/distribution → **income at FMV**. Note for the
-   architect: as a DAO treasury distribution it could be argued to be return of capital; it is not a refund of the wallet's own deposits.
+   amounts by voting power (pgendreau/aavegotchi-ptd, 1111 ETH total). A DAO reward/distribution → **income at FMV**.
+   **Ruling (architect, 2026-10-28 18:18 PT):** kept as income at FMV, tagged `income_subtype = dao_distribution` and
+   `source_ref = 0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11` (the PTD MerkleDistributor; `config.INTERNAL_ETH[...]["distribution_subtype"]`,
+   ledger_entry columns in migration 015). The report shows it as its own income line (`income_lines` in the P4 output; lines sum to
+   income_usdc). No return-of-capital path is built: that treatment is user_default's decision.
    An unidentified distributor would be income at FMV flagged `source_unidentified` and listed for user_default (never pending).
 6. **1-wei Rubic dust**: if the wallet sent ETH in the same tx it is a refund under rule 3; otherwise income at FMV (≈ 0). Never spam for
    native ETH.
