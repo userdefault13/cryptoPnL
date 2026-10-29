@@ -149,10 +149,40 @@ P3 prices; evidence `docs/evidence/*_MBP_NONCANONICAL*`) and are **not** results
 | ledger_md5_v1 | _TBD_ (pre-P4.1: `210a71d811fd872a970b1d11770ced05`, 1321 rows) | `799e27209042e75206757ca6b4119744` | `3238fee8e7aa888d390f549b60d05200` |
 | ledger_rows_pre_p4_1 | _TBD_ | 1192 | 1191 |
 | ledger_md5_v1_pre_p4_1 | _TBD_ | `e7e254065b990e90a1550d545b8ca951` | `3238fee8e7aa888d390f549b60d05200` |
+| internal_eth_txs (excluded below) | _TBD_ | 15 | 15 (list read from `cryptopnl_p4_1_mbp`) |
+| ledger_rows_untouched_txs | _TBD_ | 1161 | 1161 |
+| **ledger_md5_v1_untouched_txs** (continuity) | _TBD_ (vs the pre-P4.1 ledger over the same txs: `--untouched-txs-from-db cryptopnl_p4_base`) | `ccea8cbf4d81d8af2114ccc3ceab3695` | `ccea8cbf4d81d8af2114ccc3ceab3695` |
 | **ledger_md5_v2** | **_TBD (canonical baseline)_** | `1646af93a2f1d766f9efb1c192450d4a` | `6df1b9aee68bdb0b0a7e67cb7b04987f` |
 | ledger_md5_report | _TBD_ | `62458dbbddb2e5701e7054f7c348a55a` | `3bfb41e4d854f9f3fdaa104ffaefd5f7` |
 
 The control is the same copy classified by the same code without the 15 internal-ETH raw rows (= the copy's pre-P4.1 ledger).
+Three hashes are reported (architect, 19:48 PT): **v1 over all pre-P4.1 rows** (moves by rule 2, by design), **v1 over the untouched-tx
+rows** (continuity: equal on both copies, `ccea8cbf…` over 1161 rows) and **v2** (the gate). `ledger_md5_v1_untouched_txs` =
+v1 `AND NOT (tx_hash = ANY(<txs with a trace_address row>))`; to hash a pre-P4.1 ledger over the same rows, run
+`cryptopnl ledger-md5 --untouched-txs-from-db <P4.1 db>` on it (the tx list is read from the P4.1 ledger).
+
+**Txs touched by P4.1 on the MBP copy (excluded from the continuity hash):** 15 txs, one internal-ETH leg each.
+
+| block | tx | internal-ETH legs | other rows in the tx |
+|---|---|---|---|
+| 12794901 | `0xb78fe8e8fa2df3c6fa21c9dfa97882e14e7c9aec60928fb70655dd1b8e17ae1e` | 1 | 0 |
+| 12795081 | `0xccbfe04a6920793f7000b61d74e0da342e65252efe3e73170ec2f751c5bc58c0` | 1 | 2 |
+| 23210972 | `0xf36f1da4357d153fa8f13a698aa012954eea7fc5fa9b34b198cc312089890210` | 1 | 0 |
+| 40749157 | `0xcacfad72de1769c3cecdf63fdf0dd3f6ec958a23b53c2ef0839e3cdfa185f07f` | 1 | 1 |
+| 40991112 | `0x7ec336225394e882ff9bebdab66a69b5f44e93627d65aeb633593a288e5c5592` | 1 | 2 |
+| 41679144 | `0x4057b4a33188f6dcb9bf0900cc4deb2a5a3977edceeaa5fde0914e07cca7efef` | 1 | 2 |
+| 46796145 | `0x640a3418c684f3ae638a62494460d8690a285005a5b5757804a8269d54d70126` | 1 | 3 |
+| 46796599 | `0x3c988c5bfbb7f577970d4eb3342a3a3b5b4989f75370f8ab3db11df6917a6732` | 1 | 3 |
+| 46860859 | `0xa5ee1787a49ef50f04b07cdbd3412fbbbd0dc95dc1e24c285a82feb38ab107df` | 1 | 0 |
+| 46904091 | `0x0b09654a56af868a05a608b376158ac0f0d7c6bb5ed3bb882cc243fa85c4dce3` | 1 | 3 |
+| 46918238 | `0x5d0d8221c923095f03bba141bf0293b63548a75312f34be3df808f145324839e` | 1 | 5 |
+| 49384073 | `0x86d7518cc1776125befa6652becf2ccc76614a0f2e701cc80cd34c5ecf2714fa` | 1 | 2 |
+| 51007144 | `0xdf1d76981dc9c1a165abe88a4f37e9ae62c5b560a57e6a45e3834a48a082e0e8` | 1 | 2 |
+| 51481414 | `0x77b74a9f71a64c4c44eaf31893d15dd40c205da59a6a3ec495b0c3179409af00` | 1 | 3 |
+| 51481437 | `0x48bb74c6f76949013d223d1623f8d417110691886a69f3ce835b73f9b91e2b67` | 1 | 3 |
+
+Of the other rows in these txs, three differ from the pre-P4.1 control (rule 2): 49384073 and 51007144 (USDC −5 withdrawal → swap)
+and 12795081 (USDC −30 swap, new: that tx was in review). The rest are unchanged.
 Evidence: `docs/evidence/p4_1_ledger_md5_8453_MBP_NONCANONICAL.txt`, `..._MBP_NONCANONICAL_pre_p4_1_control.txt`.
 
 **Old rows are NOT unchanged on the MBP copy, as is: v1_pre_p4_1 `e7e25406…` (1192 rows) ≠ the control's `3238fee8…` (1191 rows).**
@@ -186,3 +216,22 @@ thin tier, or priced) is only known after the run.
 its own line under income; everything else is `general`. USDC values: _TBD (canonical)_.
 
 **ETH pending lots by basis_origin:** _TBD (canonical)_; MBP: bridge_in 3 (Hop, Mayan Swift, Across), deposit 12, unrecorded_inflow 0.
+
+**Rule 5 — return-of-capital ruling (architect / user_default, 19:48 PT): NOT built; step 0 gate stopped it.** Free sources show the PTD
+allocation is **not GHST-only**, so no ROC path, no GHST basis adjustment and no roc_excess were built; the code still has the
+18:18 tagging (`income_subtype = dao_distribution`, own income line) until the architect rules again.
+- Sources: [pgendreau/aavegotchi-ptd](https://github.com/pgendreau/aavegotchi-ptd) @ 7cc2917 (2026-01-03): `README.md`,
+  `GetTotalDistributionAmounts.py`, `CombinedVP/README.md` + `CombinedVP/getTotalVp.js`, `RF/README.md`, `AGIP155_Execution_Instructions.md`,
+  `TotalDistributionAmounts.csv`, `claims.json`; AGIP 8/9 ([Aavegotchi, 2021-06-11](https://aavegotchi.medium.com/vote-agip8-and-agip9-give-voting-power-to-aavegotchis-and-wearables-9c113373a0a2)); [wiki: wearables voting power](https://wiki.aavegotchi.com/en/wearables).
+- Allocation = 3 pools (`TotalDistributionAmounts.csv` sums: 1036.92 ETH = the distributor's funding): **rewardVP** 370.33 ETH
+  pro rata to *combinedVP*; **rewardWeightedVP** 370.33 ETH pro rata to combinedVP × governance participation (share of decisions voted);
+  **rewardRF** 296.26 ETH from the Rarity Farming S12 R1 leaderboards (BRS / kinship / XP of the wallet's gotchis, block 37694538).
+- *combinedVP* (`getTotalVp.js`, Snapshot space aavegotchi.eth, Base block 37782588 / Polygon 78624868) = Snapshot VP from: GHST
+  balance; **Aavegotchis and wearables** (`aavegotchi-agip`: AGIP 8 = 1 GHST of VP per gotchi BRS; AGIP 9 = wearables 5–10,000 GHST by
+  rarity); **REALM parcels** (`aavegotchi-agip-17`); **GLTR-staked and unstaked GHST LP** (AGIP 37); FRENS pools; on Polygon also
+  amGHST / wapGHST; **plus GHST held in the wallet's gotchi pockets** (Base + Polygon).
+- This wallet (0x2127aa72…2e76, `claims.json` index 155, amountWei 1014128302400000000 = the ledger's 1.0141283024 ETH):
+  combinedVP 17,687.0589; votingPercentage 0.522184 (153 proposals); rewardVP 0.4966842317 + rewardWeightedVP 0.4202192159 +
+  rewardRF 0.0972248549 = 1.0141283024 ETH. The RF part (≈ 9.6%) is gotchi-based (e.g. gotchis 10478, 15486, 15017, 954, 10503 in the
+  KIN / XP reward details). The split of the wallet's 17,687 VP between GHST, gotchis/wearables, parcels and LP is **not** in the repo
+  (only the combined figure); not computed here.

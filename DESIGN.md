@@ -337,6 +337,9 @@ wait on the HyperSync trace of how GHST entered the pockets.
    `source_ref = 0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11` (the PTD MerkleDistributor; `config.INTERNAL_ETH[...]["distribution_subtype"]`,
    ledger_entry columns in migration 015). The report shows it as its own income line (`income_lines` in the P4 output; lines sum to
    income_usdc). No return-of-capital path is built: that treatment is user_default's decision.
+   **Return-of-capital ruling (user_default via the architect, 19:48 PT): on hold, not built.** Its step-0 gate found the PTD allocation
+   is not GHST-only (combined Snapshot VP incl. gotchis/wearables, REALM, GLTR LP and pocket GHST, × governance participation, plus a
+   gotchi rarity-farming pool); facts in docs/P4_RESULTS.md §12. The 18:18 tagging stays until the architect rules again.
    An unidentified distributor would be income at FMV flagged `source_unidentified` and listed for user_default (never pending).
 6. **1-wei Rubic dust**: if the wallet sent ETH in the same tx it is a refund under rule 3; otherwise income at FMV (≈ 0). Never spam for
    native ETH.

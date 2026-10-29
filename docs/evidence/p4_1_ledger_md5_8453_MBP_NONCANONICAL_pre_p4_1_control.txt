@@ -1,6 +1,7 @@
 # cryptoPnL ledger md5 evidence (P3 follow-up c; P4.1 md5 ruling). Produced by: python -m cryptopnl ledger-md5 --chain 8453 --out docs/evidence/p4_1_ledger_md5_8453_MBP_NONCANONICAL_pre_p4_1_control.txt
 # ledger_md5_v1 = md5 of string_agg(concat_ws('|', hex(tx_hash), log_index, asset_id, qty, category, location, escrow_ref), ',' ORDER BY tx_hash, log_index, asset_id, location, qty) over ledger_entry WHERE chain_id (unchanged pre-P4.1 definition, formerly ledger_md5_narrow)
 # ledger_md5_v1_pre_p4_1 = v1 over the pre-P4.1 rows only: ... AND trace_address IS NULL (excludes the P4.1 internal-ETH legs)
+# ledger_md5_v1_untouched_txs = v1 over rows of txs with no internal-ETH leg: ... AND NOT (tx_hash = ANY(<txs having a row with trace_address IS NOT NULL>)); untouched_txs_from = the ledger the tx list was read from (self, or --untouched-txs-from-db)
 # ledger_md5_v2 = md5 of string_agg(concat_ws('|', <v1 fields>, coalesce(income_subtype,''), coalesce(source_ref,''), coalesce(trace_address,'')), ',' ORDER BY tx_hash, log_index, asset_id, location, qty, trace_address) over ledger_entry WHERE chain_id (P4.1 canonical baseline; gates use v2)
 # ledger_md5_report = classify.checksum ledger_md5 (also printed by `classify`)
 chain_id=8453
@@ -10,6 +11,10 @@ ledger_max_block=52112861
 ledger_md5_v1=3238fee8e7aa888d390f549b60d05200
 ledger_rows_pre_p4_1=1191
 ledger_md5_v1_pre_p4_1=3238fee8e7aa888d390f549b60d05200
+internal_eth_txs=15
+untouched_txs_from=cryptopnl_p4_1_mbp
+ledger_rows_untouched_txs=1161
+ledger_md5_v1_untouched_txs=ccea8cbf4d81d8af2114ccc3ceab3695
 ledger_md5_v2=6df1b9aee68bdb0b0a7e67cb7b04987f
 ledger_md5_report=3bfb41e4d854f9f3fdaa104ffaefd5f7
 review_rows=5
