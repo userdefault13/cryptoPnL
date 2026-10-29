@@ -276,10 +276,35 @@ Config defaults of the P4 engine, as switches (`cryptopnl/p4_policy.json`, overr
 3. **Q-G craft split** (`queue_split=recipe_else_equal`, `recipe=stored_craft_recipe_cost`). Several minted assets under one cost ref are split by each item's on-chain recipe cost (alchemica, GLTR and GHST, valued at the craft block) when every asset under the ref has a readable recipe. Otherwise the split is equal and flagged `split_method=equal` (a fallback, not the default). Free crafts keep basis 0. Recipe costs are read at ingest or pricing time under the drpc limiter and stored in `craft_recipe_cost`; the engine stays offline. The fallback count is reported (`craft_split_equal_fallbacks`).
 
 **Pending architect confirmation** (proposals implemented behind switches):
-- `shortfall=pending` (Q-H): an out-leg larger than the lots held at its location opens a pending `unrecorded_inflow` lot for the missing quantity.
+- ~~`shortfall=pending` (Q-H)~~ ruled in P4 rulings 3 (item 5).
 - `fee_split`: an equal split also applies when any acquisition of the tx is pending.
 - Gas of a swap (buy and sell in one tx) goes into the bought asset's basis.
-- `as_of_block` = the latest block with a stored P3 price; each asset's mark is its latest stored price at or before that block.
+- ~~`as_of_block` = the latest block with a stored P3 price~~ ruled in P4 rulings 3 (item 3): the MIN over tracked assets.
+
+### P4 rulings 3 (2026-10-28, architect review of PR #8)
+Switches in `cryptopnl/p4_policy.json` (`ruled_in_rulings_3`); still-open proposals stay in `pending_architect`.
+1. **Gas on an NFT sale** (`nft_sale`, or the seller side of `auction`) comes off the NFT's proceeds, never into the basis of the
+   payment received. Order in a tx: NFT sale → acquisitions' basis → other sale proceeds → gas_expense.
+2. **Exits** (Q-B withdrawal `exit`): realized is NULL, not 0. The report skips them in totals and counts them (`exits`, per asset and
+   per variant); `lot_disposal_pnl.realized_usdc` is NULL for an exit, and `realized_display_usdc` shows 0 (display only, never summed).
+3. **as_of_block** = MIN over the tracked fungible assets of each asset's latest block with a stored P3 price (the latest block at which
+   every tracked asset is priced). Report the asset(s) that set it. The snapshot and the reconciliation use the state at as_of_block
+   (ledger rows with block ≤ as_of_block).
+4. **Independent reconciliation** (Q-C): the ledger side uses ledger_entry rows only. It does not read fifo_lot, lot_disposal or the
+   engine state. Pending versus resolved comes from ledger categories (deposit → pending; migration_in → carried or manual basis, else
+   pending; trade, income, bridge_in and craft → resolved when a value is known, else pending; gift_in → 0), with its own FIFO
+   running balance per (asset, location) carried through custody legs. An out-leg larger than that balance is an **UNEXPLAINED GAP**
+   (asset, qty, block): it is reported and flagged, never a pass. For P4 it is reported and flagged; real-ledger acceptance is P4.1.
+   The engine is compared per asset (realized and unrealized separately) and in total (R + U − gas_expense) at 0.01 USDC, and the engine's
+   open qty is compared with the ledger side's balance. A LIFO mutation of the engine must fail the reconciliation and the golden tests
+   (tests/test_p4_rulings3.py).
+5. **Q-H confirmed**: a shortfall opens a pending lot with `basis_origin = unrecorded_inflow` at the shortfall block (basis NULL);
+   custody children carry `basis_origin`.
+6. **Ordering**: ledger rows are read in (block, log_index, entry id) order, with no coalesce on tx_index. A NULL tx_index is accepted only
+   when its block holds a single tx (otherwise the run stops); the count is reported as `tx_index_null_rows`.
+Schema: `migrations/014_p4_rulings3.sql` (fifo_lot.basis_origin, the new view) with `migrations/rollback/014_down.sql` (run before 013_down).
+7. Status: the engine is proven on synthetic golden books and on the Base ledger (rebuild == incremental, identity within tolerance);
+   **real-ledger acceptance is deferred to P4.1** (resolve the unexplained gaps: missing ETH / GHST inflows).
 
 ## 9. Gotchiverse coverage (v1.3, 2026-10-17)
 Source: read-only audit of main at bed74e9, aavegotchi-realm-diamond at b152ce2, aavegotchi-contracts at 301d04f, plus Base RPC and receipts. [F] = fact, [I] = inference. Full findings are in the review notes. **Covered today:** Baazaar listings (ERC721/1155), ERC1155 buy orders, GBM buyer side, instant paid crafts, normal alchemica claims and channeling (income), and REALM parcel migration.
