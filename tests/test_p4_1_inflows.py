@@ -146,3 +146,24 @@ class Rule5FinalIncome(unittest.TestCase):
         from cryptopnl import p4
         x = p4.income_lines(st, b.rows, fifo.report(st, RP(), 2)["income_usdc"])
         self.assertEqual([(y["income_subtype"], y["usdc"], y["unpriced_entries"]) for y in x], [("dao_distribution", D(0), 1)])
+
+
+class IncomeLinesRounding(unittest.TestCase):
+    """Canonical P4.1 reconcile: per-line sums at Decimal prec 50 can differ from the engine's single sum in the last digit; that is
+    tolerated (<= 1e-30 USDC), a real mismatch is not. SYNTHETIC entries and values."""
+    def setup(self, vals):
+        from types import SimpleNamespace as N
+        rows = [N(id=i, income_subtype=s, source_ref=r) for i, (s, r, _) in enumerate(vals)]
+        return N(income=[(i, 1, v) for i, (_, _, v) in enumerate(vals)]), rows
+    def test_last_digit_rounding_tolerated(self):
+        from decimal import localcontext
+        from cryptopnl import p4
+        a = D("1000.4189423280598324682034176848787065247069005929"); b = D("0.2244696291370285873357736589430185283444852791198")
+        c = D("0.9622463907656828081414129173666257297316986144368")   # random digits found to round differently by order
+        with localcontext() as ctx:
+            ctx.prec = 50
+            vals = [("dao_distribution", PTD, a), (None, None, b), (None, None, c)]
+            st, rows = self.setup(vals); total = fifo._s(sum((v for _, _, v in st.income), D(0)))
+            self.assertNotEqual(a + (b + c), D(total))   # the fixture really hits the rounding-order case
+            lines = p4.income_lines(st, rows, total); self.assertEqual([x["entries"] for x in lines], [1, 2])
+            with self.assertRaises(ValueError): p4.income_lines(st, rows, str(D(total) + D("0.01")))

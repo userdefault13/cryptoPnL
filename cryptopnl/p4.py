@@ -236,6 +236,7 @@ def snapshot(conn, chain, st, pol, as_of):
         FROM pnl_snapshot WHERE as_of_block=%s AND asset_id IN (SELECT id FROM asset WHERE chain_id=%s)""", (as_of, chain)).fetchone()[0]
     return rep, sm, len(rows)
 
+INCOME_LINES_TOL = Decimal("1e-30")
 def income_lines(st, rows, total):
     """Income in the report, one line per (income_subtype, source) (rule 5 ruling: the PTD claim is its own line, dao_distribution
     from 0xf50326e1; rule 7: pocket custody income per subtype and sender, source_ref 'sender:tx' grouped by the sender, txs counted),
@@ -249,7 +250,9 @@ def income_lines(st, rows, total):
         if v is None: x["unpriced_entries"] += 1
         else: x["usdc"] += v
     out = [L[k] for k in sorted(L, key=lambda k: (k[0] == "general", k))]
-    if sum((x["usdc"] for x in out), Decimal(0)) != Decimal(total): raise ValueError("income lines do not sum to income_usdc")
+    # Decimal context is prec 50 (pricing.py): summing per line then across lines rounds in a different order than the engine's single
+    # sum, so the last of the 50 digits can differ (canonical P4.1: 1E-46 USDC). Tolerance 1e-30 USDC, far below any money unit.
+    if abs(sum((x["usdc"] for x in out), Decimal(0)) - Decimal(total)) > INCOME_LINES_TOL: raise ValueError("income lines do not sum to income_usdc")
     return out
 def ledger_qty(rows):
     q = {}
