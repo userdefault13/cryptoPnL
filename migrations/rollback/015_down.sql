@@ -3,6 +3,7 @@
 -- Internal ETH ledger rows themselves are removed by re-running classify without the internal_eth raw rows (not by this file).
 BEGIN;
 DROP TABLE IF EXISTS p3_mark;
+DROP TABLE IF EXISTS gotchi_lending;
 UPDATE fifo_lot SET basis_origin = NULL WHERE basis_origin = 'bridge_in';
 ALTER TABLE fifo_lot DROP CONSTRAINT IF EXISTS fifo_lot_basis_origin_check;
 ALTER TABLE fifo_lot ADD CONSTRAINT fifo_lot_basis_origin_check CHECK (basis_origin IN ('unrecorded_inflow'));

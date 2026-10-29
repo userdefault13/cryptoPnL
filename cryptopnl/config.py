@@ -245,3 +245,10 @@ INTERNAL_ETH = {8453: {
     # rule 6: dust payers: refund when the wallet sent ETH in the tx, else income at FMV (never spam for native ETH)
     "dust": {"0xaf14797ccf963b1e3d028a9d51853ace16aedba1": "rubic"},
 }}
+
+# P4.1 rule 7 (architect ruling (a), 2026-10-28 20:21 PT): gotchi pockets. Third-party inflows into the pocket of a gotchi the wallet
+# group owns at the deposit block (and that is not out on a rental) are custody income at FMV. The rarity-farming relayer
+# (baseRelayerAddress / relayerPetter, aavegotchi-base @ 9ce0c19 tasks/rarityPayouts.ts) pays via batchDepositGHST; the RF season is
+# inferred, never tagged on chain.
+POCKETS = {8453: {"rf_relayer": "0xf52398257a254d541f392667600901f710a006ed", "rf_selectors": {"0xea20c3c6"},
+                  "evidence": "docs/evidence/p4_1_pockets.json"}}

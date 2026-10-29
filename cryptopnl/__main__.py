@@ -2,10 +2,11 @@ import argparse, json, sys
 from . import db, ingest, verify, classify, pricing, evidence
 from .net import STATS
 p = argparse.ArgumentParser(prog="cryptopnl")
-p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report", "lots", "set-basis", "tx-index", "pool-swaps", "price", "price-report", "price-sample", "ledger-md5", "marks"])
+p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report", "lots", "set-basis", "tx-index", "pool-swaps", "price", "price-report", "price-sample", "ledger-md5", "marks", "pockets"])
 p.add_argument("--untouched-txs-from-db", help="ledger-md5: read the internal-ETH tx list from this database (same connection settings)")
 p.add_argument("--reuse-stored", action="store_true"); p.add_argument("--seed-only", action="store_true"); p.add_argument("--as-of", type=int)
 p.add_argument("--chain", type=int, default=84532)
+p.add_argument("--evidence", help="pockets: evidence JSON (default config.POCKETS[chain]['evidence'])"); p.add_argument("--to-block", type=int)
 p.add_argument("--wallet", action="append", default=[])
 p.add_argument("--samples", type=int, default=20); p.add_argument("--seed", type=int, default=3)
 p.add_argument("--out"); p.add_argument("--lot", type=int); p.add_argument("--basis-usdc"); p.add_argument("--acquired-at")
@@ -38,6 +39,11 @@ elif a.cmd == "set-basis":   # user_default's manual basis: price_source=manual,
     try: classify.set_manual_basis(conn, a.lot, a.basis_usdc, a.acquired_at)
     except ValueError as e: sys.exit(f"set-basis: {e}")
     print(json.dumps({"lot": a.lot, "basis_status": "manual"}))
+elif a.cmd == "pockets":   # P4.1 rule 7: pocket legs, escrows and rentals from the read-only evidence file (no network)
+    import os
+    from .pockets import ingest_pockets
+    from .config import POCKETS
+    ingest_pockets(conn, a.chain, a.evidence or os.path.join(os.path.dirname(__file__), "..", POCKETS[a.chain]["evidence"]), a.to_block)
 elif a.cmd == "tx-index": ingest.ingest_tx_index(conn, a.chain)   # RPC only
 elif a.cmd == "pool-swaps": ingest.ingest_pool_swaps(conn, a.chain)   # HyperSync (shared 5/min + 12 s bucket): Swap logs of thin pools
 elif a.cmd == "marks":   # P4 rulings 4: a mark per held asset at as_of_block (default: the last ledger block)
