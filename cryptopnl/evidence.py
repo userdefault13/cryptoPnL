@@ -7,7 +7,10 @@ so a later run (P4 rebuild, a ledger copy) can be checked against it. Determinis
                          raw_event of kind 'pocket_transfer') (architect ruling on PR #9, 2026-10-28 22:48 PT);
                          the tx list comes from this ledger, or from another one (`--untouched-txs-from-db`, to hash a pre-P4.1 ledger
                          over the same rows);
-  ledger_md5_v2          v1's fields + income_subtype, source_ref, trace_address: the canonical baseline (and the gate) from P4.1 on."""
+  ledger_md5_v2          v1's fields + income_subtype, source_ref, trace_address: the canonical baseline and the STRUCTURAL gate from P4.1 on;
+  ledger_md5_v2_valued   v2's fields + price_usdc::text, price_source, price_confidence_label, price_flag (each coalesced to ''), in v2's
+                         order: the VALUED gate (architect, P4.2 follow-ups). Excludes the float price_confidence (its label carries it;
+                         float text is fragile) and price_id (a surrogate key). There is no value_usdc column (value = qty * price_usdc)."""
 import pathlib
 from . import classify
 
@@ -23,7 +26,11 @@ V1_UNTOUCHED_SQL = V1_SQL + " AND NOT (tx_hash = ANY(%s))"
 INTERNAL_TXS_SQL = "SELECT DISTINCT tx_hash FROM ledger_entry WHERE chain_id=%s AND trace_address IS NOT NULL ORDER BY 1"
 POCKET_TXS_SQL = "SELECT DISTINCT tx_hash FROM raw_event WHERE chain_id=%s AND kind='pocket_transfer' ORDER BY 1"   # P4.1 rule 7
 # v2: the three new fields are coalesced to '' so a NULL keeps its position (concat_ws skips NULLs); v1's fields are as in v1
-V2_SQL = _sql(V1_FIELDS + ",coalesce(income_subtype,''),coalesce(source_ref,''),coalesce(trace_address,'')", V1_ORDER + ",trace_address")
+V2_FIELDS = V1_FIELDS + ",coalesce(income_subtype,''),coalesce(source_ref,''),coalesce(trace_address,'')"
+V2_ORDER = V1_ORDER + ",trace_address"
+V2_SQL = _sql(V2_FIELDS, V2_ORDER)
+V2_VALUED_SQL = _sql(V2_FIELDS + ",coalesce(price_usdc::text,''),coalesce(price_source,''),coalesce(price_confidence_label,''),coalesce(price_flag,'')",
+                     V2_ORDER)
 V1_DOC = ("md5 of string_agg(concat_ws('|', hex(tx_hash), log_index, asset_id, qty, category, location, escrow_ref), ',' "
           "ORDER BY tx_hash, log_index, asset_id, location, qty) over ledger_entry WHERE chain_id (unchanged pre-P4.1 definition, "
           "formerly ledger_md5_narrow)")
@@ -34,9 +41,12 @@ V1_UNTOUCHED_DOC = ("v1 over rows of txs no P4.1 rule touched: ... AND NOT (tx_h
                     "untouched_txs_from = the ledger the tx list was read from (self, or --untouched-txs-from-db)")
 V2_DOC = ("md5 of string_agg(concat_ws('|', <v1 fields>, coalesce(income_subtype,''), coalesce(source_ref,''), coalesce(trace_address,'')), ',' "
           "ORDER BY tx_hash, log_index, asset_id, location, qty, trace_address) over ledger_entry WHERE chain_id (P4.1 canonical baseline; gates use v2)")
+V2_VALUED_DOC = ("md5 of string_agg(concat_ws('|', <v2 fields>, coalesce(price_usdc::text,''), coalesce(price_source,''), "
+                 "coalesce(price_confidence_label,''), coalesce(price_flag,'')), ',' ORDER BY <v2 order>) over ledger_entry WHERE chain_id "
+                 "(valued gate; excludes price_confidence (float) and price_id)")
 KEYS = ("chain_id", "ledger_rows", "ledger_min_block", "ledger_max_block", "ledger_md5_v1", "ledger_rows_pre_p4_1", "ledger_md5_v1_pre_p4_1",
         "internal_eth_txs", "pocket_txs", "untouched_excluded_txs", "untouched_txs_from", "ledger_rows_untouched_txs", "ledger_md5_v1_untouched_txs",
-        "ledger_md5_v2", "ledger_md5_report", "review_rows", "review_md5")
+        "ledger_md5_v2", "ledger_md5_v2_valued", "ledger_md5_report", "review_rows", "review_md5")
 
 def has_p41(conn):
     return conn.execute("""SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'ledger_entry'
@@ -59,13 +69,13 @@ def ledger_md5(conn, chain, untouched_txs=None, untouched_from="self"):
     t = touched_txs(conn, chain) if untouched_txs is None else untouched_txs if isinstance(untouched_txs, tuple) else (list(untouched_txs), [])
     txs = sorted(set(t[0]) | set(t[1]))
     un = conn.execute(V1_UNTOUCHED_SQL, (chain, txs)).fetchone()
-    if p41: pre = conn.execute(V1_PRE_SQL, (chain,)).fetchone(); v2 = conn.execute(V2_SQL, (chain,)).fetchone()
-    else: pre, v2 = v1, (None,)   # schema before migration 015: every row is pre-P4.1; v2 undefined (a v2 gate then fails)
+    if p41: pre = conn.execute(V1_PRE_SQL, (chain,)).fetchone(); v2 = conn.execute(V2_SQL, (chain,)).fetchone(); vv = conn.execute(V2_VALUED_SQL, (chain,)).fetchone()
+    else: pre, v2, vv = v1, (None,), (None,)   # schema before migration 015: every row is pre-P4.1; v2 / v2_valued undefined (their gates then fail)
     c = classify.checksum(conn, chain)
     return {"chain_id": chain, "ledger_rows": v1[1], "ledger_min_block": v1[2], "ledger_max_block": v1[3], "ledger_md5_v1": v1[0],
             "ledger_rows_pre_p4_1": pre[1], "ledger_md5_v1_pre_p4_1": pre[0], "internal_eth_txs": len(t[0]), "pocket_txs": len(t[1]),
             "untouched_excluded_txs": len(txs), "untouched_txs_from": untouched_from,
-            "ledger_rows_untouched_txs": un[1], "ledger_md5_v1_untouched_txs": un[0], "ledger_md5_v2": v2[0],
+            "ledger_rows_untouched_txs": un[1], "ledger_md5_v1_untouched_txs": un[0], "ledger_md5_v2": v2[0], "ledger_md5_v2_valued": vv[0],
             "ledger_md5_report": c["ledger_md5"], "review_rows": c["review_rows"], "review_md5": c["review_md5"]}
 
 def render(r, cmd):
@@ -75,6 +85,7 @@ def render(r, cmd):
             "# ledger_md5_v1_pre_p4_1 = " + V1_PRE_DOC + "\n"
             "# ledger_md5_v1_untouched_txs = " + V1_UNTOUCHED_DOC + "\n"
             "# ledger_md5_v2 = " + V2_DOC + "\n"
+            "# ledger_md5_v2_valued = " + V2_VALUED_DOC + "\n"
             "# ledger_md5_report = classify.checksum ledger_md5 (also printed by `classify`)\n"
             + "".join(f"{k}={s(r[k])}\n" for k in KEYS))
 
