@@ -56,3 +56,14 @@ Expected wall time: HyperSync ≤ 28 × 12 s ≈ 6 min; RPC ≤ 370 / 30 per min
 ## Rollback
 - Step 1 writes nothing outside `docs/` and `logs/`: rollback = revert the commit.
 - Steps 3–5 write only to a `cryptopnl_p41_*` copy (`dropdb` it). Any migration ships with `migrations/rollback/0NN_down.sql` and an up/down/up test. The canonical `cryptopnl_p3_base` and Envio PG 5439/5440 are never written.
+
+## Step 1 revision (17:3x PT, before any further request)
+- **HyperSync is blocked.** The first request (H2) returned **HTTP 403**: the ENVIO_API_TOKEN in the MBP's abra (`cryptoPnL`) is not accepted. The token P3 used is in omarchywin's abra, which is locked; it is not unlocked here (rule). HyperSync used: **1 request**. No HyperSync query is retried.
+- **Keyless fallback for step 1, counted now:**
+
+| source | queries | expected | hard cap |
+|---|---|---|---|
+| RPC base.drpc.org (30/min, 1.5 s gap) | R0 `eth_getTransactionReceipt` for the 3 GHST txs (3); R3 `eth_getLogs` GHST Transfer to/from the pockets, all blocks (2–20); R1 `eth_getBalance` spot checks (≤ 12); R2 `debug_traceTransaction` callTracer on each tx Blockscout lists as an internal ETH inflow (≤ 60) | 10–95 | **370** (unchanged) |
+| Blockscout `base.blockscout.com/api` (free public explorer API, no key; own 1 req / 2 s pacing) | B1 `txlistinternal` for the wallet (1–3 pages); B2 `txlist` for the wallet (1–3 pages) | 2–6 | **10** |
+
+  Blockscout only produces the candidate list. Every inflow reported in P4_1_SOURCES.md is confirmed from chain by RPC (`debug_traceTransaction` value into the wallet). An inflow Blockscout reports but RPC does not confirm is marked unconfirmed.
