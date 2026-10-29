@@ -233,6 +233,33 @@ Per pocket (deposits in; all withdrawn by the 3 batches):
 
 Other tokens into the pockets in the same range (not GHST; outside the GHST gap; not analysed): `0x6ce9b0b0750f48274d8f59a4bc42bdc22574d686` erc721 ×20, `0x3b66262eacb826810a369611caa89b97f220e676` erc20 ×20, `0x1575f7f60a4acd04332987fb741b805af96fdb90` erc20 ×20, `0x5fac1810e3f782823bd3e33d1ee38096543c6c54` erc20 ×17, `0x45eccddc5c304223d5ea8db2fbdeb6fbb53ccc39` erc721 ×17, `0xc34f23943424188b700feaa9a88830e8b7d1ca23` erc721 ×6, `0x5e6e5831fb6dbcfb03bd60b4cfb61616faa19fe7` erc721 ×6, `0x4fa840dd1e1adf293dedfd90e2a605e5cfd8ac97` erc20 ×6, `0x88a5029f468b7c4cc4c1322ddb86959f75af86fe` erc20 ×3, `0xd8c309306adf2701b8d9da4ed8699d2496d07777` erc721 ×3, `0x8a183e87726bddf7ff6ff1b8440391141281cfef` erc20 ×2, `0xb96a7fa2dc5627eb76f91962e1e45e75e572c850` erc20 ×2, `0xd498ad357daa59492d03774a4ff76939f099cd1e` erc20 ×2, `0x6537aef3eb037e3da7f7ff6dbf52038dd6d7fc75` erc20 ×2, `0xfb584ace7f491e2930491a8d01a28db308aeb65f` erc20 ×1, `0x606d092d063b4008cd526432d486ba08e0b7a051` erc721 ×1, `0x82bb29d5004c8aa36a2d89fa982e1d3c8ae3b6c8` erc20 ×1, `0xe3d6d446b951cffe5c44a6cde91415d7db139df6` erc721 ×1.
 
+## 2c. Spoofed-sender pattern in third-party pocket ERC-20 inflows (rule 7.4 check, 2026-10-28 20:4x PT; local data, 0 requests)
+Source: `docs/evidence/p4_1_pockets.json` (HS2, all Transfer logs into the 24 pockets). There are 97 third-party ERC-20 inflow legs from
+12 token contracts. **None of the 12 contracts is canonical Base USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, and none is any
+other allowlisted token** (checked against `config/allowlist.txt`, 17 Base entries, which include USDC). The 9 third-party NFT
+contracts (7 ERC-721, 2 ERC-1155) are not allowlisted either.
+**Pattern:** in **11 of the 12 contracts (96 legs)**, the Transfer event is emitted by the token contract
+itself but names **USDC `0x833589fc…`** as `from`. USDC never moved: a real USDC transfer is emitted by the USDC contract, and none of
+these logs is. The `from` is a spoofed sender, so an explorer shows "USDC → your pocket". Every one of these txs calls the token contract
+with the same selector `0x729ad39e` (a batch "airdrop" entry point), from an EOA that differs per token. The other contract
+(`0x82bb29d5…`) names a non-USDC `from`, `0x239b9c1f…`. Booked per rule 7.4: `spam` at `pocket:<id>` (96 legs) and 1
+`pocket_owner_mismatch` (`0x4fa840dd…` into gotchi 10774 before the wallet held it).
+
+| token contract (emitter) | legs | legs with from = USDC | `from` in the event | tx sender (EOA) | txs | blocks | pockets |
+|---|---|---|---|---|---|---|---|
+| `0x8a183e87726bddf7ff6ff1b8440391141281cfef` | 2 | 2 | `0x833589fc…` | `0x2286607a2005836451addb8ad223b7b56de5b953` | 2 | 35316780–35316782 | 2 |
+| `0x88a5029f468b7c4cc4c1322ddb86959f75af86fe` | 3 | 3 | `0x833589fc…` | `0xd51f718febfd85148e41d4ec5aaef03473657139` | 3 | 35953852–35954095 | 3 |
+| `0xfb584ace7f491e2930491a8d01a28db308aeb65f` | 1 | 1 | `0x833589fc…` | `0x5112f082051ee6efbc4e14cb097f4197f89a0d04` | 1 | 36558670–36558670 | 1 |
+| `0x82bb29d5004c8aa36a2d89fa982e1d3c8ae3b6c8` | 1 | 0 | `0x239b9c1f…` | `0x1c01d28689fe617fc00e5efa8d70996056f3e321` | 1 | 36600524–36600524 | 1 |
+| `0xb96a7fa2dc5627eb76f91962e1e45e75e572c850` | 2 | 2 | `0x833589fc…` | `0xb9d65cc976e0864187076402de813abae02db3f1` | 2 | 37206032–37206034 | 2 |
+| `0xd498ad357daa59492d03774a4ff76939f099cd1e` | 2 | 2 | `0x833589fc…` | `0xc6796e4f13bbbbb5e9480a612e8804a6dc140181` | 2 | 37250917–37250917 | 2 |
+| `0x3b66262eacb826810a369611caa89b97f220e676` | 20 | 20 | `0x833589fc…` | `0x0dfea3b30fc7a5cdbf51009ac09badb65f2d31a9` | 3 | 38261846–38262124 | 20 |
+| `0x5fac1810e3f782823bd3e33d1ee38096543c6c54` | 17 | 17 | `0x833589fc…` | `0xf1c374fb65599e9de67cb404cb8a59e2f8bdfcb9` | 3 | 38820491–38820642 | 17 |
+| `0x1575f7f60a4acd04332987fb741b805af96fdb90` | 20 | 20 | `0x833589fc…` | `0xf1c374fb65599e9de67cb404cb8a59e2f8bdfcb9` | 1 | 38854779–38854779 | 20 |
+| `0x6537aef3eb037e3da7f7ff6dbf52038dd6d7fc75` | 2 | 2 | `0x833589fc…` | `0xf1c374fb65599e9de67cb404cb8a59e2f8bdfcb9` | 1 | 38976600–38976600 | 2 |
+| `0x4fa840dd1e1adf293dedfd90e2a605e5cfd8ac97` | 7 | 7 | `0x833589fc…` | `0x35d317fcafc3d408d6bffc778608910ae1ed2b79` | 6 | 39595198–39619219 | 7 |
+| `0xcd6b003fd8b433e79137627267bc1ce177be368d` | 20 | 20 | `0x833589fc…` | `0x4458e8202b8d83180ee3aeb3ec2590e39a0d642c` | 4 | 40430000–40431225 | 20 |
+
 ## 3. Left unexplained (and why)
 1. ~~**The GHST source for each of the 20 pockets.**~~ **Traced in §2b (H3, 20:18 PT).** History of the block: This needs a full-history `Transfer(*, pocket)` query, but:
    - **HyperSync:** HTTP 403 with the MBP abra's `ENVIO_API_TOKEN`. The token P3 used is in omarchywin's abra, which was **locked** and was not unlocked.

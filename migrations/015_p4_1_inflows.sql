@@ -1,5 +1,6 @@
 -- P4.1 rulings (DESIGN §8). Internal ETH legs keep their trace address; ETH bridge-ins open pending lots (basis_origin='bridge_in');
 -- marks at as_of_block are written by the P3 pricing path (rulings 4) into p3_mark, one row per held asset (priced | no_valid_mark).
+-- Not frozen yet: 015 may change until it is applied canonically; it freezes at P4.1 PR time (architect, 2026-10-28 20:44 PT).
 BEGIN;
 ALTER TABLE ledger_entry ADD COLUMN trace_address text;   -- internal ETH legs (log_index = n - 100000): call path in the tx's trace
 -- rule 5 (architect, 18:18 PT): an identified distribution is income at FMV, tagged so the report shows it as its own income line

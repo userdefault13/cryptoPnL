@@ -361,14 +361,22 @@ Inflow fix for the ETH unexplained gap found in P4 (sources: docs/P4_1_SOURCES.m
      the wallet group, no income is booked. The leg is flagged `pocket_owner_mismatch` (one review_queue row per tx, reason
      `pocket_owner_mismatch`, legs in the detail), counted, and reported (`pockets.pocket_owner_mismatch` in the P4 reconcile output).
      A third-party move *out* of an owned pocket goes to review.
-   * **Non-GHST inflows:** handled the same way. Allowlisted ERC-20s (alchemica, GLTR, …) are income at FMV via the P3 price order;
-     unpriced, the lot is pending (`no_price`) and flagged, never 0. Third-party NFTs are income at FMV when priced; unpriced, they are
-     excluded from unrealized and counted (Q8). Deposits from a wallet-group sender are internal moves.
-   * **Implementation note for the architect:** every third-party non-GHST pocket inflow found on chain (155 legs, 21 contracts, none
-     allowlisted; most ERC-20 ones emit Transfer with `from` = the USDC contract) falls under the standing §8 unsolicited
-     non-allowlisted token rule. 154 are booked `spam` at `pocket:<id>` (no lot, never in PnL, counted in the sender/token table),
-     not as pending income lots; 1 is pocket_owner_mismatch. Allowlisted ones would be income as above. Counts before and after, by sender and token:
-     docs/P4_RESULTS.md §12.
+   * **Non-GHST inflows (7.4; amended, the architect approved the three deviations, 2026-10-28 20:44 PT):**
+     - **The existing §8 unsolicited-token rule wins for tokens that aren't allowlisted.** A third-party pocket inflow of a
+       non-allowlisted token is `spam` at `pocket:<id>` (no lot, never in PnL, counted in the sender/token table), not a pending
+       income lot. On chain this is all 155 third-party non-GHST legs (21 contracts; none is canonical Base USDC or any other
+       allowlisted token, checked against `config/allowlist.txt`): 154 spam and 1 owner mismatch. Most of the ERC-20 ones carry a
+       spoofed USDC `from` (docs/P4_1_SOURCES.md §2c).
+     - **Allowlisted tokens** (alchemica, GLTR, USDC, …) from a third party are income at FMV via the P3 price order; unpriced, the
+       lot is pending (`no_price`) and flagged, never 0. Third-party NFTs that are allowlisted are income at FMV when priced;
+       unpriced, they are excluded from unrealized and counted (Q8).
+     - **`pocket_deposit`** is the income_subtype for non-relayer third-party income (`rarity_farming_payout` is relayer +
+       `batchDepositGHST` only). source_ref is `<sender>:<tx hash>` for both.
+     - **Mismatched legs** (owner not in the wallet group at the deposit block, or the gotchi out on a rental) go to review_queue
+       (reason `pocket_owner_mismatch`, legs in the detail) with **no ledger_entry**. So gotchi 10774's 28.8225 GHST (8 relayer
+       deposits before the wallet held it, withdrawn by its owner then) stays out of the wallet's quantities.
+     - **Wallet-group senders** are internal moves.
+     Counts before and after, by sender and token: docs/P4_RESULTS.md §12b.
    * **Sources:** `scripts/p4_1_pockets.py` (read-only: Multicall3 gotchiEscrow / ownerOf / isAavegotchiLent / getGotchiLendingIdByToken,
      HyperSync pocket Transfer / TransferSingle / TransferBatch logs, the wallet's lending txs, and the lending events) writes
      docs/evidence/p4_1_pockets.json. `cryptopnl pockets` loads it with no network into gotchi_escrow, `raw_event kind='pocket_transfer'`
@@ -382,7 +390,8 @@ source_ref, trace_address) are both reported, plus v1 over the pre-P4.1 rows (`t
 fungible asset (positive balance at any location) at as_of: `priced` (normal price order) or `no_valid_mark` + reason. P4 reads
 `p3_mark` only; a missing or `no_valid_mark` asset is excluded from unrealized and counted (`marks` in the snapshot). Gate:
 `gate_all_rows_at_or_before_as_of`. Schema: `migrations/015_p4_1_inflows.sql` (ledger_entry.trace_address, income_subtype / source_ref, basis_origin `bridge_in`,
-p3_mark, gotchi_lending) with `migrations/rollback/015_down.sql`.
+p3_mark, gotchi_lending) with `migrations/rollback/015_down.sql`. **015 may keep changing until it is applied canonically; it freezes at
+P4.1 PR time** (architect, 20:44 PT). Every non-canonical DB is patched to match a fresh migrate whenever 015 changes.
 
 ## 9. Gotchiverse coverage (v1.3, 2026-10-17)
 Source: read-only audit of main at bed74e9, aavegotchi-realm-diamond at b152ce2, aavegotchi-contracts at 301d04f, plus Base RPC and receipts. [F] = fact, [I] = inference. Full findings are in the review notes. **Covered today:** Baazaar listings (ERC721/1155), ERC1155 buy orders, GBM buyer side, instant paid crafts, normal alchemica claims and channeling (income), and REALM parcel migration.
