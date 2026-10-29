@@ -2,7 +2,8 @@
 # P4 test (DESIGN §4 P4, §8 'P4 rulings (2026-10-28)', 'P4 rulings 2', 'P4 rulings 3'). ONE run, offline: no HyperSync, no RPC (marks come from
 # stored P3 prices). Reads the source DB, writes only to a fresh COPY of it (never the template):
 #   scripts/with_ledger_pg.sh scripts/p4_test.sh 8453 cryptopnl_p3_base cryptopnl_p4_base
-# Steps: 1 ledger md5 of the source == the P3 value; 2 createdb -T source copy, migrate (013) on the copy, ledger md5 unchanged;
+# Steps: 1 ledger md5 v2 + rows of the source == the recorded baseline (P4.1 md5 ruling: gates use v2; v1 and v1 over the
+#   pre-P4.1 rows are printed, not gated); 2 createdb -T source copy, migrate (013) on the copy, ledger md5 unchanged;
 # 3 full rebuild; 4 incremental (rebuild to the median block, persist, reload from the DB, continue) -> md5s equal the rebuild's;
 # 5 reconciliation against an INDEPENDENT ledger side (ledger rows only, its own FIFO and running balance) per asset and in total
 # (tol 0.01 USDC) at as_of_block = MIN over tracked assets of each one's latest stored price; 6 snapshot twice -> byte-identical;
@@ -10,15 +11,19 @@
 # (balance with no recorded inflow; real-ledger acceptance deferred to P4.1); exit 1 'P4 FAIL'. Evidence: docs/evidence/p4_*_<chain>.*
 set -euo pipefail
 C=$1; SRC=$2; DST=$3; PY=${PY:-.venv/bin/python}; cd "$(dirname "$0")/.."
-EXP_MD5=${EXP_LEDGER_MD5:-210a71d811fd872a970b1d11770ced05}; EXP_ROWS=${EXP_LEDGER_ROWS:-1321}
+# v2 baseline: the canonical value is recorded in docs/P4_RESULTS.md §12 after the canonical P4.1 run (no default until then).
+EXP_MD5=${EXP_LEDGER_MD5_V2:?set EXP_LEDGER_MD5_V2 (canonical ledger_md5_v2 baseline, docs/P4_RESULTS.md §12)}
+EXP_ROWS=${EXP_LEDGER_ROWS:?set EXP_LEDGER_ROWS (canonical ledger row count, docs/P4_RESULTS.md §12)}
+PRE_V1=210a71d811fd872a970b1d11770ced05   # canonical pre-P4.1 v1 (1321 rows): informational only
 case "$DST" in cryptopnl_p4_*) ;; *) echo "FAIL: target DB must be named cryptopnl_p4_* (a copy), got $DST"; exit 2;; esac
 [ "$SRC" != "$DST" ] || { echo "FAIL: source == target"; exit 2; }
 E=docs/evidence; mkdir -p "$E" logs; T0=$(date +%s); fail() { echo "P4 FAIL: $*"; exit 1; }
 j() { $PY -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2], {'d': d}))" "$@"; }
 echo "== 1 source ledger md5 ($SRC)"
 CRYPTOPNL_DSN="dbname=$SRC" $PY -m cryptopnl ledger-md5 --chain "$C" --out "$E/p4_ledger_md5_$C.txt" 2>/dev/null | tail -1
-grep -q "^ledger_md5_narrow=$EXP_MD5$" "$E/p4_ledger_md5_$C.txt" && grep -q "^ledger_rows=$EXP_ROWS$" "$E/p4_ledger_md5_$C.txt" \
-  || fail "source ledger md5/rows differ from $EXP_MD5/$EXP_ROWS"
+grep -q "^ledger_md5_v2=$EXP_MD5$" "$E/p4_ledger_md5_$C.txt" && grep -q "^ledger_rows=$EXP_ROWS$" "$E/p4_ledger_md5_$C.txt" \
+  || fail "source ledger md5 v2/rows differ from $EXP_MD5/$EXP_ROWS"
+echo "v1 $(grep '^ledger_md5_v1=' "$E/p4_ledger_md5_$C.txt" | cut -d= -f2); v1 over pre-P4.1 rows $(grep '^ledger_md5_v1_pre_p4_1=' "$E/p4_ledger_md5_$C.txt" | cut -d= -f2) (pre-P4.1 v1 was $PRE_V1; not gated)"
 echo "== 2 copy $SRC -> $DST, migrate the copy"
 dropdb --if-exists "$DST"; createdb -T "$SRC" "$DST"
 CRYPTOPNL_DSN="dbname=$DST" $PY -m cryptopnl migrate 2>/dev/null | tail -1
