@@ -67,3 +67,6 @@ Expected wall time: HyperSync ≤ 28 × 12 s ≈ 6 min; RPC ≤ 370 / 30 per min
 | Blockscout `base.blockscout.com/api` (free public explorer API, no key; own 1 req / 2 s pacing) | B1 `txlistinternal` for the wallet (1–3 pages); B2 `txlist` for the wallet (1–3 pages) | 2–6 | **10** |
 
   Blockscout only produces the candidate list. Every inflow reported in P4_1_SOURCES.md is confirmed from chain by RPC (`debug_traceTransaction` value into the wallet). An inflow Blockscout reports but RPC does not confirm is marked unconfirmed.
+- **Revision 2** (before running): drpc's free tier rejects wide `eth_getLogs` ranges (HTTP 400, jsonrpc code 35), so R3 is dropped. Used so far: RPC 38 attempts (6 OK = the 3 receipts + 3 txs; 32 rejected getLogs, half of them repeated by a rerun because errors were not cached; now fixed). Replacement:
+  - **B3** Blockscout `tokentx` (GHST only), one per pocket: **20**. Blockscout cap raised to **30**.
+  - **R4** `eth_getTransactionByHash` per distinct pocket-source tx: ≤ 40, inside the RPC cap.
