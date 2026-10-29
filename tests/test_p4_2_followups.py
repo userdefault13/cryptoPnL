@@ -52,4 +52,11 @@ class NoTestLinesInReqlog(unittest.TestCase):   # P4.2: fake requests in the uni
                 ts, src = l.split()[:2]
                 self.assertIn(src, ("rpc", "hypersync", "blockscout", "defillama"), (n, l)); self.assertGreater(float(ts), 1.7e9, (n, l))
 
+class EvidenceHasNoHomePaths(unittest.TestCase):   # P4.2: evidence paths carry no personal name (paths use ~ or user_default)
+    def test_no_name_in_evidence(self):
+        d = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "evidence")
+        for n in sorted(os.listdir(d)):
+            with open(os.path.join(d, n), "rb") as f: b = f.read().lower()
+            self.assertNotIn(b"julius", b, n)
+
 if __name__ == "__main__": unittest.main()
