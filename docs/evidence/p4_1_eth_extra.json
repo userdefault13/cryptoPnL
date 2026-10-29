@@ -1,0 +1,76 @@
+{
+ "between": [
+  {
+   "block": 23210972,
+   "candidates": [
+    {
+     "inflows": [
+      {
+       "depth": 2,
+       "from": "0xc38e4e6a15593f908255214653d3d947ca1c2338",
+       "path": [
+        "0x6daea6e2b30010bf8f5aecde9741a9d86f3da919",
+        "0xc38e4e6a15593f908255214653d3d947ca1c2338"
+       ],
+       "type": "CALL",
+       "value_wei": 52652326223033971
+      }
+     ],
+     "selector": "0xbc127b88",
+     "tx": "0xf36f1da4357d153fa8f13a698aa012954eea7fc5fa9b34b198cc312089890210",
+     "tx_from": "0xfcbac0713acf16708ab6bc977227041fa1bc618d",
+     "tx_to": "0x6daea6e2b30010bf8f5aecde9741a9d86f3da919"
+    }
+   ],
+   "n_candidates": 1,
+   "txs_in_block": 120
+  },
+  {
+   "block": 46860859,
+   "candidates": [
+    {
+     "inflows": [
+      {
+       "depth": 3,
+       "from": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+       "path": [
+        "0xfd03abcadaf3f930fa4e37eb2f6ea3a44a41b7f0",
+        "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+        "0x77aa19d49484cc88c2ca1c8527226e891c5c72d8"
+       ],
+       "type": "CALL",
+       "value_wei": 14247209214890559
+      }
+     ],
+     "selector": "0x260595cf",
+     "tx": "0xa5ee1787a49ef50f04b07cdbd3412fbbbd0dc95dc1e24c285a82feb38ab107df",
+     "tx_from": "0xcad97616f91872c02ba3553db315db4015cbe850",
+     "tx_to": "0xfd03abcadaf3f930fa4e37eb2f6ea3a44a41b7f0"
+    },
+    {
+     "inflows": [],
+     "selector": "0xdeff4b24",
+     "tx": "0x0b177076e949e3d7f273cd9df5ba994582f04d36652082f24c45846189c8476f",
+     "tx_from": "0x07ae8551be970cb1cca11dd7a11f47ae82e70e67",
+     "tx_to": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64"
+    }
+   ],
+   "n_candidates": 2,
+   "txs_in_block": 191
+  }
+ ],
+ "early": {
+  "balance_12795075_wei": 4916023986331809,
+  "changes": [
+   {
+    "block": 12794901,
+    "delta_wei": 4916023986331809,
+    "txs_paying_wallet_top_level": [],
+    "txs_with_wallet_in_calldata": [
+     "0xb78fe8e8fa2df3c6fa21c9dfa97882e14e7c9aec60928fb70655dd1b8e17ae1e"
+    ]
+   }
+  ],
+  "probes": 25
+ }
+}
