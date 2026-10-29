@@ -231,7 +231,7 @@ high; USDC numeraire; KEK/FUD/FOMO/ALPHA `dex_reserves_thin` low); no_valid_mark
 
 **Income lines (rule 5 ruling):** `dao_distribution` from 0xf50326e1… (the Aavegotchi PTD claim, 1.0141283024 ETH at block 40749157) is
 its own line under income; everything else is `general`. USDC values (canonical, as_of 52911467): `dao_distribution` **3175.40227006088185524…** (1 entry, priced); `rarity_farming_payout`
-0xf5239825… **0 USDC priced, 156 entries unpriced** (104 txs; pending `no_price`, never 0); `general` 0.14162696287… (31 entries, 0 unpriced).
+0xf5239825… **0 USDC priced, 156 entries unpriced** (104 txs; pending `no_price`, never 0) **before the RF pass; after it: 200.35518967656669… USDC, 0 unpriced (§12e)**; `general` 0.14162696287… (31 entries, 0 unpriced).
 income_usdc 3175.54389702375322590738938379036266611244351516.
 
 **ETH pending lots by basis_origin:** canonical bridge_in 3, deposit 12 (basis_origin NULL, pending_reason deposit), unrecorded_inflow 0; MBP: bridge_in 3 (Hop, Mayan Swift, Across), deposit 12, unrecorded_inflow 0.
@@ -361,3 +361,44 @@ bursts. Wall time: **352 → ≈ 11.9 min; 510 → ≈ 17.3 min** (+ ≈ 0.4 min
 P1's first live block: a bisection of eth_getCode over the two windows is ≤ 6 + ≤ 5 = **≤ 11 RPC** (not run). Proposed live cap:
 `CRYPTOPNL_PRICE_RPC_CAP=510`. Note: the 12 counter calls can turn 2 ETH legs (now dex_slot0 from stored points) into trade-implied
 prices; the live pass may change those 2 legs.
+
+### 12e. RF pricing pass, live (user_default 2026-10-28 23:00 PT: "Run the RF pricing pass, capped at 510 lookups"), 23:00–23:13 PT
+`cryptopnl price --chain 8453 --reuse-stored` on `cryptopnl_p41_base`, `CRYPTOPNL_PRICE_RPC_CAP=510`, base.drpc at 30/min with a 1.5 s gap,
+no probe, no HyperSync. **price_run 5: rpc_calls 352, rpc_errors 0, rpc_retries 6** (six HTTP 429, each retried OK), fallthrough 0,
+seed hits 762, seed misses 0; 358 HTTP attempts in 719.3 s (29.36/min). **Cap not reached**: 352 = the dry count's low bound (§12d),
+so the second GHST pool 0x56c1… already answered at every RF block (all 104 blocks took the 3-call path). Evidence:
+`docs/evidence/p4_1_rf_price_stats_8453.json`, `p4_1_rf_price_reqlog.txt`, `p4_1_rf_price_before_8453.txt` / `_after_8453.txt`.
+
+**RF payouts: 156 / 156 priced, 0 pending** (104 blocks; `dex_slot0` via 0x56c1…, label high, no flag): 652.6299999999999975 GHST =
+**200.35518967656669074945105246811611330905154767380571 USDC**. No `no_price` entry remains in the ledger (168 → 0).
+
+**Row diff against the pre-pass prices** (the scratch copy, identical before the pass; `docs/evidence/p4_1_rf_price_diff_8453.txt`):
+1647 rows, **170 changed, all expected**: 156 RF income; the 2 ETH legs below; 12 swap legs that were `no_price` (GHST at 6 blocks
+42178982–49319456 and their FOMO / FUD / ALPHA counter legs), now trade-implied (2 GHST legs at 49319454/6 low, flagged low_confidence).
+
+**The 2 ETH legs re-priced from their swap (architect-accepted):** the counter GHST is now priced live at the block (routed via
+GHST/WETH v2), so the ETH leg takes the trade-implied price (label medium) instead of the stored `dex_slot0`.
+
+| entry | block | tx | ETH qty | old price / source | old USDC | new price / source | new USDC | Δ USDC |
+|---|---|---|---|---|---|---|---|---|
+| 39603 | 23211232 | 0x70a74f31… | −0.04 | 3606.84189589599668927… `dex_slot0` high | −144.27367583583986757 | 3596.72477933018531611… `trade` medium | −143.86899117320741264 | +0.40468466263245493 |
+| 39727 | 33388411 | 0x8f266943… | −0.002537704534166739 | 3750.28390029296276259… `dex_slot0` high | −9.51711245818597412 | 3739.12056512652263024… `trade` medium | −9.48878321191767599 | +0.02832924626829813 |
+
+(The fee legs of the same txs keep `dex_slot0`.)
+
+**After the pass (rebuild + reconcile on `cryptopnl_p41_base`, then `scripts/p4_test.sh` → P4 PASS):**
+- **v2 unchanged: `eaead37d4a6b3e7e678f5b375cc8b6fd`, 1647 rows** (prices are not in v1 / v2): the ledger md5 file is byte-identical, so
+  `EXP_LEDGER_MD5_V2` / `EXP_LEDGER_ROWS` are unchanged. **`ledger_md5_v1_untouched_txs` unchanged: `fc5033e0967575cda70f44fd6db920f3`
+  over 1285 rows.** ledger_md5_report unchanged `bb50f055…`.
+- Reconcile: acceptance **PASS**, identity_pass true, **total residual 0**, failures [], exits 50 (48 before: two more lots now have a
+  basis to exit), **unexplained gap `{}` (ETH 0, GHST 0)**; GHST pocket in = out = 652629999999999997500 wei.
+- **Income: 3175.5438970237532259073893837903626661124435151584 → 3375.8990867003199166568404362584787794214950628322 USDC
+  (+200.3551896765666907494510524681161133090515476738 = the RF line).** Lines: `dao_distribution` 3175.40227006088185524… (unchanged),
+  `rarity_farming_payout` 200.35518967656669074…, `general` 0.14162696287… (unchanged).
+- Totals (all): realized −39.6228792068 → −117.3720574128; unrealized 6.1106473135 → −1.3993774737; open basis 42.4372205112 →
+  54.7893628872; market value 48.5478678247 → 53.3899854135; exit basis 3383.4925981144 → 3389.8030145162 USDC.
+- p4_test: rebuild = incremental (engine `7a6a6b3ed4bd60ca44bbd6b49ac7c695`, 356 lots, 770 disposals), snapshot ×2 byte-identical
+  `f8034ab700c7e1567141f8c2bf0b5855`, unit suites OK (`docs/evidence/p4_1_canon_p4_test_rf_priced.log`). The `p4_*_8453.*` evidence
+  files are from this run.
+- The scratch DB `cryptopnl_p41_pricecount` was dropped after the run (user_default's go, relayed 23:01 PT); exact-name check first, no
+  other DB touched.
