@@ -217,9 +217,10 @@ its own line under income; everything else is `general`. USDC values: _TBD (cano
 
 **ETH pending lots by basis_origin:** _TBD (canonical)_; MBP: bridge_in 3 (Hop, Mayan Swift, Across), deposit 12, unrecorded_inflow 0.
 
-**Rule 5 — return-of-capital ruling (architect / user_default, 19:48 PT): NOT built; step 0 gate stopped it.** Free sources show the PTD
-allocation is **not GHST-only**, so no ROC path, no GHST basis adjustment and no roc_excess were built; the code still has the
-18:18 tagging (`income_subtype = dao_distribution`, own income line) until the architect rules again.
+**Rule 5 — FINAL: option (a), income (user_default 2026-10-28 19:54 PT, via the architect).** The whole 1.0141283024 ETH claim is
+income at FMV (`income_subtype = dao_distribution`, `source_ref = 0xf50326e1…`, its own income line, in the income total); the ETH lot
+opens at FMV (pending if unpriced). The 19:48 PT return-of-capital ruling stopped at its step-0 gate and was never built (no ROC,
+RF split or basis_adjustment code or schema). Background, the PTD breakdown found at that gate:
 - Sources: [pgendreau/aavegotchi-ptd](https://github.com/pgendreau/aavegotchi-ptd) @ 7cc2917 (2026-01-03): `README.md`,
   `GetTotalDistributionAmounts.py`, `CombinedVP/README.md` + `CombinedVP/getTotalVp.js`, `RF/README.md`, `AGIP155_Execution_Instructions.md`,
   `TotalDistributionAmounts.csv`, `claims.json`; AGIP 8/9 ([Aavegotchi, 2021-06-11](https://aavegotchi.medium.com/vote-agip8-and-agip9-give-voting-power-to-aavegotchis-and-wearables-9c113373a0a2)); [wiki: wearables voting power](https://wiki.aavegotchi.com/en/wearables).

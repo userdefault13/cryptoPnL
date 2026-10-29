@@ -337,9 +337,12 @@ wait on the HyperSync trace of how GHST entered the pockets.
    `source_ref = 0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11` (the PTD MerkleDistributor; `config.INTERNAL_ETH[...]["distribution_subtype"]`,
    ledger_entry columns in migration 015). The report shows it as its own income line (`income_lines` in the P4 output; lines sum to
    income_usdc). No return-of-capital path is built: that treatment is user_default's decision.
-   **Return-of-capital ruling (user_default via the architect, 19:48 PT): on hold, not built.** Its step-0 gate found the PTD allocation
-   is not GHST-only (combined Snapshot VP incl. gotchis/wearables, REALM, GLTR LP and pocket GHST, × governance participation, plus a
-   gotchi rarity-farming pool); facts in docs/P4_RESULTS.md §12. The 18:18 tagging stays until the architect rules again.
+   **FINAL (option a, user_default 2026-10-28 19:54 PT, via the architect): the whole 1.0141283024 ETH claim is income.** One ETH lot
+   at FMV (the P3 price at the claim block; pending `no_price` if unpriced, never 0) and income at FMV in the income total, tagged
+   `income_subtype = dao_distribution`, `source_ref = 0xf50326e1…`, its own income line. No return-of-capital, RF split or
+   basis_adjustment path. Background: the PTD allocation is not GHST-only (combined Snapshot VP incl. gotchis/wearables, REALM, GLTR LP
+   and pocket GHST, × governance participation, plus a gotchi rarity-farming pool): docs/P4_RESULTS.md §12. This supersedes the 19:48 PT
+   return-of-capital ruling (stopped at its step-0 gate; never built).
    An unidentified distributor would be income at FMV flagged `source_unidentified` and listed for user_default (never pending).
 6. **1-wei Rubic dust**: if the wallet sent ETH in the same tx it is a refund under rule 3; otherwise income at FMV (≈ 0). Never spam for
    native ETH.

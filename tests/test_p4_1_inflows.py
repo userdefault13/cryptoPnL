@@ -126,3 +126,23 @@ class Rule5DaoDistributionTag(unittest.TestCase):
         st = run(b.rows, RP()); lines = p4.income_lines(st, b.rows, fifo.report(st, RP(), 4)["income_usdc"])
         self.assertEqual([(x["income_subtype"], x["source_ref"], x["usdc"], x["entries"], x["unpriced_entries"]) for x in lines],
                          [("dao_distribution", PTD, D(3000), 1, 0), ("general", None, D(40), 2, 1)])
+
+class Rule5FinalIncome(unittest.TestCase):
+    """Rule 5 FINAL (option a, user_default 2026-10-28): the PTD claim is income. Priced: one ETH lot at FMV and the FMV in income_usdc.
+    Unpriced: the lot is pending (no_price), never basis 0, and the income line counts it as unpriced. SYNTHETIC qty / price."""
+    def book(self, price):
+        b = Book(); e = b.tx(1, L("ETH", "1.0141283024", "income", price, income_subtype="dao_distribution", source_ref=PTD))[0]
+        st = run(b.rows, RP()); return b, e, st
+    def test_priced(self):
+        b, e, st = self.book("3000"); l = lot(st, e); rep = fifo.report(st, RP(), 2)
+        self.assertEqual((l.status, l.basis, l.kind), ("resolved", D("3042.3849072"), "income"))
+        self.assertEqual(D(rep["income_usdc"]), D("3042.3849072"))
+        from cryptopnl import p4
+        self.assertEqual([(x["income_subtype"], x["usdc"]) for x in p4.income_lines(st, b.rows, rep["income_usdc"])], [("dao_distribution", D("3042.3849072"))])
+        self.assertFalse(any(l2.kind in ("basis_adjustment", "return_of_capital") for l2 in st.lots))
+    def test_unpriced_is_pending_never_zero(self):
+        b, e, st = self.book(None); l = lot(st, e)
+        self.assertEqual((l.status, l.basis, l.pending_reason), ("pending", None, "no_price"))
+        from cryptopnl import p4
+        x = p4.income_lines(st, b.rows, fifo.report(st, RP(), 2)["income_usdc"])
+        self.assertEqual([(y["income_subtype"], y["usdc"], y["unpriced_entries"]) for y in x], [("dao_distribution", D(0), 1)])
