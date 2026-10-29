@@ -1,76 +1,176 @@
 {
  "as_of": {
-  "as_of_block": 49402932,
-  "latest_priced_block_per_asset": {
-   "19": 51283821,
-   "2": 52911410,
-   "20": 51481437,
-   "28": 49402932,
-   "39": 49402932,
-   "96": 49402932,
-   "97": 49402932
-  },
-  "set_by_assets": [
-   "28",
-   "39",
-   "96",
-   "97"
-  ]
+  "as_of_block": 52911467,
+  "last_ledger_block": 52911467,
+  "set_by": "last ledger block"
  },
- "as_of_block": 49402932,
+ "as_of_block": 52911467,
  "chain": 8453,
  "counts": {
   "craft_lots": 1,
   "craft_split_equal_fallbacks": 0,
   "excluded_rows": {
-   "spam": 265,
-   "untracked": 39
+   "spam": 494,
+   "untracked": 56
   },
-  "exits": 69,
-  "exits_pending": 53,
+  "exits": 78,
+  "exits_pending": 25,
   "free_craft_lots": 3,
-  "pending_disposals": 559,
-  "pending_lots_open": 92,
-  "pending_lots_total": 612,
+  "pending_disposals": 489,
+  "pending_lots_open": 104,
+  "pending_lots_total": 267,
   "pending_reasons": {
-   "deposit": 16,
+   "bridge_in": 3,
+   "deposit": 21,
    "migration": 81,
-   "unrecorded_inflow": 515
+   "no_price": 162
   }
  },
- "exit_basis_usdc": "318.81134371476028517891859099546126819722390602953",
- "exit_display_mv_usdc": "3136.6538661787301148302989005285709976078197152953",
- "exit_rc": 3,
- "expenses_usdc": "6.0843948076772880559179145939237193706297345588247",
+ "exit_basis_usdc": "3383.4925981143647114217024911304091813653300965682",
+ "exit_display_mv_usdc": "3147.4878891074532009800666176435133665780282407232",
+ "exit_rc": 0,
+ "expenses_usdc": "6.3870242856451961148830978031311663536334926894946",
  "gas": {
   "fee_split_methods": {
-   "basis": 27
+   "basis": 29,
+   "equal": 6
   },
-  "gas_capitalized_usdc": "0.31324869100191045765146661206089670689351040401297",
-  "gas_disposals": 413,
-  "gas_entries": 407,
-  "gas_expense_resolved_usdc": "0",
-  "gas_expense_usdc": "6.0627511021806224970137566261056688979631329733965",
-  "gas_in_basis_usdc": "0.17824805913323320141542038674819291467514866995622",
-  "gas_mv_usdc": "6.3759997931825329546652232381665656048566433774095",
-  "gas_on_pending_lots_usdc": "0",
-  "gas_pending_disposals": 413,
-  "gas_realized_usdc": "0"
+  "gas_capitalized_usdc": "0.42337135589951531256981708546809406769521016361736",
+  "gas_disposals": 449,
+  "gas_entries": 449,
+  "gas_expense_resolved_usdc": "1.6021203111484920743349760632406676863377028647525",
+  "gas_expense_usdc": "6.3653805801485305559789398353131158809668911040664",
+  "gas_in_basis_usdc": "0.26765332739218675253423180025449522619979402498081",
+  "gas_mv_usdc": "6.7887519360480458685487569207812099486621012676839",
+  "gas_on_pending_lots_usdc": "0.016692846643530692435881269699282456923551303954508",
+  "gas_pending_disposals": 270,
+  "gas_realized_usdc": "-0.56843922649996122532114240957847412147031435903874"
  },
- "gas_share_on_pending_acquisitions_ledger": "0",
+ "gas_share_on_pending_acquisitions_ledger": "0.016692846643530692435881269699282456923551303954508",
+ "gate_all_rows_at_or_before_as_of": true,
  "identity_basis": {
-  "basis_open": "22.77666295132775104008058796497947276005426105981",
-  "basis_opened_root": "451.18004775089944914733678037302532279841254471467",
-  "cost_disposed": "428.40338479957169810725619240804585003835828365488",
-  "residual": "-0.00000000000000000000000000000000000000000000002"
+  "basis_open": "42.445435784879732838853053783741399672836640513279",
+  "basis_opened_root": "3691.0470720112610984257926718903295435389317725109",
+  "cost_disposed": "3648.6016362263813655869396181065881438660951319982",
+  "residual": "-0.000000000000000000000000000000000000000000000579"
  },
- "income_usdc": "0.14162696287137066493330087583504704313280079798697",
- "ledger_rows": 1321,
+ "income_lines": [
+  {
+   "entries": 1,
+   "income_subtype": "dao_distribution",
+   "source_ref": "0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11",
+   "unpriced_entries": 0,
+   "usdc": "3175.4022700608818552424560829145276190693107143605"
+  },
+  {
+   "entries": 156,
+   "income_subtype": "rarity_farming_payout",
+   "source_ref": "0xf52398257a254d541f392667600901f710a006ed",
+   "txs": 104,
+   "unpriced_entries": 156,
+   "usdc": "0"
+  },
+  {
+   "entries": 31,
+   "income_subtype": "general",
+   "source_ref": null,
+   "unpriced_entries": 0,
+   "usdc": "0.14162696287137066493330087583504704313280079798697"
+  }
+ ],
+ "income_usdc": "3175.5438970237532259073893837903626661124435151584",
+ "ledger_rows": 1647,
  "ledger_side_gas_txs": {
-  "expense": 367,
-  "into_basis": 25,
+  "expense": 400,
+  "into_basis": 33,
   "nft_sale": 0,
-  "off_proceeds": 15
+  "off_proceeds": 16
+ },
+ "marks": {
+  "missing": [],
+  "no_valid_mark": {},
+  "priced": 7
+ },
+ "pockets": {
+  "assets": {
+   "0x2028b4043e6722ea164946c82fe806c4a43a0ff4": {
+    "in": "50000000000000000",
+    "in_income": "0",
+    "in_internal": "50000000000000000",
+    "out": "0",
+    "rows": "1"
+   },
+   "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb": {
+    "in": "652629999999999997500",
+    "in_income": "652629999999999997500",
+    "in_internal": "0",
+    "out": "652629999999999997500",
+    "rows": "216"
+   }
+  },
+  "counts_after": {
+   "rf_relayer|erc20|0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb|income": 156,
+   "rf_relayer|erc20|0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb|pocket_owner_mismatch": 8,
+   "third_party|erc1155|0x37339891b3cb6f23662c8c0e0ebba5879d00a780|spam": 2,
+   "third_party|erc1155|0x47f51bd110dbf43ecb7fcf9c816a999c0bf2e80c|spam": 2,
+   "third_party|erc20|0x1575f7f60a4acd04332987fb741b805af96fdb90|spam": 20,
+   "third_party|erc20|0x3b66262eacb826810a369611caa89b97f220e676|spam": 20,
+   "third_party|erc20|0x4fa840dd1e1adf293dedfd90e2a605e5cfd8ac97|pocket_owner_mismatch": 1,
+   "third_party|erc20|0x4fa840dd1e1adf293dedfd90e2a605e5cfd8ac97|spam": 6,
+   "third_party|erc20|0x5fac1810e3f782823bd3e33d1ee38096543c6c54|spam": 17,
+   "third_party|erc20|0x6537aef3eb037e3da7f7ff6dbf52038dd6d7fc75|spam": 2,
+   "third_party|erc20|0x82bb29d5004c8aa36a2d89fa982e1d3c8ae3b6c8|spam": 1,
+   "third_party|erc20|0x88a5029f468b7c4cc4c1322ddb86959f75af86fe|spam": 3,
+   "third_party|erc20|0x8a183e87726bddf7ff6ff1b8440391141281cfef|spam": 2,
+   "third_party|erc20|0xb96a7fa2dc5627eb76f91962e1e45e75e572c850|spam": 2,
+   "third_party|erc20|0xcd6b003fd8b433e79137627267bc1ce177be368d|spam": 20,
+   "third_party|erc20|0xd498ad357daa59492d03774a4ff76939f099cd1e|spam": 2,
+   "third_party|erc20|0xfb584ace7f491e2930491a8d01a28db308aeb65f|spam": 1,
+   "third_party|erc721|0x45eccddc5c304223d5ea8db2fbdeb6fbb53ccc39|spam": 17,
+   "third_party|erc721|0x5e6e5831fb6dbcfb03bd60b4cfb61616faa19fe7|spam": 6,
+   "third_party|erc721|0x606d092d063b4008cd526432d486ba08e0b7a051|spam": 1,
+   "third_party|erc721|0x6ce9b0b0750f48274d8f59a4bc42bdc22574d686|spam": 20,
+   "third_party|erc721|0xc34f23943424188b700feaa9a88830e8b7d1ca23|spam": 6,
+   "third_party|erc721|0xd8c309306adf2701b8d9da4ed8699d2496d07777|spam": 3,
+   "third_party|erc721|0xe3d6d446b951cffe5c44a6cde91415d7db139df6|spam": 1,
+   "wallet_group|erc20|0x2028b4043e6722ea164946c82fe806c4a43a0ff4|transfer_internal": 1
+  },
+  "counts_before": {
+   "rf_relayer|erc20|0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb": 164,
+   "third_party|erc1155|0x37339891b3cb6f23662c8c0e0ebba5879d00a780": 2,
+   "third_party|erc1155|0x47f51bd110dbf43ecb7fcf9c816a999c0bf2e80c": 2,
+   "third_party|erc20|0x1575f7f60a4acd04332987fb741b805af96fdb90": 20,
+   "third_party|erc20|0x3b66262eacb826810a369611caa89b97f220e676": 20,
+   "third_party|erc20|0x4fa840dd1e1adf293dedfd90e2a605e5cfd8ac97": 7,
+   "third_party|erc20|0x5fac1810e3f782823bd3e33d1ee38096543c6c54": 17,
+   "third_party|erc20|0x6537aef3eb037e3da7f7ff6dbf52038dd6d7fc75": 2,
+   "third_party|erc20|0x82bb29d5004c8aa36a2d89fa982e1d3c8ae3b6c8": 1,
+   "third_party|erc20|0x88a5029f468b7c4cc4c1322ddb86959f75af86fe": 3,
+   "third_party|erc20|0x8a183e87726bddf7ff6ff1b8440391141281cfef": 2,
+   "third_party|erc20|0xb96a7fa2dc5627eb76f91962e1e45e75e572c850": 2,
+   "third_party|erc20|0xcd6b003fd8b433e79137627267bc1ce177be368d": 20,
+   "third_party|erc20|0xd498ad357daa59492d03774a4ff76939f099cd1e": 2,
+   "third_party|erc20|0xfb584ace7f491e2930491a8d01a28db308aeb65f": 1,
+   "third_party|erc721|0x45eccddc5c304223d5ea8db2fbdeb6fbb53ccc39": 17,
+   "third_party|erc721|0x5e6e5831fb6dbcfb03bd60b4cfb61616faa19fe7": 6,
+   "third_party|erc721|0x606d092d063b4008cd526432d486ba08e0b7a051": 1,
+   "third_party|erc721|0x6ce9b0b0750f48274d8f59a4bc42bdc22574d686": 20,
+   "third_party|erc721|0xc34f23943424188b700feaa9a88830e8b7d1ca23": 6,
+   "third_party|erc721|0xd8c309306adf2701b8d9da4ed8699d2496d07777": 3,
+   "third_party|erc721|0xe3d6d446b951cffe5c44a6cde91415d7db139df6": 1,
+   "wallet_group|erc20|0x2028b4043e6722ea164946c82fe806c4a43a0ff4": 1
+  },
+  "ghst_gate": {
+   "in_eq_out": true,
+   "in_raw": "652629999999999997500",
+   "out_raw": "652629999999999997500"
+  },
+  "pocket_owner_mismatch": {
+   "by_why": {
+    "not_owned": 10
+   },
+   "legs": 10
+  }
  },
  "policy": {
   "deposit": "pending",
@@ -78,7 +178,7 @@
   "fee_split": "basis_else_equal",
   "fee_without_trade": "expense",
   "internal_transfer": "carry",
-  "mark": "p3_stored_at_as_of",
+  "mark": "p3_mark_at_as_of",
   "nft_mark": "p3_price_else_exclude",
   "queue_split": "recipe_else_equal",
   "recipe": "stored_craft_recipe_cost",
@@ -86,8 +186,8 @@
   "withdrawal": "exit"
  },
  "reconciliation": {
-  "acceptance": "FLAGGED: UNEXPLAINED GAP",
-  "exits": 7,
+  "acceptance": "PASS",
+  "exits": 48,
   "failures": [],
   "identity_pass": true,
   "per_asset": {
@@ -104,6 +204,24 @@
     "formula_minus_ledger": "0",
     "ledger_realized": "0",
     "ledger_unrealized": "-0.03720443036941993825022675605568359636764130063496",
+    "open_resolved_qty": "2",
+    "realized_residual": "0",
+    "residual": "0",
+    "unrealized_residual": "0"
+   },
+   "102": {
+    "A": "0.015454898191166471040527530754142262198422693224825",
+    "C": "0",
+    "M": "0",
+    "MV": "0.015454898191166471040527530754142262198422693224825",
+    "S": "0",
+    "X": "0",
+    "engine_realized": "0",
+    "engine_unrealized": "0",
+    "exits": 0,
+    "formula_minus_ledger": "0",
+    "ledger_realized": "0",
+    "ledger_unrealized": "0",
     "open_resolved_qty": "2",
     "realized_residual": "0",
     "residual": "0",
@@ -239,54 +357,54 @@
     "A": "163.96317462860874505955116094893251642870992925904",
     "C": "0",
     "M": "0",
-    "MV": "5.0187793049270084398176737770933226070715604972214",
+    "MV": "7.0138358768263168889517373054651723137038240718877",
     "S": "6.0570060575731365373924622774073706877029364536833",
     "X": "149.29754214841975838660594245839823689634151045744",
     "engine_realized": "-3.5305177175435236391655203393949851811492677168319",
-    "engine_unrealized": "-0.059329400145318056569562096638601056444654133856672",
+    "engine_unrealized": "1.9357271717539903925645014317332486501876094408096",
     "exits": 2,
-    "formula_minus_ledger": "-0.0000000000000000000000000000000000000000000000114",
+    "formula_minus_ledger": "-0.0000000000000000000000000000000000000000000000077",
     "ledger_realized": "-3.5305177175435236391655203393949851811492677168319",
-    "ledger_unrealized": "-0.059329400145318056569562096638601056444654133856672",
+    "ledger_unrealized": "1.9357271717539903925645014317332486501876094408096",
     "open_resolved_qty": "113.180601939092889336",
     "realized_residual": "0",
     "residual": "0",
     "unrealized_residual": "0"
    },
    "2": {
-    "A": "0",
+    "A": "3215.4156713033014263549919893432773231385000170429",
     "C": "0",
     "M": "0",
-    "MV": "0",
-    "S": "0",
-    "X": "0",
-    "engine_realized": "0",
-    "engine_unrealized": "0",
-    "exits": 0,
-    "formula_minus_ledger": "0",
-    "ledger_realized": "0",
-    "ledger_unrealized": "0",
-    "open_resolved_qty": "0",
-    "realized_residual": "0",
-    "residual": "0",
+    "MV": "3.8026266778865541775800480366764647563198983257805",
+    "S": "87.859599755702694804435198532308959419550787651164",
+    "X": "3087.6918875325961088153190187025073673041167308223",
+    "engine_realized": "-36.021806123625624365382347720909386858619247673187",
+    "engine_unrealized": "-0.0397512134904441922753763508751447998933525705595",
+    "exits": 38,
+    "formula_minus_ledger": "0.000000000000000000000000000000000000000000000046",
+    "ledger_realized": "-36.021806123625624365382347720909386858619247673186",
+    "ledger_unrealized": "-0.0397512134904441922753763508751447998933525705595",
+    "open_resolved_qty": "0.001524736161005704",
+    "realized_residual": "-0.000000000000000000000000000000000000000000000001",
+    "residual": "-0.000000000000000000000000000000000000000000000001",
     "unrealized_residual": "0"
    },
    "20": {
-    "A": "268.19762626156090475167867890820708049537229847604",
+    "A": "294.06747666118156662556849622890522314252169485008",
     "C": "0",
     "M": "0",
-    "MV": "0",
-    "S": "98.63195232647535816490256550343780145158324467465",
-    "X": "169.51380156634052679231264853706303130088239557208",
-    "engine_realized": "-0.0518723687450197944634648677062477429066582293094",
-    "engine_unrealized": "0",
-    "exits": 5,
-    "formula_minus_ledger": "-0.0000000000000000000000000000000000000000000000006",
-    "ledger_realized": "-0.0518723687450197944634648677062477429066582293094",
-    "ledger_unrealized": "0",
-    "open_resolved_qty": "0",
-    "realized_residual": "0",
-    "residual": "0",
+    "MV": "15.916984",
+    "S": "131.56871132647535816490256550343780145158324467465",
+    "X": "146.50316843334884421977752996950357716487185528842",
+    "engine_realized": "-0.07058115624936766775775347306211822431171097134191",
+    "engine_unrealized": "-0.008031745107996573130647282901726301754883915664",
+    "exits": 8,
+    "formula_minus_ledger": "-0.0000000000000000000000000000000000000000000000038",
+    "ledger_realized": "-0.0705811562493676677577534730621182243117109713422",
+    "ledger_unrealized": "-0.008031745107996573130647282901726301754883915664",
+    "open_resolved_qty": "15.916984",
+    "realized_residual": "0.00000000000000000000000000000000000000000000000029",
+    "residual": "0.00000000000000000000000000000000000000000000000029",
     "unrealized_residual": "0"
    },
    "201": {
@@ -365,15 +483,15 @@
     "A": "3.0138700870046547077517187186727679053277639344724",
     "C": "0",
     "M": "0",
-    "MV": "2.9560389090951093433345188515955471885900903509138",
+    "MV": "4.0784562068358933879753170438016724555556867414105",
     "S": "0",
     "X": "0",
     "engine_realized": "0",
-    "engine_unrealized": "-0.057831177909545364417199867077220716737673583558637",
+    "engine_unrealized": "1.0645861198312386802235983251289045502279228069381",
     "exits": 0,
-    "formula_minus_ledger": "0.000000000000000000000000000000000000000000000000037",
+    "formula_minus_ledger": "0",
     "ledger_realized": "0",
-    "ledger_unrealized": "-0.057831177909545364417199867077220716737673583558637",
+    "ledger_unrealized": "1.0645861198312386802235983251289045502279228069381",
     "open_resolved_qty": "113368.44167162502502567",
     "realized_residual": "0",
     "residual": "0",
@@ -992,22 +1110,22 @@
     "unrealized_residual": "0"
    },
    "39": {
-    "A": "3.6715119834317087770309126227784881933116518360509",
+    "A": "3.0116728229397156394370975589647006925262107968321",
     "C": "0",
     "M": "0",
-    "MV": "2.9609516145119022073360699304067242159600827180848",
-    "S": "0.652315572736466528535226199169067553644553528759",
+    "MV": "4.1154082942737313460579365058173664464086002782904",
+    "S": "0.00033600992853723303205345651956467947168509810779261",
     "X": "0",
-    "engine_realized": "-0.0078488812185260106020729534838484679082878382884356",
-    "engine_unrealized": "-0.050395914964814030557543539718847955798727750918769",
+    "engine_realized": "0.000010294904710682754267925936743594559306406563358704",
+    "engine_unrealized": "1.1040611863578422568986244774354868387947681730027",
     "exits": 0,
-    "formula_minus_ledger": "0.000000000000000000000000000000000000000000000000106",
-    "ledger_realized": "-0.0078488812185260106020729534838484679082878382884357",
-    "ledger_unrealized": "-0.05039591496481403055754353971884795579872775091877",
-    "open_resolved_qty": "1245441.959187077688682901",
-    "realized_residual": "0.0000000000000000000000000000000000000000000000000001",
-    "residual": "0.0000000000000000000000000000000000000000000000000011",
-    "unrealized_residual": "0.000000000000000000000000000000000000000000000000001"
+    "formula_minus_ledger": "0",
+    "ledger_realized": "0.000010294904710682754267925936743594559306406563358704",
+    "ledger_unrealized": "1.1040611863578422568986244774354868387947681730027",
+    "open_resolved_qty": "1245441.909187077688682901",
+    "realized_residual": "0",
+    "residual": "0",
+    "unrealized_residual": "0"
    },
    "40": {
     "A": "0",
@@ -1136,19 +1254,19 @@
     "unrealized_residual": "0"
    },
    "51": {
-    "A": "0",
+    "A": "0.058017273863916669866434193209170733069433645293722",
     "C": "0",
     "M": "0",
-    "MV": "0",
+    "MV": "0.024250428709109435577171377628134600018876404105158",
     "S": "0",
     "X": "0",
     "engine_realized": "0",
-    "engine_unrealized": "0",
+    "engine_unrealized": "-0.033766845154807234289262815581036133050557241188564",
     "exits": 0,
     "formula_minus_ledger": "0",
     "ledger_realized": "0",
-    "ledger_unrealized": "0",
-    "open_resolved_qty": "0",
+    "ledger_unrealized": "-0.033766845154807234289262815581036133050557241188564",
+    "open_resolved_qty": "2",
     "realized_residual": "0",
     "residual": "0",
     "unrealized_residual": "0"
@@ -1729,38 +1847,56 @@
     "residual": "0",
     "unrealized_residual": "0"
    },
-   "96": {
-    "A": "3.6768650446766474138722922505294808955773091591782",
+   "93": {
+    "A": "0.1033317642712916065562385114361541387012340989605",
     "C": "0",
     "M": "0",
-    "MV": "2.9492623313269256146650826202551058532761460994026",
-    "S": "0.65220859097936568819922554385486905904700940721567",
-    "X": "0",
-    "engine_realized": "-0.0083195695400165650770637281303916971924197765902345",
-    "engine_unrealized": "-0.067074552830339545930920358289114286061733875969734",
-    "exits": 0,
-    "formula_minus_ledger": "0.000000000000000000000000000000000000000000000000058",
-    "ledger_realized": "-0.0083195695400165650770637281303916971924197765902245",
-    "ledger_unrealized": "-0.067074552830339545930920358289114286061733875969734",
-    "open_resolved_qty": "418638.062663589051780483",
-    "realized_residual": "-0.00000000000000000000000000000000000000000000000001",
-    "residual": "-0.00000000000000000000000000000000000000000000000001",
-    "unrealized_residual": "0"
-   },
-   "97": {
-    "A": "3.2885303417906960181124049668561318182509908619315",
-    "C": "0",
-    "M": "0",
-    "MV": "3.238683084891395710205765964294290248162329114715",
+    "MV": "0.057435225889996031630142736487687210571023062354324",
     "S": "0",
     "X": "0",
     "engine_realized": "0",
-    "engine_unrealized": "-0.049847256899300307906639002561841570088661747216555",
+    "engine_unrealized": "-0.04589653838129557492609577494846692813021103660618",
     "exits": 0,
-    "formula_minus_ledger": "0.000000000000000000000000000000000000000000000000055",
+    "formula_minus_ledger": "0.000000000000000000000000000000000000000000000000004",
     "ledger_realized": "0",
-    "ledger_unrealized": "-0.049847256899300307906639002561841570088661747216555",
-    "open_resolved_qty": "261182.755480408360768244",
+    "ledger_unrealized": "-0.04589653838129557492609577494846692813021103660618",
+    "open_resolved_qty": "2",
+    "realized_residual": "0",
+    "residual": "0",
+    "unrealized_residual": "0"
+   },
+   "96": {
+    "A": "3.0168271439803875965194965776197397322733415726855",
+    "C": "0",
+    "M": "0",
+    "MV": "3.8153289511670720732978734095223814968078842270987",
+    "S": "0.00050575551043592436160176493715556409261515520738732",
+    "X": "0",
+    "engine_realized": "0.000015495687313488438108165861635971157153557894188183",
+    "engine_unrealized": "0.79899206700980691270187043097816135747000425172646",
+    "exits": 0,
+    "formula_minus_ledger": "-0.00000000000000000000000000000000000000000000000005",
+    "ledger_realized": "0.000015495687313488438108165861635971157153557894188183",
+    "ledger_unrealized": "0.79899206700980691270187043097816135747000425172646",
+    "open_resolved_qty": "418638.062663589051780483",
+    "realized_residual": "0",
+    "residual": "0",
+    "unrealized_residual": "0"
+   },
+   "97": {
+    "A": "3.0131060240921352751699003215089483032411234296335",
+    "C": "0",
+    "M": "0",
+    "MV": "4.3850375650995457203843601872975393488822134503558",
+    "S": "0",
+    "X": "0",
+    "engine_realized": "0",
+    "engine_unrealized": "1.3719315410074104452144598657885910456410900207222",
+    "exits": 0,
+    "formula_minus_ledger": "0.0000000000000000000000000000000000000000000000001",
+    "ledger_realized": "0",
+    "ledger_unrealized": "1.3719315410074104452144598657885910456410900207222",
+    "open_resolved_qty": "239984.476901307709213079",
     "realized_residual": "0",
     "residual": "0",
     "unrealized_residual": "0"
@@ -1769,53 +1905,31 @@
   "qty_mismatch_engine_vs_ledger": {},
   "tolerance_usdc": "0.01",
   "total": {
-   "engine_gas_expense_resolved": "0",
-   "engine_realized_plus_unrealized": "-3.9202412701658232529402135090567822706557259531754",
-   "engine_side": "-3.9202412701658232529402135090567822706557259531754",
-   "ledger_gas_expense_resolved": "0",
-   "ledger_realized_plus_unrealized": "-3.9202412701658232529402135090567822706557259531754",
-   "ledger_side": "-3.9202412701658232529402135090567822706557259531754",
+   "engine_gas_expense_resolved": "1.6021203111484920743349760632406676863377028647525",
+   "engine_realized_plus_unrealized": "-33.512231893370166326381799890865776015239017768357",
+   "engine_side": "-35.11435220451865840071677595410644370157672063311",
+   "ledger_gas_expense_resolved": "1.6021203111484920743349760632406676863377028647525",
+   "ledger_realized_plus_unrealized": "-33.512231893370166326381799890865776015239017768357",
+   "ledger_side": "-35.11435220451865840071677595410644370157672063311",
    "residual": "0"
   },
-  "unexplained_gap": {
-   "19": {
-    "by_category": {
-     "transfer_internal": 60
-    },
-    "events": 60,
-    "first_block": 38141654,
-    "last_block": 40216494,
-    "qty": "652.6299999999999975"
-   },
-   "2": {
-    "by_category": {
-     "fee": 406,
-     "nft_buy": 3,
-     "swap": 10,
-     "withdrawal": 36
-    },
-    "events": 455,
-    "first_block": 12795076,
-    "last_block": 49402932,
-    "qty": "1.095603323941304014"
-   }
-  }
+  "unexplained_gap": {}
  },
- "rows_after_as_of": 162,
- "state_at_as_of": "replay of ledger rows <= as_of_block (offline)",
+ "rows_after_as_of": 0,
+ "state_at_as_of": "fifo_run (db)",
  "totals_all": {
-  "market_value_usdc": "22.446764944531765186267357649831735898496465124512",
-  "open_basis_usdc": "22.768447677650502429899449270173045079995557516667",
-  "realized_usdc": "-3.5985585370470860093081218887154730891566335610199",
-  "unrealized_usdc": "-0.32168273311873724363209162034130918149909239215533"
+  "market_value_usdc": "48.547867824658809403403360639637306675902685598683",
+  "open_basis_usdc": "42.437220511202484228671915088934971992777936970136",
+  "realized_usdc": "-39.622879206826491501113245441568110698363766396904",
+  "unrealized_usdc": "6.1106473134563251747314455507023346831247486285458"
  },
  "totals_excl_low": {
-  "market_value_usdc": "10.341829004706432310725920283280068392507816841396",
-  "open_basis_usdc": "10.438362835221170305545709135974353045320112275888",
-  "realized_usdc": "-3.5985764513023782710038327197869263927709604546928",
-  "unrealized_usdc": "-0.096533830514737994819788852694284652812295434491632"
+  "market_value_usdc": "32.153636807282566875687873493198346928248300901529",
+  "open_basis_usdc": "30.382560408032539995994981041827156037257337525371",
+  "realized_usdc": "-39.62290499741851567230562153336649026408022636136",
+  "unrealized_usdc": "1.7710763992500268796928924513711908909909633761564"
  },
- "tx_index_null_rows": 1319,
+ "tx_index_null_rows": 1326,
  "unmarked_lots": 0,
  "unmarked_nft_lots": 4
 }

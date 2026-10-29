@@ -1,0 +1,3 @@
+STATS {}
+{"chain": 8453, "txs": 985, "classified": 985, "review": 0, "by_category": {"spam": 380, "bridge_in": 4, "fee": 282, "swap": 39, "untracked": 31, "nft_buy": 10, "withdrawal": 56, "deposit": 21, "migration_in": 9, "escrow_out": 15, "escrow_return": 10, "auction": 4, "income": 111, "transfer_internal": 6, "pocket_owner_mismatch": 2, "spend": 1, "craft": 4}, "review_reasons": {}, "entries": 1647, "warnings": [], "pocket_owner_mismatch": 10, "classified_pct": 100.0}
+{"ledger_rows": 1647, "ledger_md5": "bb50f055eafb1c836fb2972c0e6585cc", "review_rows": 10, "review_md5": "ec3acdc693b961a1d3db270c6b61698d"}
