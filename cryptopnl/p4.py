@@ -18,17 +18,32 @@ def load_config(overrides=()):
         k, v = kv.split("=", 1); cfg[k] = None if v in ("", "none", "None") else v
     return cfg
 
-ROWS_SQL = """SELECT l.id, l.block_number, coalesce(l.tx_index, 0), encode(l.tx_hash,'hex'), l.log_index, l.asset_id, l.qty, l.category,
+ROWS_SQL = """SELECT l.id, l.block_number, l.tx_index, encode(l.tx_hash,'hex'), l.log_index, l.asset_id, l.qty, l.category,
   l.wallet_id, w.wallet_group, l.location, l.escrow_ref, l.trade_group::text, l.price_usdc, l.price_source, l.price_confidence_label,
   l.price_flag, l.pnl_excluded, a.standard, '0x'||encode(a.contract,'hex'), mb.id, mb.basis_usdc
   FROM ledger_entry l JOIN asset a ON a.id=l.asset_id LEFT JOIN wallet w ON w.id=l.wallet_id
   LEFT JOIN manual_basis mb ON mb.chain_id=l.chain_id AND mb.tx_hash=l.tx_hash AND mb.log_index=l.log_index AND mb.asset_id=l.asset_id
        AND mb.superseded_at IS NULL
-  WHERE l.chain_id=%s ORDER BY l.block_number, coalesce(l.tx_index,0), l.tx_hash, l.log_index, l.id"""
+  WHERE l.chain_id=%s ORDER BY l.block_number, l.log_index, l.id"""   # log_index is block-wide, so it orders txs too; no coalesce
 
-def load_rows(conn, chain, cfg):
+class TxIndexError(ValueError): pass
+
+def check_tx_index(raw):
+    """tx_index is NULL unless a block holds 2+ wallet txs (P3). A NULL is safe only when its block has ONE tx; else raise.
+    -> number of rows with NULL tx_index (reported as tx_index_null_rows)."""
+    txs, nul = {}, 0
+    for b, ti, tx in raw:
+        txs.setdefault(b, set()).add(tx); nul += ti is None
+    bad = sorted({b for b, ti, tx in raw if ti is None and len(txs[b]) > 1})
+    if bad: raise TxIndexError(f"{len(bad)} blocks have rows with NULL tx_index and 2+ txs (first {bad[:5]}); run the P3 tx-index step")
+    return nul
+
+def load_rows(conn, chain, cfg, stats=None):
     dec = {c: d for c, (_, d) in TOKENS.get(chain, {}).items()}; out = []
-    for (i, b, ti, tx, li, aid, q, cat, wid, wg, loc, ref, tg, px, ps, lab, fl, ex, std, c, mbid, mbv) in conn.execute(ROWS_SQL, (chain,)):
+    raw = conn.execute(ROWS_SQL, (chain,)).fetchall()
+    n = check_tx_index([(r[1], r[2], r[3]) for r in raw])
+    if stats is not None: stats["tx_index_null_rows"] = n
+    for (i, b, ti, tx, li, aid, q, cat, wid, wg, loc, ref, tg, px, ps, lab, fl, ex, std, c, mbid, mbv) in raw:
         nft = std in ("erc721", "erc1155")
         skip = ex or cat in ("spam", "untracked") or fl in ("spam", "untracked")
         if std == "native": d = 18
@@ -40,7 +55,7 @@ def load_rows(conn, chain, cfg):
         else: d = 0
         group = f"chain:{chain}" if cfg["group"] == "one_group_per_chain" else (wg or "default")
         out.append(fifo.Entry(id=i, block=b, tx="0x" + tx, log_index=li, asset=str(aid), qty=Decimal(q) / (Decimal(10) ** d), category=cat,
-                              wallet=str(wid), group=group, location=loc, tx_index=ti, ref=ref, trade_group=tg,
+                              wallet=str(wid), group=group, location=loc, tx_index=0 if ti is None else ti, ref=ref, trade_group=tg,
                               price=None if px is None else Decimal(px), price_source=ps, label=lab, flag=fl, excluded=ex, nft=nft,
                               manual_basis=None if mbv is None else Decimal(mbv), manual_basis_id=mbid))
     return out
@@ -55,8 +70,17 @@ class Marks:
             self.p.setdefault(e.asset, []).append((e.key(), e.price, e.price_source, e.label))
         for v in self.p.values(): v.sort(key=lambda x: x[0])
         self.nft = {e.asset for e in rows if e.nft}
+    def latest_priced(self):
+        """{asset: latest block with a stored P3 price}, tracked fungible assets only (NFT marks are Q8, sparse, never gate as_of)."""
+        return {a: v[-1][0][0] for a, v in self.p.items() if a not in self.nft}
     def as_of_block(self):
-        return max(k[0] for v in self.p.values() for k, *_ in v)
+        """Q-F / rulings 3: the latest block at which EVERY tracked asset has a stored price = MIN over assets of each one's latest."""
+        lp = self.latest_priced()
+        if not lp: raise ValueError("no stored P3 prices: as_of_block undefined")
+        return min(lp.values())
+    def as_of_detail(self):
+        lp = self.latest_priced(); b = min(lp.values()); return {"as_of_block": b, "set_by_assets": sorted(a for a, x in lp.items() if x == b),
+                                                                "latest_priced_block_per_asset": dict(sorted(lp.items()))}
     def __call__(self, asset, block, lot=None):
         best = None
         for k, px, src, lab in self.p.get(asset, []):
@@ -100,10 +124,11 @@ def write_state(conn, chain, st, pol, from_block):
     with c.cursor() as cur:
         cur.executemany("""INSERT INTO fifo_lot(id, chain_id, wallet_group, asset_id, open_entry_id, open_block, qty_open, qty_remaining, basis_usdc,
             basis_price_source, basis_status, chain_origin, wallet_id, location, open_kind, ref, parent_lot_id, pending_reason, basis_out_usdc,
-            manual_basis_id, basis_label, fee_usdc, split_method, order_key, is_nft) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            manual_basis_id, basis_label, fee_usdc, split_method, order_key, is_nft, basis_origin)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             [(l.id, chain, l.group, int(l.asset), l.open_entry, l.open_block, l.qty_open, l.qty, l.basis, l.source, l.status, l.chain_origin,
               None if l.wallet in (None, "None") else int(l.wallet), l.location, l.kind, l.ref, l.parent, l.pending_reason, l.basis_out,
-              l.manual_basis_id, l.label, l.fee, l.split_method, json.dumps(list(l.order)), l.nft) for l in sorted(st.lots, key=lambda l: l.id)])
+              l.manual_basis_id, l.label, l.fee, l.split_method, json.dumps(list(l.order)), l.nft, l.basis_origin) for l in sorted(st.lots, key=lambda l: l.id)])
         cur.executemany("""INSERT INTO lot_disposal(id, lot_id, close_entry_id, qty, proceeds_usdc, proceeds_price_source, cost_usdc, payment_for, kind,
             closed_block, bundle_ref, own_cost_usdc, expense_usdc, lot_status, proceeds_label, display_mv_usdc)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
@@ -127,11 +152,11 @@ def load_state(conn, chain):
     st = fifo.State()
     for r in conn.execute("""SELECT id, wallet_group, asset_id, wallet_id, location, open_entry_id, open_block, order_key, qty_open, qty_remaining,
             basis_usdc, basis_price_source, basis_label, basis_status, open_kind, is_nft, ref, parent_lot_id, chain_origin, pending_reason,
-            manual_basis_id, basis_out_usdc, fee_usdc, split_method FROM fifo_lot WHERE chain_id=%s ORDER BY id""", (chain,)):
+            manual_basis_id, basis_out_usdc, fee_usdc, split_method, basis_origin FROM fifo_lot WHERE chain_id=%s ORDER BY id""", (chain,)):
         st.lots.append(fifo.Lot(id=r[0], group=r[1], asset=str(r[2]), wallet=str(r[3]), location=r[4], open_entry=r[5], open_block=r[6],
                                 order=tuple(json.loads(r[7])), qty_open=_D(r[8]), qty=_D(r[9]), basis=_D(r[10]), source=r[11], label=r[12],
                                 status=r[13], kind=r[14], nft=r[15], ref=r[16], parent=r[17], chain_origin=r[18], pending_reason=r[19],
-                                manual_basis_id=r[20], basis_out=_D(r[21]), fee=_D(r[22]), split_method=r[23]))
+                                manual_basis_id=r[20], basis_out=_D(r[21]), fee=_D(r[22]), split_method=r[23], basis_origin=r[24]))
     for r in conn.execute("""SELECT d.id, d.lot_id, d.close_entry_id, d.closed_block, d.qty, d.kind, d.proceeds_usdc, d.proceeds_price_source,
             d.proceeds_label, d.cost_usdc, d.payment_for, d.bundle_ref, d.expense_usdc, d.lot_status, d.own_cost_usdc, d.display_mv_usdc
             FROM lot_disposal d JOIN fifo_lot l ON l.id=d.lot_id WHERE l.chain_id=%s ORDER BY d.id""", (chain,)):
@@ -149,7 +174,7 @@ def load_state(conn, chain):
 
 TABLE_MD5 = """SELECT md5(string_agg(concat_ws('|', id, wallet_group, asset_id, wallet_id, location, open_entry_id, open_block, qty_open::text, qty_remaining::text,
   basis_usdc::text, basis_out_usdc::text, basis_price_source, basis_label, basis_status, open_kind, ref, parent_lot_id, chain_origin, pending_reason,
-  manual_basis_id, fee_usdc::text, split_method, order_key, is_nft), ',' ORDER BY id)) FROM fifo_lot WHERE chain_id=%s"""
+  manual_basis_id, fee_usdc::text, split_method, order_key, is_nft, basis_origin), ',' ORDER BY id)) FROM fifo_lot WHERE chain_id=%s"""
 DISP_MD5 = """SELECT md5(string_agg(concat_ws('|', d.id, d.lot_id, d.close_entry_id, d.closed_block, d.qty::text, d.kind, d.proceeds_usdc::text,
   d.proceeds_price_source, d.proceeds_label, d.cost_usdc::text, d.payment_for, d.bundle_ref, d.expense_usdc::text, d.lot_status,
   d.own_cost_usdc::text, d.display_mv_usdc::text), ',' ORDER BY d.id)) FROM lot_disposal d JOIN fifo_lot l ON l.id=d.lot_id WHERE l.chain_id=%s"""
@@ -197,8 +222,10 @@ def main(argv=None):
     ap.add_argument("--chain", type=int, required=True); ap.add_argument("--split-block", type=int); ap.add_argument("--as-of", type=int)
     ap.add_argument("--out"); ap.add_argument("--set", action="append", default=[])
     a = ap.parse_args(argv); cfg = load_config(a.set); conn = db.connect()
-    rows = load_rows(conn, a.chain, cfg); marks = Marks(rows); pol = policy(cfg, marks, Recipes(conn, a.chain))
-    as_of = a.as_of or marks.as_of_block(); out = {"chain": a.chain, "ledger_rows": len(rows), "policy": pol.describe()}
+    stats = {}; rows = load_rows(conn, a.chain, cfg, stats); marks = Marks(rows); pol = policy(cfg, marks, Recipes(conn, a.chain))
+    if not a.as_of and cfg.get("as_of_block") != "min_over_tracked_assets_of_latest_stored_p3_price":
+        raise SystemExit(f"as_of_block switch {cfg.get('as_of_block')!r} not supported (rulings 3: min_over_tracked_assets_of_latest_stored_p3_price)")
+    as_of = a.as_of or marks.as_of_block(); out = {"chain": a.chain, "ledger_rows": len(rows), "policy": pol.describe(), **stats}
     if a.cmd == "rebuild":
         st = fifo.run(rows, pol); rid, m = write_state(conn, a.chain, st, pol, None)
         out.update({"fifo_run": rid, "engine_md5": m, **table_md5(conn, a.chain), "lots": len(st.lots), "disposals": len(st.disposals)})
@@ -210,14 +237,18 @@ def main(argv=None):
                     "head_md5_reloaded_from_db": fifo.md5(back), **table_md5(conn, a.chain),
                     "lots": len(st2.lots), "disposals": len(st2.disposals)})
     else:
-        st = load_state(conn, a.chain)
+        upto = [e for e in rows if e.block <= as_of]
+        if len(upto) == len(rows): st, src = load_state(conn, a.chain), "fifo_run (db)"
+        else: st, src = fifo.run(upto, pol), "replay of ledger rows <= as_of_block (offline)"
+        out.update({"as_of": marks.as_of_detail() if not a.as_of else {"as_of_block": as_of, "set_by": "--as-of"},
+                    "state_at_as_of": src, "rows_after_as_of": len(rows) - len(upto)})
         if a.cmd == "snapshot":
             rep, sm, n = snapshot(conn, a.chain, st, pol, as_of)
             out.update({"as_of_block": as_of, "pnl_snapshot_rows": n, "pnl_snapshot_md5": sm, "report": rep})
         else:
-            rep = fifo.report(st, pol, as_of); g = fifo.gas(st); mk = reconcile.masks(st)
-            L = reconcile.ledger_side(rows, mk, marks, pol.nft_mark, as_of, pol.recipe)
-            chk = reconcile.check(rep, g, L, engine_qty(st), ledger_qty(rows), mk["unrecorded_qty"])
+            rep = fifo.report(st, pol, as_of); g = fifo.gas(st)
+            L = reconcile.ledger_side(rows, marks, pol.nft_mark, as_of, pol.recipe, cfg)   # ledger rows only, never engine lots
+            chk = reconcile.check(rep, g, L, engine_qty(st))
             out.update({"as_of_block": as_of, "reconciliation": chk, "ledger_side_gas_txs": L["gas_txs"],
                         "gas_share_on_pending_acquisitions_ledger": L["gas_share_on_pending_acquisitions"], "gas": g,
                         "identity_basis": fifo.identity(st), "counts": {k: rep[k] for k in ("pending_lots_open", "pending_lots_total",
@@ -227,7 +258,7 @@ def main(argv=None):
                         "totals_excl_low": {k: rep["excl_low"][k] for k in ("realized_usdc", "unrealized_usdc", "market_value_usdc", "open_basis_usdc")},
                         "income_usdc": rep["income_usdc"], "expenses_usdc": rep["expenses_usdc"], "exit_basis_usdc": rep["exit_basis_usdc"],
                         "exit_display_mv_usdc": rep["exit_display_mv_usdc"]})
-            if not chk["pass"]: out["exit_rc"] = 1
+            out["exit_rc"] = 0 if chk["acceptance"] == "PASS" else (3 if chk["identity_pass"] else 1)   # 3 = identity ok, gaps flagged
     txt = json.dumps(_j(out), indent=1, sort_keys=True) + "\n"
     if a.out:
         with open(a.out, "w") as f: f.write(txt)

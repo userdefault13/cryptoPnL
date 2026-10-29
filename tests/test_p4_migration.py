@@ -1,4 +1,4 @@
-"""Migration 013 on a LOCAL scratch DB (scripts/p4_migration_test.sh sets P4_MIGTEST_DSN; skipped otherwise). SYNTHETIC rows only.
+"""Migrations 013 + 014 on a LOCAL scratch DB (scripts/p4_migration_test.sh sets P4_MIGTEST_DSN; skipped otherwise). SYNTHETIC rows only.
 §8: manual_basis is never under ON DELETE CASCADE from ledger_entry; pending lots carry a NULL basis and price source."""
 import os, unittest
 DSN = os.environ.get("P4_MIGTEST_DSN")
@@ -50,3 +50,13 @@ class Migration013(unittest.TestCase):
         self.c.execute("INSERT INTO lot_disposal(lot_id,close_entry_id,qty,kind,lot_status,payment_for) VALUES (%s,%s,1,'sale','resolved',%s)", (l, self.e, self.e))
         with self.assertRaises(self.pg.errors.CheckViolation):
             self.c.execute("INSERT INTO pnl_snapshot(wallet_group,asset_id,as_of_block,mark_price_usdc) VALUES ('fixture',%s,1,0)", (self.a,))
+    def test_exit_realized_null_in_view(self):   # rulings 3: NULL in totals, 0 only in the display column
+        l = self.lot(basis_status="resolved", basis_usdc=5, basis_price_source="fixture", basis_origin=None)
+        self.c.execute("INSERT INTO lot_disposal(lot_id,close_entry_id,qty,kind,lot_status,cost_usdc,display_mv_usdc) VALUES (%s,%s,1,'exit','resolved',5,7)", (l, self.e))
+        self.c.execute("INSERT INTO lot_disposal(lot_id,close_entry_id,qty,kind,lot_status,cost_usdc,proceeds_usdc) VALUES (%s,%s,1,'sale','resolved',5,8)", (l, self.e))
+        r = self.c.execute("SELECT kind, realized_usdc, realized_display_usdc FROM lot_disposal_pnl WHERE lot_id=%s ORDER BY kind", (l,)).fetchall()
+        self.assertEqual([(k, None if a is None else int(a), None if b is None else int(b)) for k, a, b in r], [("exit", None, 0), ("sale", 3, 3)])
+        self.assertEqual(int(self.c.execute("SELECT coalesce(sum(realized_usdc),0) FROM lot_disposal_pnl WHERE lot_id=%s", (l,)).fetchone()[0]), 3)
+    def test_basis_origin_check(self):
+        self.lot(basis_origin="unrecorded_inflow")
+        with self.assertRaises(self.pg.errors.CheckViolation): self.lot(basis_origin="made_up")

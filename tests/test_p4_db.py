@@ -45,7 +45,8 @@ class P4Db(unittest.TestCase):
         rows = p4.load_rows(self.c, C, self.cfg); mk = p4.Marks(rows); return rows, mk, p4.policy(self.cfg, mk, p4.Recipes(self.c, C))
     def test_rebuild_roundtrip_incremental_snapshot_reconcile(self):
         rows, mk, pol = self.setup_engine()
-        self.assertEqual((len(rows), rows[1].qty, rows[5].qty, mk.as_of_block()), (12, D(-2000), D("-0.001"), 6))
+        self.assertEqual((len(rows), rows[1].qty, rows[5].qty, mk.as_of_block()), (12, D(-2000), D("-0.001"), 5))   # rulings 3: MIN
+        self.assertEqual(mk.as_of_detail()["set_by_assets"], [str(self.ids["ETH"])])   # ETH's last stored price is at block 5 (GHST/USDC 6)
         st = fifo.run(rows, pol); _, m = p4.write_state(self.c, C, st, pol, None); t1 = p4.table_md5(self.c, C)
         self.assertEqual(fifo.md5(p4.load_state(self.c, C)), m)
         with redirect_stdout(io.StringIO()):
@@ -54,9 +55,9 @@ class P4Db(unittest.TestCase):
         back = p4.load_state(self.c, C); self.assertEqual(fifo.md5(back), m); self.assertEqual(p4.table_md5(self.c, C), t1)
         r1 = p4.snapshot(self.c, C, back, pol, 6); r2 = p4.snapshot(self.c, C, p4.load_state(self.c, C), pol, 6)
         self.assertEqual((r1[1], r1[2]), (r2[1], r2[2])); self.assertEqual(json.dumps(p4._j(r1[0]), sort_keys=True), json.dumps(p4._j(r2[0]), sort_keys=True))
-        mkk = reconcile.masks(back); L_ = reconcile.ledger_side(rows, mkk, mk, pol.nft_mark, 6)
-        chk = reconcile.check(fifo.report(back, pol, 6), fifo.gas(back), L_, p4.engine_qty(back), p4.ledger_qty(rows), mkk["unrecorded_qty"])
-        self.assertTrue(chk["pass"], chk["failures"])
+        L_ = reconcile.ledger_side(rows, mk, pol.nft_mark, 6, None, self.cfg)
+        chk = reconcile.check(fifo.report(back, pol, 6), fifo.gas(back), L_, p4.engine_qty(back))
+        self.assertEqual(chk["acceptance"], "PASS", chk["failures"])
         self.assertEqual((chk["total"]["engine_side"], chk["total"]["ledger_side"]), (D(991), D(991)))   # GHST row at block 6 nets 0 (4 for 1 @4)
         gh = self.c.execute("SELECT basis_usdc, fee_usdc, split_method FROM fifo_lot WHERE chain_id=%s AND asset_id=%s ORDER BY id LIMIT 1", (C, self.ids["GHST"])).fetchone()
         self.assertEqual((gh[0], gh[1], gh[2]), (D(103), D(3), "basis"))
