@@ -224,3 +224,22 @@ GV_TOPICS = {
     "0x19f483d7b19be804210fad17c0ccb74c8e82f575ed3de6a498f4d12e36a4263a": "GotchiLendingExecutedT",     # tuple versions (no indexed fields)
     "0x6c3cd77eda2c6ff7d015d27dadcdadb382c298ab604fda85d72cef7711478ca5": "GotchiLendingEndedT",
     "0x23e3c7705ebea1f89164a677cb2117a22a29cd757523cff32fc5fb52d5dbb769": "GotchiLendingClaimedT"}
+
+# P4.1 rulings (DESIGN §8): contract-internal ETH paid to the wallet, keyed by the PAYER (the trace frame's `from`). Sources: P4.1 step 1
+# traces (docs/P4_1_SOURCES.md); distributor identity from the explorer's verified source (MerkleDistributor, dao = 0x62de034b…,
+# the Aavegotchi DAO Safe that bridged in 1,111 ETH and funded it: the Jan-2026 Partial Treasury Distribution).
+INTERNAL_ETH = {8453: {
+    "bridge_in": {"0x10541b07d8ad2647dc6cd67abd4c03575dade261": "hop",          # Hop L2AmmWrapper (Base), bonder fill
+                  "0x3666f603cc164936c1b87e207f36beba4ac5f18a": "hop",          # Hop ETH Bridge (Base)
+                  "0xc38e4e6a15593f908255214653d3d947ca1c2338": "mayan_swift",  # Mayan Swift
+                  "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64": "across"},      # Across SpokePool (Base)
+    "distribution": {"0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11": "aavegotchi_ptd"},   # rule 5: income at FMV (identified)
+    # rule 2: swap outputs (token -> ETH): DEX_ROUTERS plus these
+    "swap": {"0x0a2854fbbd9b3ef66f17d47284e7f899b9509330": "metamask_swaps_spender",
+             "0x9dda6ef3d919c9bc8885d5560999a3640431e8e6": "metamask_swaps_router"},
+    # rule 3: refunds of excess ETH sent in the same tx: DEX_ROUTERS plus these
+    "refund": {"0x1a44076050125825900e736c501f859c50fe728c": "layerzero_endpoint_v2",
+               "0xaf14797ccf963b1e3d028a9d51853ace16aedba1": "rubic"},
+    # rule 6: dust payers: refund when the wallet sent ETH in the tx, else income at FMV (never spam for native ETH)
+    "dust": {"0xaf14797ccf963b1e3d028a9d51853ace16aedba1": "rubic"},
+}}
