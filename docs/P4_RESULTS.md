@@ -118,13 +118,11 @@ New for rulings 3:
 ## 10. Not verified / follow-ups
 - **abra:** omarchywin's abra was locked, so whether `cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD` exists could not be checked. Nothing was created or unlocked.
   - user_default needs to add it: `abra set cryptoPnL CRYPTOPNL_LEDGER_PG_PASSWORD`.
-  - `with_ledger_pg.sh` uses abra when it is unlocked and the var exists; otherwise it falls back to the compose .env.
+  - Since the architect's follow-up, `with_ledger_pg.sh` uses abra only (no .env fallback): it fails with a message naming CRYPTOPNL_LEDGER_PG_PASSWORD while abra is locked or the var is missing. The run above predates that change.
 - **Gas on real data:** no resolved gas exists (all ETH lots are pending), so the gas part is proven by fixtures only.
 - **excl_low:** reported, not reconciled.
 - **Upgrade, destroy and bundle:** the ledger side doesn't model them (none on Base); it raises if they appear.
 
 ## 11. Open questions (owner)
 1. **The missing ETH and GHST inflows** (architect + ingest owner; user_default for the facts). This is P4.1.
-2. **fee_split equal when any acquisition of the tx is pending** (architect; `pending_architect`).
-3. **Swap gas into the bought asset's basis** (architect; `pending_architect`).
-4. **Q-G, one input ref shared by several queues, split equal** (architect; `pending_architect`).
+2. ~~fee_split equal on pending, swap gas into the bought asset's basis, Q-G equal split across queues~~: confirmed by the architect (rulings 3 item 3); `pending_architect` is empty.

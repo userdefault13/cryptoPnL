@@ -13,15 +13,14 @@
   "shortfall": "pending",
   "group": "one_group_per_chain",
   "as_of_block": "min_over_tracked_assets_of_latest_stored_p3_price",
-  "pending_architect": [
-    "fee_split: equal when any acquisition of the tx is pending (the pending lot keeps its share in fee_usdc)",
-    "gas of a swap goes into the bought asset's basis (not off the sold asset's proceeds)",
-    "queue_split: one craft-input ref shared by several queues splits equal (flagged)"
-  ],
+  "pending_architect": [],
   "ruled_in_rulings_3": [
     "shortfall: pending lot, basis_origin=unrecorded_inflow, opens at the shortfall block; reported as an UNEXPLAINED GAP",
     "as_of_block: MIN over tracked fungible assets of each asset's latest stored P3 price block",
     "exit: realized NULL (not 0); counted, never summed",
-    "gas of an NFT sale (nft_sale / auction seller) comes off the NFT's proceeds"
+    "gas of an NFT sale (nft_sale / auction seller) comes off the NFT's proceeds",
+    "fee_split: equal when any acquisition of the tx is pending (the pending lot keeps its share in fee_usdc)",
+    "swap gas goes only into the bought asset's basis",
+    "queue_split: one craft-input ref feeding several queues splits equal, flagged"
   ]
 }

@@ -277,8 +277,8 @@ Config defaults of the P4 engine, as switches (`cryptopnl/p4_policy.json`, overr
 
 **Pending architect confirmation** (proposals implemented behind switches):
 - ~~`shortfall=pending` (Q-H)~~ ruled in P4 rulings 3 (item 5).
-- `fee_split`: an equal split also applies when any acquisition of the tx is pending.
-- Gas of a swap (buy and sell in one tx) goes into the bought asset's basis.
+- ~~`fee_split` equal when any acquisition is pending~~ confirmed (rulings 3).
+- ~~Swap gas into the bought asset's basis~~ confirmed (rulings 3).
 - ~~`as_of_block` = the latest block with a stored P3 price~~ ruled in P4 rulings 3 (item 3): the MIN over tracked assets.
 
 ### P4 rulings 3 (2026-10-28, architect review of PR #8)
@@ -302,6 +302,9 @@ Switches in `cryptopnl/p4_policy.json` (`ruled_in_rulings_3`); still-open propos
    custody children carry `basis_origin`.
 6. **Ordering**: ledger rows are read in (block, log_index, entry id) order, with no coalesce on tx_index. A NULL tx_index is accepted only
    when its block holds a single tx (otherwise the run stops); the count is reported as `tx_index_null_rows`.
+Confirmed (architect, rulings 3 item 3): fee_split is equal when any acquisition of the tx is pending; swap gas goes only into the
+bought asset's basis; one craft-input ref feeding several queues splits equal, flagged. `pending_architect` is empty. Migration 014 accepted.
+The ledger PG password comes from abra only (`cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD`), with no plaintext fallback.
 Schema: `migrations/014_p4_rulings3.sql` (fifo_lot.basis_origin, the new view) with `migrations/rollback/014_down.sql` (run before 013_down).
 7. Status: the engine is proven on synthetic golden books and on the Base ledger (rebuild == incremental, identity within tolerance);
    **real-ledger acceptance is deferred to P4.1** (resolve the unexplained gaps: missing ETH / GHST inflows).
