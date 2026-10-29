@@ -402,3 +402,32 @@ GHST/WETH v2), so the ETH leg takes the trade-implied price (label medium) inste
   files are from this run.
 - The scratch DB `cryptopnl_p41_pricecount` was dropped after the run (user_default's go, relayed 23:01 PT); exact-name check first, no
   other DB touched.
+
+## 13. P4.2 follow-ups (architect review of PR #9), branch p4.2-followups (2026-10-29)
+**Status: code + unit tests done; the canonical p4_test run and the seed-rank check are BLOCKED on the abra unlock on omarchywin**
+(checked 10:45 and 11:00 PT, names and exit codes only: `abra unlock-status` rc 1 "locked", `abra ls cryptoPnL` rc 1). Nothing ran on
+the ledger PG (5442) in P4.2; no RPC, no HyperSync.
+
+- **`ledger_md5_v2_valued`** (`cryptopnl/evidence.py`, key next to `ledger_md5_v2` in `p4_ledger_md5_<chain>.txt`): v2's fields +
+  `coalesce(price_usdc::text,'')`, `coalesce(price_source,'')`, `coalesce(price_confidence_label,'')`, `coalesce(price_flag,'')`, in v2's
+  order (`tx_hash, log_index, asset_id, location, qty, trace_address`). Excluded: `price_confidence` (float; its label carries it) and
+  `price_id` (surrogate key); there is no `value_usdc` column. **Baseline `7caed4d25458c2659ac8b18df9f4b862` over 1647 rows** on
+  `cryptopnl_p41_base` after the RF pass (computed read-only on 2026-10-28 with the same expression; the pre-pass state hashes to
+  `c30df359f24cea803939bfb95c320b7e`). To be re-confirmed by the first p4_test run with this code.
+- **p4_test gates:** v2 stays the STRUCTURAL gate (`EXP_LEDGER_MD5_V2`, `EXP_LEDGER_ROWS`); new VALUED gate `EXP_LEDGER_MD5_V2_VALUED`
+  (required, no default). GHST pocket gate: a missing gate now FAILS, and in == out is pinned to `EXP_GHST_POCKET_WEI`
+  (default 652629999999999997500) via `pockets.ghst_gate_error`.
+  Run (once unlocked): `EXP_LEDGER_MD5_V2=eaead37d4a6b3e7e678f5b375cc8b6fd EXP_LEDGER_ROWS=1647
+  EXP_LEDGER_MD5_V2_VALUED=7caed4d25458c2659ac8b18df9f4b862 scripts/with_ledger_pg.sh scripts/p4_test.sh 8453 cryptopnl_p41_base cryptopnl_p4_2_run`.
+- **Seeding by price-order rank** (`Pricer.seed` / `seed_rank`): numeraire 0, DEX at the block (dex_slot0 / dex_reserves) 1, thin
+  tier 2, any other source 3; within a step, the PRICE_POOLS position; ties keep price_point.id order. It used to keep the highest id.
+  Whether this picks a different stored point anywhere on the canonical ledger is **not yet known** (needs the DB):
+  `scripts/with_ledger_pg.sh env CRYPTOPNL_DSN="dbname=cryptopnl_p41_base" .venv/bin/python scripts/p4_2_seed_rank_check.py 8453
+  --out docs/evidence/p4_2_seed_rank_check_8453.json` (read-only, 0 RPC). Any `choice_changed` > 0 is a CHANGE, not a pass.
+- Nits: stale return-of-capital line removed (DESIGN §8 PTD ruling); `unpriced_reason` docstring is live again; second `os` import
+  (config) and the dead `defaultdict` (pockets.pocket_report) removed; migration 015 up/down/up test (`scripts/p4_migration_test.sh`,
+  scratch DBs `cryptopnl_p4_migtest*` only; `docs/evidence/p4_2_migration_test.txt`: PASS); unit-test NET_REQLOG lines kept out
+  of evidence and scrubbed from `docs/evidence/p4_1_reqlog.txt` (686 → 462 lines; 224 test lines from test_net_retry /
+  test_retry_after_full removed); personal home path scrubbed from two old evidence files. Not done (P6): per-block gotchi owners (pockets.py).
+- **Unit suite:** 331 tests OK, 18 skipped (the scratch-only migration tests; they pass in p4_migration_test.sh), on a scratch unit DB
+  on the MBP local Postgres (`cryptopnl_unit_p42`; not the ledger PG).
