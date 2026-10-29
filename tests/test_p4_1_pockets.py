@@ -120,3 +120,15 @@ class EngineSide(unittest.TestCase):
         self.assertEqual(D(fifo.report(st, RP(nft_mark="at_basis"), 40)["income_usdc"]), D(7))
 
 if __name__ == "__main__": unittest.main()
+
+
+class GhstGate(unittest.TestCase):   # P4.2 nit: the p4_test GHST gate fails when missing and pins the canonical wei (no DB)
+    def test_gate(self):
+        from cryptopnl.pockets import ghst_gate_error, GHST_POCKET_WEI
+        self.assertEqual(GHST_POCKET_WEI, 652629999999999997500)
+        ok = {"pockets": {"ghst_gate": {"in_raw": "652629999999999997500", "out_raw": "652629999999999997500", "in_eq_out": True}}}
+        self.assertIsNone(ghst_gate_error(ok))
+        self.assertIn("missing", ghst_gate_error({})); self.assertIn("missing", ghst_gate_error({"pockets": {}}))
+        bad = {"pockets": {"ghst_gate": {"in_raw": "5", "out_raw": "4", "in_eq_out": False}}}; self.assertIn("!= out", ghst_gate_error(bad))
+        eq = {"pockets": {"ghst_gate": {"in_raw": "5", "out_raw": "5", "in_eq_out": True}}}; self.assertIn("pinned", ghst_gate_error(eq))
+        self.assertIsNone(ghst_gate_error(eq, expect_wei=5))

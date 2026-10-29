@@ -18,6 +18,16 @@ def hx(v): return "0x" + bytes(v).hex()
 def load(path):
     with open(path) as f: return json.load(f)
 
+GHST_POCKET_WEI = 652629999999999997500   # canonical Base pocket GHST in == out (raw wei; docs/P4_RESULTS.md, p4_reconcile_8453.json)
+def ghst_gate_error(rec, expect_wei=GHST_POCKET_WEI):
+    """p4_test GHST pocket gate (P4.2 nit): None when the reconcile output has pockets.ghst_gate with in == out == expect_wei; else why.
+    A missing gate FAILS (it used to pass): a ledger with pocket rows and no GHST row means the rule did not run."""
+    g = (rec.get("pockets") or {}).get("ghst_gate")
+    if not g: return "ghst_gate missing from the reconcile output"
+    if not g.get("in_eq_out") or g.get("in_raw") != g.get("out_raw"): return f"GHST pocket in {g.get('in_raw')} != out {g.get('out_raw')}"
+    if g.get("in_raw") != str(expect_wei): return f"GHST pocket in/out {g.get('in_raw')} != pinned {expect_wei} wei"
+    return None
+
 def ingest_pockets(conn, chain, path, to_block=None, log=print):
     d = load(path); canonical = GV[chain]["aavegotchi"]
     wallets = {a: wid for wid, a in conn.execute("SELECT id, '0x'||encode(address,'hex') FROM wallet WHERE chain_id=%s", (chain,))}
