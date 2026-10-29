@@ -40,6 +40,26 @@ class LedgerMd5(unittest.TestCase):
         parts = ["|".join([str(x) for x in (h.hex(), li, self.a, q, cat, loc, ref) if x is not None] + [isub or "", sref or "", ta or ""])
                  for h, li, q, cat, loc, ref, _, isub, sref, ta in rows]
         return hashlib.md5(",".join(parts).encode()).hexdigest()
+    def expected_v2_valued(self, prices=None):   # v2's parts + price_usdc::text, price_source, price_confidence_label, price_flag ('' for NULL)
+        prices = prices or {}
+        rows = sorted(ROWS, key=lambda r: (r[0], r[1], self.a, r[4], r[2], r[9] or ""))
+        parts = ["|".join([str(x) for x in (h.hex(), li, self.a, q, cat, loc, ref) if x is not None] + [isub or "", sref or "", ta or ""]
+                          + [v or "" for v in prices.get(li, (None, None, None, None))])
+                 for h, li, q, cat, loc, ref, _, isub, sref, ta in rows]
+        return hashlib.md5(",".join(parts).encode()).hexdigest()
+    def test_v2_valued_matches_independent_computation(self):   # P4.2: the valued gate; v2 stays the structural gate
+        r = evidence.ledger_md5(self.c, C); self.assertEqual(r["ledger_md5_v2_valued"], self.expected_v2_valued())
+        self.assertNotEqual(r["ledger_md5_v2_valued"], r["ledger_md5_v2"])   # four '' fields appended per row
+        self.c.execute("""UPDATE ledger_entry SET price_usdc=0.5, price_source='trade', price_confidence_label='high', price_confidence=0.9
+            WHERE chain_id=%s AND log_index=2""", (C,))
+        self.c.execute("UPDATE ledger_entry SET price_flag='no_price' WHERE chain_id=%s AND log_index=7", (C,))
+        a = evidence.ledger_md5(self.c, C)
+        self.assertEqual(a["ledger_md5_v2"], r["ledger_md5_v2"]); self.assertEqual(a["ledger_md5_v1"], r["ledger_md5_v1"])
+        self.assertEqual(a["ledger_md5_v2_valued"], self.expected_v2_valued({2: ("0.5", "trade", "high", None), 7: (None, None, None, "no_price")}))
+        self.c.execute("UPDATE ledger_entry SET price_confidence=0.1 WHERE chain_id=%s AND log_index=2", (C,))   # float: excluded
+        self.assertEqual(evidence.ledger_md5(self.c, C)["ledger_md5_v2_valued"], a["ledger_md5_v2_valued"])
+        self.c.execute("UPDATE ledger_entry SET price_usdc=0.51 WHERE chain_id=%s AND log_index=2", (C,))
+        self.assertNotEqual(evidence.ledger_md5(self.c, C)["ledger_md5_v2_valued"], a["ledger_md5_v2_valued"])
     def test_narrow_md5_matches_independent_computation(self):
         r = evidence.ledger_md5(self.c, C)
         self.assertEqual((r["ledger_rows"], r["ledger_min_block"], r["ledger_max_block"]), (5, 100, 106))
@@ -82,6 +102,7 @@ class LedgerMd5(unittest.TestCase):
                           kv["ledger_md5_v2"], kv["review_rows"], kv["review_md5"]),
                          (str(C), "5", self.expected(), "4", self.expected(OLD), self.expected_v2(), "0", "none"))
         self.assertEqual((kv["ledger_rows_untouched_txs"], kv["ledger_md5_v1_untouched_txs"]), ("3", self.expected(UNTOUCHED)))
+        self.assertEqual(kv["ledger_md5_v2_valued"], self.expected_v2_valued())
         for bad in ("postgres", "password", "host=", os.environ.get("CRYPTOPNL_DSN", "\0")): self.assertNotIn(bad, first)
     def test_md5_changes_when_a_row_changes(self):
         before = evidence.ledger_md5(self.c, C)
@@ -90,4 +111,13 @@ class LedgerMd5(unittest.TestCase):
         for k in ("ledger_md5_v1", "ledger_md5_v1_pre_p4_1", "ledger_md5_v1_untouched_txs", "ledger_md5_v2"): self.assertNotEqual(after[k], before[k], k)
     def test_empty_chain(self):
         r = evidence.ledger_md5(self.c, C + 1)
-        self.assertEqual((r["ledger_rows"], r["ledger_md5_v1"], r["ledger_md5_v2"]), (0, None, None)); self.assertIn("ledger_md5_v2=none", evidence.render(r, "x"))
+        self.assertEqual((r["ledger_rows"], r["ledger_md5_v1"], r["ledger_md5_v2"], r["ledger_md5_v2_valued"]), (0, None, None, None))
+        self.assertIn("ledger_md5_v2=none", evidence.render(r, "x")); self.assertIn("ledger_md5_v2_valued=none", evidence.render(r, "x"))
+
+class V2ValuedDefinition(unittest.TestCase):   # no DB: the SQL text is exactly v2 + the four price fields, in v2's order
+    def test_sql_text(self):
+        self.assertEqual(evidence.V2_VALUED_SQL, evidence._sql(evidence.V2_FIELDS + ",coalesce(price_usdc::text,''),coalesce(price_source,''),"
+                         "coalesce(price_confidence_label,''),coalesce(price_flag,'')", evidence.V2_ORDER))
+        self.assertEqual(evidence.V2_SQL, evidence._sql(evidence.V2_FIELDS, evidence.V2_ORDER))
+        self.assertNotRegex(evidence.V2_VALUED_SQL, r"price_confidence(?!_label)|price_id|value_usdc")
+        self.assertLess(evidence.KEYS.index("ledger_md5_v2"), evidence.KEYS.index("ledger_md5_v2_valued"))

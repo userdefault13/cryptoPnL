@@ -14,7 +14,8 @@ class RetryAfterFull(unittest.TestCase):
             if n[0] == 1: raise urllib.error.HTTPError("u", 429, "x", {"Retry-After": ra}, io.BytesIO(b""))
             return io.BytesIO(b"{}")
         def sleep(s): sleeps.append(s); clk.sleep(s)
-        with mock.patch.object(net.time, "time", clk), mock.patch.object(net.urllib.request, "urlopen", urlopen), \
+        with mock.patch.dict(os.environ, {"NET_REQLOG": os.path.join(d, "reqlog")}), \
+             mock.patch.object(net.time, "time", clk), mock.patch.object(net.urllib.request, "urlopen", urlopen), \
              mock.patch.object(net.random, "random", lambda: 0.5), mock.patch("sys.stderr", new_callable=io.StringIO) as err:
             t0 = clk.t; net.post_json("hypersync", lim, "https://base.hypersync.xyz/query", {}, _sleep=sleep)
         return sleeps, err.getvalue(), lim, clk.t - t0

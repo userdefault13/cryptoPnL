@@ -2,7 +2,7 @@
 # P4 test (DESIGN §4 P4, §8 'P4 rulings (2026-10-28)', 'P4 rulings 2', 'P4 rulings 3'). ONE run, offline: no HyperSync, no RPC (marks come from
 # stored P3 prices). Reads the source DB, writes only to a fresh COPY of it (never the template):
 #   scripts/with_ledger_pg.sh scripts/p4_test.sh 8453 cryptopnl_p3_base cryptopnl_p4_base
-# Steps: 1 ledger md5 v2 + rows of the source == the recorded baseline (P4.1 md5 ruling: gates use v2; v1 and v1 over the
+# Steps: 1 ledger md5 v2 (structural) + v2_valued (valued) + rows of the source == the recorded baselines (v1 and v1 over the
 #   pre-P4.1 rows are printed, not gated); 2 createdb -T source copy, migrate (013) on the copy, ledger md5 unchanged;
 # 3 full rebuild; 4 incremental (rebuild to the median block, persist, reload from the DB, continue) -> md5s equal the rebuild's;
 # 5 reconciliation against an INDEPENDENT ledger side (ledger rows only, its own FIFO and running balance) per asset and in total
@@ -13,6 +13,8 @@ set -euo pipefail
 C=$1; SRC=$2; DST=$3; PY=${PY:-.venv/bin/python}; cd "$(dirname "$0")/.."
 # v2 baseline: the canonical value is recorded in docs/P4_RESULTS.md §12 after the canonical P4.1 run (no default until then).
 EXP_MD5=${EXP_LEDGER_MD5_V2:?set EXP_LEDGER_MD5_V2 (canonical ledger_md5_v2 baseline, docs/P4_RESULTS.md §12)}
+# v2_valued (P4.2): v2 + the four price fields; the VALUED gate (canonical 7caed4d25458c2659ac8b18df9f4b862 over 1647 rows, P4_RESULTS §13).
+EXP_VAL=${EXP_LEDGER_MD5_V2_VALUED:?set EXP_LEDGER_MD5_V2_VALUED (canonical ledger_md5_v2_valued baseline, docs/P4_RESULTS.md §13)}
 EXP_ROWS=${EXP_LEDGER_ROWS:?set EXP_LEDGER_ROWS (canonical ledger row count, docs/P4_RESULTS.md §12)}
 PRE_V1=210a71d811fd872a970b1d11770ced05   # canonical pre-P4.1 v1 (1321 rows): informational only
 case "$DST" in cryptopnl_p4_*) ;; *) echo "FAIL: target DB must be named cryptopnl_p4_* (a copy), got $DST"; exit 2;; esac
@@ -22,7 +24,9 @@ j() { $PY -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.ar
 echo "== 1 source ledger md5 ($SRC)"
 CRYPTOPNL_DSN="dbname=$SRC" $PY -m cryptopnl ledger-md5 --chain "$C" --out "$E/p4_ledger_md5_$C.txt" 2>/dev/null | tail -1
 grep -q "^ledger_md5_v2=$EXP_MD5$" "$E/p4_ledger_md5_$C.txt" && grep -q "^ledger_rows=$EXP_ROWS$" "$E/p4_ledger_md5_$C.txt" \
-  || fail "source ledger md5 v2/rows differ from $EXP_MD5/$EXP_ROWS"
+  || fail "source ledger md5 v2/rows differ from $EXP_MD5/$EXP_ROWS (structural gate)"
+grep -q "^ledger_md5_v2_valued=$EXP_VAL$" "$E/p4_ledger_md5_$C.txt" || fail "source ledger_md5_v2_valued differs from $EXP_VAL (valued gate)"
+echo "v2 $EXP_MD5 (structural gate) and v2_valued $EXP_VAL (valued gate) over $EXP_ROWS rows: OK"
 k() { grep "^$1=" "$E/p4_ledger_md5_$C.txt" | cut -d= -f2; }
 echo "v1 $(k ledger_md5_v1); v1 over pre-P4.1 rows $(k ledger_md5_v1_pre_p4_1) ($(k ledger_rows_pre_p4_1) rows; moved by rule 2 by design; pre-P4.1 v1 was $PRE_V1)"
 echo "v1 over untouched-tx rows (continuity) $(k ledger_md5_v1_untouched_txs) ($(k ledger_rows_untouched_txs) rows; excluded $(k untouched_excluded_txs) P4.1-touched txs = $(k internal_eth_txs) internal-ETH + $(k pocket_txs) pocket); not gated"
@@ -48,8 +52,10 @@ rc=0; CRYPTOPNL_DSN="dbname=$DST" $PY -m cryptopnl.p4 reconcile --chain "$C" --o
 j "$E/p4_reconcile_$C.json" "'as_of_block=%s set_by=%s acceptance=%s identity_pass=%s total_residual=%s exits=%s failures=%s' % (d['as_of_block'], d['as_of']['set_by'], d['reconciliation']['acceptance'], d['reconciliation']['identity_pass'], d['reconciliation']['total']['residual'], d['reconciliation']['exits'], d['reconciliation']['failures'])"
 j "$E/p4_reconcile_$C.json" "'\\n'.join('UNEXPLAINED GAP asset %s: qty %s in %s events, blocks %s..%s' % (a, g['qty'], g['events'], g['first_block'], g['last_block']) for a, g in sorted(d['reconciliation']['unexplained_gap'].items())) or 'no unexplained gap'"
 j "$E/p4_reconcile_$C.json" "'pockets (P4.1 rule 7): ghst_gate=%s owner_mismatch_legs=%s' % (d.get('pockets', {}).get('ghst_gate'), d.get('pockets', {}).get('pocket_owner_mismatch', {}).get('legs'))"
-pg=$($PY -c "import json,sys; g=json.load(open(sys.argv[1])).get('pockets',{}).get('ghst_gate'); print('ok' if (g is None or g['in_eq_out']) else 'bad')" "$E/p4_reconcile_$C.json")
-[ "$pg" = ok ] || fail "GHST pocket in != out (P4.1 rule 7 gate)"
+# GHST pocket gate (P4.1 rule 7; P4.2: a missing gate fails, in == out pinned to EXP_GHST_POCKET_WEI, default the canonical wei)
+pg=$($PY -c "import json,sys; from cryptopnl.pockets import ghst_gate_error as e; print(e(json.load(open(sys.argv[1])), int(sys.argv[2])) or 'ok')" \
+  "$E/p4_reconcile_$C.json" "${EXP_GHST_POCKET_WEI:-652629999999999997500}")
+[ "$pg" = ok ] || fail "GHST pocket gate: $pg"
 echo "== 6 snapshot x2"
 for n in 1 2; do CRYPTOPNL_DSN="dbname=$DST" $PY -m cryptopnl.p4 snapshot --chain "$C" --out "$E/p4_snapshot_${C}_$n.json" | tail -1; done
 cmp "$E/p4_snapshot_${C}_1.json" "$E/p4_snapshot_${C}_2.json" || fail "snapshots differ"

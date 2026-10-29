@@ -158,17 +158,17 @@ Traceback (most recent call last):
     return _run_code(code, main_globals, None,
   File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/runpy.py", line 87, in _run_code
     exec(code, run_globals)
-  File "/Users/juliuswong/Dev/cryptoPnL-p11/cryptopnl/__main__.py", line 11, in <module>
+  File "~/Dev/cryptoPnL-p11/cryptopnl/__main__.py", line 11, in <module>
     for w in a.wallet: ingest.ingest_wallet(conn, a.chain, w)
-  File "/Users/juliuswong/Dev/cryptoPnL-p11/cryptopnl/ingest.py", line 74, in ingest_wallet
+  File "~/Dev/cryptoPnL-p11/cryptopnl/ingest.py", line 74, in ingest_wallet
     reorg_check(conn, chain, rpc, log)
-  File "/Users/juliuswong/Dev/cryptoPnL-p11/cryptopnl/ingest.py", line 49, in reorg_check
+  File "~/Dev/cryptoPnL-p11/cryptopnl/ingest.py", line 49, in reorg_check
     try: real = rpc.block(n)[1].lower()
-  File "/Users/juliuswong/Dev/cryptoPnL-p11/cryptopnl/sources.py", line 19, in block
+  File "~/Dev/cryptoPnL-p11/cryptopnl/sources.py", line 19, in block
     b = self.call("eth_getBlockByNumber", [tag if isinstance(tag, str) else hex(tag), False])
-  File "/Users/juliuswong/Dev/cryptoPnL-p11/cryptopnl/sources.py", line 15, in call
+  File "~/Dev/cryptoPnL-p11/cryptopnl/sources.py", line 15, in call
     r = post_json("rpc", self.lim, self.url, {"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
-  File "/Users/juliuswong/Dev/cryptoPnL-p11/cryptopnl/net.py", line 29, in post_json
+  File "~/Dev/cryptoPnL-p11/cryptopnl/net.py", line 29, in post_json
     with urllib.request.urlopen(req, timeout=timeout) as r:
   File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
     return opener.open(url, data, timeout)
