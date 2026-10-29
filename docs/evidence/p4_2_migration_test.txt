@@ -1,0 +1,20 @@
+# P4.2: PGHOST=/tmp scripts/p4_migration_test.sh on the MBP local scratch Postgres 16 (Homebrew; scratch DBs cryptopnl_p4_migtest*, dropped after). Not the ledger PG.
+{"applied": ["001_init.sql", "002_global_cursor.sql", "003_parent_scan.sql", "004_ledger.sql", "005_p2_review.sql", "006_p2_decisions.sql", "008_p2_2_gotchiverse.sql", "009_p3_pricing.sql", "010_p3_low_confidence.sql", "011_p3_price_run.sql", "012_p3_price_run_retries.sql", "013_p4_fifo.sql", "014_p4_rulings3.sql", "015_p4_1_inflows.sql"]}
+{"applied": ["013_p4_fifo.sql", "014_p4_rulings3.sql", "015_p4_1_inflows.sql"]}
+up == up2: OK (     528 schema lines, md5 e153648175f08e791365427c005cd836)
+down == 001..012: OK (     353 schema lines)
+014 down == 001..013: OK (     483 schema lines)
+015 down == 001..014: OK (     489 schema lines)
+test_exit_realized_null_in_view (tests.test_p4_migration.Migration015) ... ok
+test_gotchi_lending_table (tests.test_p4_migration.Migration015) ... ok
+test_income_subtype_check (tests.test_p4_migration.Migration015) ... ok
+test_manual_basis_delete_restricted (tests.test_p4_migration.Migration015) ... ok
+test_manual_basis_survives_ledger_delete (tests.test_p4_migration.Migration015) ... ok
+test_no_cascade_path_from_ledger_entry_to_manual_basis (tests.test_p4_migration.Migration015) ... ok
+test_pending_lot_needs_null_source (tests.test_p4_migration.Migration015) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.219s
+
+OK
+P4 MIGRATIONS 013+014+015 PASS (up/down/up)
