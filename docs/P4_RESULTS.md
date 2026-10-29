@@ -156,13 +156,17 @@ P3 prices; evidence `docs/evidence/*_MBP_NONCANONICAL*`) and are **not** results
 | ledger_rows_pre_p4_1 | 1632 | 1192 | 1191 |
 | ledger_md5_v1_pre_p4_1 | `9a6b57dc1eea30463b07a36ca7d2f632` | `e7e254065b990e90a1550d545b8ca951` | `3238fee8e7aa888d390f549b60d05200` |
 | internal_eth_txs (excluded below) | 15 | 15 | 15 (list read from `cryptopnl_p4_1_mbp`) |
-| ledger_rows_untouched_txs | 1601 (p3_base over the same tx list: 1291) | 1161 | 1161 |
-| **ledger_md5_v1_untouched_txs** (continuity) | `71713c64f7c22985801b421308861b78`; p3_base (`--untouched-txs-from-db cryptopnl_p41_base`): `279b7084b70617cb77687ab4483d09ea`, **differs by design** (rule 7 pocket rows; see below) | `ccea8cbf4d81d8af2114ccc3ceab3695` | `ccea8cbf4d81d8af2114ccc3ceab3695` |
+| ledger_rows_untouched_txs | **1285** (p3_base over the same txs: **1285**); excluded 169 = 15 internal-ETH + 154 pocket | 1161 | 1161 |
+| **ledger_md5_v1_untouched_txs** (continuity) | **`fc5033e0967575cda70f44fd6db920f3`** = p3_base (`--untouched-txs-from-db cryptopnl_p41_base`) **`fc5033e0967575cda70f44fd6db920f3`** (PR #9 ruling: all P4.1-touched txs excluded; before the ruling: `71713c64…` (1601) vs `279b7084…` (1291)) | `ccea8cbf4d81d8af2114ccc3ceab3695` | `ccea8cbf4d81d8af2114ccc3ceab3695` |
 | **ledger_md5_v2** | **`eaead37d4a6b3e7e678f5b375cc8b6fd`** (canonical baseline; `EXP_LEDGER_MD5_V2`, `EXP_LEDGER_ROWS=1647`) | `1646af93a2f1d766f9efb1c192450d4a` | `6df1b9aee68bdb0b0a7e67cb7b04987f` |
 | ledger_md5_report | `bb50f055eafb1c836fb2972c0e6585cc` (review 10 rows, `ec3acdc693b961a1d3db270c6b61698d` = MBP) | `62458dbbddb2e5701e7054f7c348a55a` | `3bfb41e4d854f9f3fdaa104ffaefd5f7` |
 
-**Canonical continuity (rules 1–7):** the definitional `v1_untouched_txs` excludes only internal-ETH txs, so on canonical it also
-covers the rule 7 pocket rows (310 rows new vs p3_base, where those txs were not in the ledger). Excluding the **15 internal-ETH txs and
+**Canonical continuity (rules 1–7; definition per the architect's PR #9 ruling, DESIGN §8):** `v1_untouched_txs` now excludes every
+P4.1-touched tx = internal-ETH txs (a ledger row with `trace_address IS NOT NULL`) UNION rule 7 pocket txs (a `raw_event` with kind
+`pocket_transfer`), both lists read from the P4.1 ledger. The defined hash reproduces the diagnostic below exactly on both DBs
+(`docs/evidence/p4_1_ledger_md5_8453.txt`, `..._pre_p4_1_p3_base.txt`; p4_test re-run PASS, v2 unchanged:
+`docs/evidence/p4_1_canon_p4_test_untouched_ruling.log`). Before the ruling it excluded only internal-ETH txs, so it also covered the
+rule 7 pocket rows (310 rows new vs p3_base). Diagnostic, by hand: excluding the **15 internal-ETH txs and
 the 154 pocket txs** (raw_event `pocket_transfer`) on both sides, v1 = **`fc5033e0967575cda70f44fd6db920f3` over 1285 rows on both
 `cryptopnl_p41_base` and `cryptopnl_p3_base`; 0 rows only in either** (`docs/evidence/p4_1_canon_continuity_diag.txt`, diagnostic run by
 hand with the v1 SQL). So every pre-P4.1 row outside txs touched by P4.1 is byte-identical.
@@ -266,14 +270,14 @@ true, failures []. Evidence: `docs/evidence/p4_1_rule7_reconcile_8453_MBP_NONCAN
 | ledger_rows | **1647** | 1207 | 1639 |
 | ledger_md5_v1 | `e2d0888c046bcbc473f5d2e94fc33ee9` | `799e27209042e75206757ca6b4119744` | `e528566f6d242a3a0d83f27b052ef8ed` |
 | ledger_md5_v1_pre_p4_1 (rows) | `9a6b57dc1eea30463b07a36ca7d2f632` (1632) | `e7e254065b990e90a1550d545b8ca951` (1192) | `41eb153178e68405e77e220072d546c9` (1624) |
-| ledger_md5_v1_untouched_txs (rows) | `71713c64f7c22985801b421308861b78` (1601) | `ccea8cbf4d81d8af2114ccc3ceab3695` (1161) | `bd9c11169d6f27a95165825b6a64fed9` (1593) |
+| ledger_md5_v1_untouched_txs (rows) | `fc5033e0967575cda70f44fd6db920f3` (1285; PR #9 definition) | `ccea8cbf4d81d8af2114ccc3ceab3695` (1161) | `bd9c11169d6f27a95165825b6a64fed9` (1593) |
 | **ledger_md5_v2** | **`eaead37d4a6b3e7e678f5b375cc8b6fd`** | `1646af93a2f1d766f9efb1c192450d4a` | `1dd87eeb33d8027c4dcb85ef004356b6` |
 | ledger_md5_report | `bb50f055eafb1c836fb2972c0e6585cc` | `62458dbbddb2e5701e7054f7c348a55a` | `81a00041258c51d5db953943ab40c8c9` |
 | review rows | 10 (all `pocket_owner_mismatch`, `not_owned`; review_md5 = MBP) | 4 (the 4 pocket txs: escrow not cached) | 10 (all `pocket_owner_mismatch`, 0 real review) |
 
 The +432 rows: 156 income at `pocket:<id>`, 154 spam at `pocket:<id>`, and 61 + 61 custody legs (60 `batchTransferEscrow` GHST
-withdrawals and the wallet's 1 FUD `depositERC20`). The untouched-txs hash covers the internal-ETH definition only, so it now also
-includes the pocket rows (the hash is `trace_address`-based). Evidence: `docs/evidence/p4_1_rule7_ledger_md5_8453_MBP_NONCANONICAL.txt`.
+withdrawals and the wallet's 1 FUD `depositERC20`). (MBP values computed before the PR #9 ruling: there the untouched-txs hash
+excluded internal-ETH txs only, so it included the pocket rows; the canonical column uses the ruled definition.) Evidence: `docs/evidence/p4_1_rule7_ledger_md5_8453_MBP_NONCANONICAL.txt`.
 
 **Pocket inflow legs by sender and token, before (on chain) → after (ledger category), blocks 35315787–46311838, 24 pockets:**
 
@@ -323,7 +327,37 @@ v2 baseline stays valid.
 **Two code fixes during the run (both tested, both on this branch):**
 - `p4.income_lines` compared the per-line sum with the engine total by strict equality. At Decimal prec 50 the grouping order differs in
   the last digit (1E-46 USDC on canonical), so reconcile crashed. It now uses a tolerance of 1e-30 USDC (`INCOME_LINES_TOL`), with a
-  synthetic regression test.
+  synthetic regression test. **PR #9 ruling (a): tolerance kept, not quantize.** Every money column is unconstrained `numeric` (no
+  declared scale in any migration), so there is no column scale to quantize to; choosing one would be a new design decision touching the
+  engine total too. 1e-30 USDC is far below the 0.01 USDC identity bound. The regression test stays.
 - `scripts/p4_test.sh` printed the pre-rulings-4 key `as_of.set_by_assets`; it now prints `as_of.set_by`.
 
 **Migration 015 is frozen** (applied canonically; header updated).
+
+### 12d. RF pricing: 0-RPC dry count (architect ruling on PR #9 (c), 2026-10-28 22:55 PT). No live pricing run
+Tool: `scripts/p4_1_price_dryrun.py` on the scratch copy `cryptopnl_p41_pricecount` (= canonical ledger + stored points). It runs the real
+`pricing.price_ledger`, seeded from the stored price_point exactly as `--reuse-stored`, behind a network-free RPC that only records each
+eth_call. Nothing sent (no request-log line), nothing committed (scratch ledger md5 and price_point / price_run counts equal before and
+after). Output: `docs/evidence/p4_1_rf_price_dryrun_8453.json`. Seed hits 762; misses = the 116 (asset, block) pairs of §12c plus the
+GHST counter price at 2 ETH/GHST swap blocks.
+**Per-block cost (from the code path):** GHST via P1 0x41d4… = 2 (slot0, USDC balanceOf); P1 empty → P2 0x56c1… = 3; P1 and P2 empty →
+P3 GHST/WETH v2 0x0dfb… = 6 (2 empty slot0, getReserves, WETH pool slot0 + USDC balanceOf, WETH balanceOf). An alchemica v2 leg = 2 more.
+Pool state per block comes from the stored GHST points' recorded paths: P2 was empty at 34202337 and used from 37488911; P1 was empty at
+43748241 and used from 51156732. No stored point ever hit the $1000 floor (P2 quote side ≥ $330k), so floor fall-through is not modelled.
+
+| part | requests | exact? |
+|---|---|---|
+| 52 RF blocks 37488911–39595007 (P2 used on both sides) | 156 (3 each) | yes |
+| 52 RF blocks 35315787–37204036 (between P2 empty and P2 used) | 156–312 (3 or 6 each) | no: depends on P2's deployment block |
+| 4 swap blocks 42178982–42179213 (FOMO/FUD + GHST) | 20 | yes |
+| 2 swap blocks 49319454/6 (ALPHA + GHST; P1 unknown there) | 8–10 | no: depends on P1's deployment block |
+| GHST counter at 2 ETH/GHST swaps (23211232, 33388411) | 12 | yes |
+| **price pass total** | **352–510** (RF 312–468) | |
+| marks re-run | 0 needed (as_of marks do not depend on historical prices; held qty unchanged). If re-run anyway: 12 (measured) | |
+| rebuild, reconcile, ledger-md5, p4_test | 0 (offline) | |
+
+**Pacing:** measured sustained 2.03 s/request (211 requests in 427.1 s, 29.5/min): the 30/min budget binds, the 1.5 s gap only in short
+bursts. Wall time: **352 → ≈ 11.9 min; 510 → ≈ 17.3 min** (+ ≈ 0.4 min for an optional marks re-run). The exact count needs P2's and
+P1's first live block: a bisection of eth_getCode over the two windows is ≤ 6 + ≤ 5 = **≤ 11 RPC** (not run). Proposed live cap:
+`CRYPTOPNL_PRICE_RPC_CAP=510`. Note: the 12 counter calls can turn 2 ETH legs (now dex_slot0 from stored points) into trade-implied
+prices; the live pass may change those 2 legs.

@@ -386,6 +386,15 @@ Payers are listed per chain in `config.INTERNAL_ETH` (bridge_in / distribution /
 **Ledger md5 (architect, 18:22 PT):** `ledger_md5_v1` (pre-P4.1 definition, unchanged) and `ledger_md5_v2` (v1 + income_subtype,
 source_ref, trace_address) are both reported, plus v1 over the pre-P4.1 rows (`trace_address IS NULL`); gates use **v2** from P4.1 on
 (definitions: docs/P4_RESULTS.md §12, `cryptopnl/evidence.py`).
+**Continuity hash (architect ruling on PR #9, 2026-10-28 22:48 PT):** `ledger_md5_v1_untouched_txs` = v1 over the rows of txs that NO
+P4.1 rule touched. The exclusion list is the union of (1) **internal-ETH txs**: every tx with a ledger row whose `trace_address IS NOT
+NULL` (rules 1–6), and (2) **rule 7 pocket txs**: every tx with a `raw_event` of kind `pocket_transfer` (loaded by `cryptopnl pockets`),
+both read from the P4.1 ledger (`--untouched-txs-from-db <P4.1 db>` when hashing a pre-P4.1 ledger). The evidence file reports
+`internal_eth_txs`, `pocket_txs` and `untouched_excluded_txs` (the union). Not gated; v2 stays the gate.
+**Income lines check:** lines must sum to the engine's `income_usdc` within `INCOME_LINES_TOL` = 1e-30 USDC (Decimal prec 50 rounds
+differently by summation order). The money columns are unconstrained `numeric` (no declared scale), so there is no column scale to
+quantize to; the tolerance is kept (architect ruling on PR #9, option kept when quantizing is not a small change). It is far below the
+0.01 USDC identity bound.
 **as_of (rulings 4)**: `--as-of` override, else the last ledger block. `cryptopnl marks` (P3 path) writes `p3_mark` for each held tracked
 fungible asset (positive balance at any location) at as_of: `priced` (normal price order) or `no_valid_mark` + reason. P4 reads
 `p3_mark` only; a missing or `no_valid_mark` asset is excluded from unrealized and counted (`marks` in the snapshot). Gate:
