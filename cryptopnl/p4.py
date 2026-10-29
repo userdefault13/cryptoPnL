@@ -88,6 +88,38 @@ class Marks:
         if best is None: return None
         return fifo.Mark(best[1], f"p3:{best[2]}@{best[0][0]}", best[3])
 
+class AsOfMarks:
+    """P4 rulings 4 (revises Q-F / rulings 3): fungible marks are the p3_mark rows the P3 pricing path wrote AT as_of_block, one per
+    held asset (`python -m cryptopnl marks`). No row, or status no_valid_mark -> None: the asset is excluded from unrealized and
+    counted, like an unpriced NFT. No RPC in the engine."""
+    name = "p3_mark_at_as_of"
+    def __init__(self, conn, chain, as_of):
+        self.as_of, self.m, self.status = as_of, {}, {}
+        for aid, st, px, src, lab, why in conn.execute("""SELECT asset_id, status, price_usdc, source, confidence_label, reason FROM p3_mark
+                WHERE chain_id=%s AND as_of_block=%s ORDER BY asset_id""", (chain, as_of)):
+            self.status[str(aid)] = "priced" if st == "priced" else f"no_valid_mark:{why}"
+            if st == "priced": self.m[str(aid)] = fifo.Mark(Decimal(px), f"p3_mark:{src}@{as_of}", lab)
+    def __call__(self, asset, block, lot=None):
+        if block != self.as_of: raise ValueError(f"marks exist only at as_of_block {self.as_of}, asked for {block}")
+        return self.m.get(asset)
+    def coverage(self, held):
+        """held: {asset: qty} fungible -> {priced, no_valid_mark: {asset: reason}, missing: [assets with no p3_mark row]}"""
+        out = {"priced": 0, "no_valid_mark": {}, "missing": []}
+        for a in sorted(held, key=int):
+            s = self.status.get(a)
+            if s == "priced": out["priced"] += 1
+            elif s: out["no_valid_mark"][a] = s.split(":", 1)[1]
+            else: out["missing"].append(a)
+        return out
+
+def as_of_rule(cfg, rows, override=None):
+    """P4 rulings 4: as_of_block = the block user_default chose (--as-of), else the LAST ledger block."""
+    if override: return override, "user_default (--as-of)"
+    if cfg.get("as_of_block") != "last_ledger_block_else_user_default":
+        raise SystemExit(f"as_of_block switch {cfg.get('as_of_block')!r} not supported (rulings 4: last_ledger_block_else_user_default)")
+    if not rows: raise SystemExit("no ledger rows: as_of_block undefined")
+    return max(e.block for e in rows), "last ledger block"
+
 class NftMark(Marks):
     """Q8: an NFT is marked only at a stored P3 price (else left out of unrealized and counted; never at basis or 0)."""
     name = "p3_price_else_exclude"
@@ -101,11 +133,11 @@ class Recipes:
             self.r[(str(aid), b)] = Decimal(c)
     def __call__(self, asset, block): return self.r.get((asset, block))
 
-def policy(cfg, marks, recipes):
+def policy(cfg, marks, recipes, fmarks=None):
     k = {x: cfg.get(x) for x in ("fee", "fee_without_trade", "fee_split", "deposit", "withdrawal", "internal_transfer", "queue_split", "shortfall")}
     nm = cfg.get("nft_mark")
     k["nft_mark"] = NftMark(marks) if nm == "p3_price_else_exclude" else nm
-    k["mark"] = marks if cfg.get("mark") == "p3_stored_at_as_of" else None
+    k["mark"] = fmarks if cfg.get("mark") == "p3_mark_at_as_of" else (marks if cfg.get("mark") == "p3_stored_at_as_of" else None)
     k["recipe"] = recipes if cfg.get("recipe") == "stored_craft_recipe_cost" else None
     return fifo.Policy(**k)
 
@@ -210,6 +242,17 @@ def ledger_qty(rows):
         if e.excluded or e.category in ("spam", "untracked") or e.flag in ("spam", "untracked"): continue
         q[e.asset] = q.get(e.asset, Decimal(0)) + e.qty
     return {a: v for a, v in q.items() if v != 0}
+def held_fungible(rows):
+    """{asset: qty} of tracked fungible assets with a positive ledger balance at ANY location (wallet, escrow, pocket, ...), as written
+    by `cryptopnl marks` (pricing.write_marks uses the same rule)."""
+    q = {}
+    for e in rows:
+        if e.nft or e.excluded or e.category in ("spam", "untracked") or e.flag in ("spam", "untracked"): continue
+        k = (e.asset, e.location); q[k] = q.get(k, Decimal(0)) + e.qty
+    out = {}
+    for (a, loc), v in q.items():
+        if v > 0: out[a] = out.get(a, Decimal(0)) + v
+    return out
 def engine_qty(st):
     q = {}
     for l in st.lots:
@@ -222,10 +265,11 @@ def main(argv=None):
     ap.add_argument("--chain", type=int, required=True); ap.add_argument("--split-block", type=int); ap.add_argument("--as-of", type=int)
     ap.add_argument("--out"); ap.add_argument("--set", action="append", default=[])
     a = ap.parse_args(argv); cfg = load_config(a.set); conn = db.connect()
-    stats = {}; rows = load_rows(conn, a.chain, cfg, stats); marks = Marks(rows); pol = policy(cfg, marks, Recipes(conn, a.chain))
-    if not a.as_of and cfg.get("as_of_block") != "min_over_tracked_assets_of_latest_stored_p3_price":
-        raise SystemExit(f"as_of_block switch {cfg.get('as_of_block')!r} not supported (rulings 3: min_over_tracked_assets_of_latest_stored_p3_price)")
-    as_of = a.as_of or marks.as_of_block(); out = {"chain": a.chain, "ledger_rows": len(rows), "policy": pol.describe(), **stats}
+    stats = {}; rows = load_rows(conn, a.chain, cfg, stats); marks = Marks(rows)
+    as_of, set_by = as_of_rule(cfg, rows, a.as_of)
+    fm = AsOfMarks(conn, a.chain, as_of) if cfg.get("mark") == "p3_mark_at_as_of" else None
+    pol = policy(cfg, marks, Recipes(conn, a.chain), fm)
+    out = {"chain": a.chain, "ledger_rows": len(rows), "policy": pol.describe(), **stats}
     if a.cmd == "rebuild":
         st = fifo.run(rows, pol); rid, m = write_state(conn, a.chain, st, pol, None)
         out.update({"fifo_run": rid, "engine_md5": m, **table_md5(conn, a.chain), "lots": len(st.lots), "disposals": len(st.disposals)})
@@ -240,14 +284,17 @@ def main(argv=None):
         upto = [e for e in rows if e.block <= as_of]
         if len(upto) == len(rows): st, src = load_state(conn, a.chain), "fifo_run (db)"
         else: st, src = fifo.run(upto, pol), "replay of ledger rows <= as_of_block (offline)"
-        out.update({"as_of": marks.as_of_detail() if not a.as_of else {"as_of_block": as_of, "set_by": "--as-of"},
-                    "state_at_as_of": src, "rows_after_as_of": len(rows) - len(upto)})
+        held = held_fungible(upto)
+        out.update({"as_of": {"as_of_block": as_of, "set_by": set_by, "last_ledger_block": max(e.block for e in rows)},
+                    "state_at_as_of": src, "rows_after_as_of": len(rows) - len(upto),
+                    "gate_all_rows_at_or_before_as_of": len(rows) == len(upto),
+                    "marks": fm.coverage(held) if fm else None})
         if a.cmd == "snapshot":
             rep, sm, n = snapshot(conn, a.chain, st, pol, as_of)
             out.update({"as_of_block": as_of, "pnl_snapshot_rows": n, "pnl_snapshot_md5": sm, "report": rep})
         else:
             rep = fifo.report(st, pol, as_of); g = fifo.gas(st)
-            L = reconcile.ledger_side(rows, marks, pol.nft_mark, as_of, pol.recipe, cfg)   # ledger rows only, never engine lots
+            L = reconcile.ledger_side(rows, pol.mark, pol.nft_mark, as_of, pol.recipe, cfg)   # ledger rows only, never engine lots
             chk = reconcile.check(rep, g, L, engine_qty(st))
             out.update({"as_of_block": as_of, "reconciliation": chk, "ledger_side_gas_txs": L["gas_txs"],
                         "gas_share_on_pending_acquisitions_ledger": L["gas_share_on_pending_acquisitions"], "gas": g,

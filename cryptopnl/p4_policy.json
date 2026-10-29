@@ -1,5 +1,5 @@
 {
-  "_doc": "P4 engine switches. Defaults = DESIGN §8 'P4 rulings (2026-10-28)', 'P4 rulings 2' and 'P4 rulings 3'. Every key is a switch (override with --set key=value); the engine itself has NO defaults (fifo.Policy raises PolicyRequired). pending_architect lists the proposals still awaiting a ruling.",
+  "_doc": "P4 engine switches. Defaults = DESIGN §8 'P4 rulings (2026-10-28)', 'P4 rulings 2', 'P4 rulings 3', 'P4 rulings 4' (as_of_block, mark) and 'P4.1 rulings'. Every key is a switch (override with --set key=value); the engine itself has NO defaults (fifo.Policy raises PolicyRequired). pending_architect lists the proposals still awaiting a ruling.",
   "fee": "capitalize",
   "fee_without_trade": "expense",
   "fee_split": "basis_else_equal",
@@ -7,20 +7,23 @@
   "withdrawal": "exit",
   "internal_transfer": "carry",
   "nft_mark": "p3_price_else_exclude",
-  "mark": "p3_stored_at_as_of",
+  "mark": "p3_mark_at_as_of",
   "queue_split": "recipe_else_equal",
   "recipe": "stored_craft_recipe_cost",
   "shortfall": "pending",
   "group": "one_group_per_chain",
-  "as_of_block": "min_over_tracked_assets_of_latest_stored_p3_price",
+  "as_of_block": "last_ledger_block_else_user_default",
   "pending_architect": [],
   "ruled_in_rulings_3": [
     "shortfall: pending lot, basis_origin=unrecorded_inflow, opens at the shortfall block; reported as an UNEXPLAINED GAP",
-    "as_of_block: MIN over tracked fungible assets of each asset's latest stored P3 price block",
     "exit: realized NULL (not 0); counted, never summed",
     "gas of an NFT sale (nft_sale / auction seller) comes off the NFT's proceeds",
     "fee_split: equal when any acquisition of the tx is pending (the pending lot keeps its share in fee_usdc)",
     "swap gas goes only into the bought asset's basis",
     "queue_split: one craft-input ref feeding several queues splits equal, flagged"
+  ],
+  "ruled_in_rulings_4": [
+    "as_of_block: the LAST ledger block by default, or a block user_default chooses (--as-of)",
+    "mark: the P3 pricing path writes a mark per held fungible asset at as_of_block (p3_mark); no valid mark -> excluded from unrealized and counted"
   ]
 }
