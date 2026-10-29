@@ -127,8 +127,14 @@ New for rulings 3:
 1. **The missing ETH and GHST inflows** (architect + ingest owner; user_default for the facts). This is P4.1.
 2. ~~fee_split equal on pending, swap gas into the bought asset's basis, Q-G equal split across queues~~: confirmed by the architect (rulings 3 item 3); `pending_architect` is empty.
 
-## 12. P4.1 (prep — canonical run pending)
-Status: **not run canonically.** The canonical rerun on `cryptopnl_p4_base` (omarchywin) waits on abra there being unlocked by user_default
+## 12. P4.1 — canonical run done (omarchywin, 2026-10-28 22:20–23:05 PT)
+**Canonical:** work DB `cryptopnl_p41_base` (= `createdb -T cryptopnl_p3_base`; p3_base never written), worktree `~/dev/cryptoPnL-p41`,
+ledger PG 127.0.0.1:5442 (password from abra by name). Steps: migrate (013, 014, 015) → internal ETH I1 → `pockets` → classify →
+price → marks at as_of 52911467 → P4 rebuild + reconcile → ledger md5s → `scripts/p4_test.sh` **P4 PASS** (rc 0). Evidence:
+`docs/evidence/p4_1_ledger_md5_8453.txt`, `p4_1_ledger_md5_8453_pre_p4_1_p3_base.txt`, `p4_1_canon_*` (I1, pockets, classify, price
+coverage, marks, continuity diagnostic, p4_test log, request logs) and the `p4_*_8453.*` files written by p4_test. Gates and requests: §12c.
+
+Prep history (kept): before the canonical run, The canonical rerun on `cryptopnl_p4_base` (omarchywin) waits on abra there being unlocked by user_default
 (locked at every check 17:44–18:17 PT). Numbers marked *MBP non-canonical* come from the MBP copy `cryptopnl_p4_1_mbp` (P2.2 base + stored
 P3 prices; evidence `docs/evidence/*_MBP_NONCANONICAL*`) and are **not** results; the canonical cells stay empty until the run.
 
@@ -143,17 +149,23 @@ P3 prices; evidence `docs/evidence/*_MBP_NONCANONICAL*`) and are **not** results
   in place as ''), `ORDER BY` v1's order + trace_address. **The canonical baseline from P4.1 on**; `scripts/p4_test.sh` gates on v2 and
   rows (`EXP_LEDGER_MD5_V2`, `EXP_LEDGER_ROWS`, no default until the canonical values below exist) and prints v1 / v1_pre, not gated.
 
-| | canonical (`cryptopnl_p4_base`, omarchywin) | MBP non-canonical (`cryptopnl_p4_1_mbp`) | MBP pre-P4.1 control (`cryptopnl_p4_1_mbp_ctl`) |
+| | canonical (`cryptopnl_p41_base`, omarchywin) | MBP non-canonical (`cryptopnl_p4_1_mbp`) | MBP pre-P4.1 control (`cryptopnl_p4_1_mbp_ctl`) |
 |---|---|---|---|
-| ledger_rows | _TBD_ | 1207 | 1191 |
-| ledger_md5_v1 | _TBD_ (pre-P4.1: `210a71d811fd872a970b1d11770ced05`, 1321 rows) | `799e27209042e75206757ca6b4119744` | `3238fee8e7aa888d390f549b60d05200` |
-| ledger_rows_pre_p4_1 | _TBD_ | 1192 | 1191 |
-| ledger_md5_v1_pre_p4_1 | _TBD_ | `e7e254065b990e90a1550d545b8ca951` | `3238fee8e7aa888d390f549b60d05200` |
-| internal_eth_txs (excluded below) | _TBD_ | 15 | 15 (list read from `cryptopnl_p4_1_mbp`) |
-| ledger_rows_untouched_txs | _TBD_ | 1161 | 1161 |
-| **ledger_md5_v1_untouched_txs** (continuity) | _TBD_ (vs the pre-P4.1 ledger over the same txs: `--untouched-txs-from-db cryptopnl_p4_base`) | `ccea8cbf4d81d8af2114ccc3ceab3695` | `ccea8cbf4d81d8af2114ccc3ceab3695` |
-| **ledger_md5_v2** | **_TBD (canonical baseline)_** | `1646af93a2f1d766f9efb1c192450d4a` | `6df1b9aee68bdb0b0a7e67cb7b04987f` |
-| ledger_md5_report | _TBD_ | `62458dbbddb2e5701e7054f7c348a55a` | `3bfb41e4d854f9f3fdaa104ffaefd5f7` |
+| ledger_rows | **1647** | 1207 | 1191 |
+| ledger_md5_v1 | `e2d0888c046bcbc473f5d2e94fc33ee9` (pre-P4.1 p3_base: `210a71d811fd872a970b1d11770ced05`, 1321 rows) | `799e27209042e75206757ca6b4119744` | `3238fee8e7aa888d390f549b60d05200` |
+| ledger_rows_pre_p4_1 | 1632 | 1192 | 1191 |
+| ledger_md5_v1_pre_p4_1 | `9a6b57dc1eea30463b07a36ca7d2f632` | `e7e254065b990e90a1550d545b8ca951` | `3238fee8e7aa888d390f549b60d05200` |
+| internal_eth_txs (excluded below) | 15 | 15 | 15 (list read from `cryptopnl_p4_1_mbp`) |
+| ledger_rows_untouched_txs | 1601 (p3_base over the same tx list: 1291) | 1161 | 1161 |
+| **ledger_md5_v1_untouched_txs** (continuity) | `71713c64f7c22985801b421308861b78`; p3_base (`--untouched-txs-from-db cryptopnl_p41_base`): `279b7084b70617cb77687ab4483d09ea`, **differs by design** (rule 7 pocket rows; see below) | `ccea8cbf4d81d8af2114ccc3ceab3695` | `ccea8cbf4d81d8af2114ccc3ceab3695` |
+| **ledger_md5_v2** | **`eaead37d4a6b3e7e678f5b375cc8b6fd`** (canonical baseline; `EXP_LEDGER_MD5_V2`, `EXP_LEDGER_ROWS=1647`) | `1646af93a2f1d766f9efb1c192450d4a` | `6df1b9aee68bdb0b0a7e67cb7b04987f` |
+| ledger_md5_report | `bb50f055eafb1c836fb2972c0e6585cc` (review 10 rows, `ec3acdc693b961a1d3db270c6b61698d` = MBP) | `62458dbbddb2e5701e7054f7c348a55a` | `3bfb41e4d854f9f3fdaa104ffaefd5f7` |
+
+**Canonical continuity (rules 1–7):** the definitional `v1_untouched_txs` excludes only internal-ETH txs, so on canonical it also
+covers the rule 7 pocket rows (310 rows new vs p3_base, where those txs were not in the ledger). Excluding the **15 internal-ETH txs and
+the 154 pocket txs** (raw_event `pocket_transfer`) on both sides, v1 = **`fc5033e0967575cda70f44fd6db920f3` over 1285 rows on both
+`cryptopnl_p41_base` and `cryptopnl_p3_base`; 0 rows only in either** (`docs/evidence/p4_1_canon_continuity_diag.txt`, diagnostic run by
+hand with the v1 SQL). So every pre-P4.1 row outside txs touched by P4.1 is byte-identical.
 
 The control is the same copy classified by the same code without the 15 internal-ETH raw rows (= the copy's pre-P4.1 ledger).
 Three hashes are reported (architect, 19:48 PT): **v1 over all pre-P4.1 rows** (moves by rule 2, by design), **v1 over the untouched-tx
@@ -193,29 +205,32 @@ Row diff (all three inside txs that gained an internal-ETH leg; rule 2 swap outp
 Rows of txs with no internal-ETH leg are byte-identical: v1 over them = `ccea8cbf4d81d8af2114ccc3ceab3695` (1161 rows) on both copies
 (diagnostic, run by hand: v1 `AND tx_hash NOT IN (<the 15 internal-ETH txs>)`). So on canonical, v1_pre_p4_1 is expected to differ
 from `210a71d8…` by the same rule-2 rows if those txs are in it; to be reported as is.
-**as_of (rulings 4):** last ledger block = _TBD (canonical)_; set_by = last ledger block unless user_default passes `--as-of`.
+**as_of (rulings 4):** last ledger block = **52911467** (canonical); set_by = last ledger block unless user_default passes `--as-of`.
 
 **Counted exclusions: held assets with no valid mark at as_of** (excluded from unrealized, counted; never marked at basis or 0):
 
 | asset | contract (Base) | reason (MBP) | held qty (MBP non-canonical) | canonical status |
 |---|---|---|---|---|
-| KEK | 0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5 | swap_scan_gap | 113,368.441671625025025670 | _TBD_ |
-| FUD | 0x2028b4043e6722ea164946c82fe806c4a43a0ff4 | swap_scan_gap | 1,245,441.959187077688682901 | _TBD_ |
-| FOMO | 0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58 | swap_scan_gap | 418,638.062663589051780483 | _TBD_ |
-| ALPHA | 0x15e7cac885e3730ce6389447bc0f7ac032f31947 | swap_scan_gap | 261,182.755480408360768244 | _TBD_ |
+| KEK | 0xe52b9170ff4ece4c35e796ffd74b57dec68ca0e5 | swap_scan_gap | 113,368.441671625025025670 | priced at as_of, `dex_reserves_thin`, label **low** (held qty equal) |
+| FUD | 0x2028b4043e6722ea164946c82fe806c4a43a0ff4 | swap_scan_gap | 1,245,441.959187077688682901 | priced at as_of, `dex_reserves_thin`, label **low** (held qty equal) |
+| FOMO | 0xa32137bfb57d2b6a9fd2956ba4b54741a6d54b58 | swap_scan_gap | 418,638.062663589051780483 | priced at as_of, `dex_reserves_thin`, label **low** (held qty equal) |
+| ALPHA | 0x15e7cac885e3730ce6389447bc0f7ac032f31947 | swap_scan_gap | 261,182.755480408360768244 | priced at as_of, `dex_reserves_thin`, label **low** (held qty equal) |
 
 On the MBP the reason is `swap_scan_gap` (no pool-swap scans there); omarchywin has the scans, so the canonical reason (stale pool,
-thin tier, or priced) is only known after the run.
+thin tier, or priced) is only known after the run. **Canonical: all 7 held assets priced at as_of 52911467 (ETH, GHST `dex_slot0`
+high; USDC numeraire; KEK/FUD/FOMO/ALPHA `dex_reserves_thin` low); no_valid_mark 0** (`docs/evidence/p4_1_canon_marks.json`, 12 RPC).
 
 **Unexplained gaps:**
-- **ETH:** 0 on the MBP copy (15 internal ETH legs, residual 0 at every probe); canonical _TBD_.
+- **ETH:** 0 on the MBP copy (15 internal ETH legs, residual 0 at every probe); **canonical 0** (I1: 15 rows, residual 0 at 138 probe points).
 - **GHST:** before rule 7, 579.034393058025659651 GHST over 8 events on the MBP copy. **After rule 7 (pocket inflows, below): 0**, and
-  reconcile is PASS with no unexplained gap on the MBP copy (canonical _TBD_).
+  reconcile is PASS with no unexplained gap on the MBP copy; **canonical: 0, reconcile PASS, unexplained_gap `{}`, residual 0, identity_pass true.**
 
 **Income lines (rule 5 ruling):** `dao_distribution` from 0xf50326e1… (the Aavegotchi PTD claim, 1.0141283024 ETH at block 40749157) is
-its own line under income; everything else is `general`. USDC values: _TBD (canonical)_.
+its own line under income; everything else is `general`. USDC values (canonical, as_of 52911467): `dao_distribution` **3175.40227006088185524…** (1 entry, priced); `rarity_farming_payout`
+0xf5239825… **0 USDC priced, 156 entries unpriced** (104 txs; pending `no_price`, never 0); `general` 0.14162696287… (31 entries, 0 unpriced).
+income_usdc 3175.54389702375322590738938379036266611244351516.
 
-**ETH pending lots by basis_origin:** _TBD (canonical)_; MBP: bridge_in 3 (Hop, Mayan Swift, Across), deposit 12, unrecorded_inflow 0.
+**ETH pending lots by basis_origin:** canonical bridge_in 3, deposit 12 (basis_origin NULL, pending_reason deposit), unrecorded_inflow 0; MBP: bridge_in 3 (Hop, Mayan Swift, Across), deposit 12, unrecorded_inflow 0.
 
 **Rule 5 — FINAL: option (a), income (user_default 2026-10-28 19:54 PT, via the architect).** The whole 1.0141283024 ETH claim is
 income at FMV (`income_subtype = dao_distribution`, `source_ref = 0xf50326e1…`, its own income line, in the income total); the ETH lot
@@ -237,7 +252,7 @@ RF split or basis_adjustment code or schema). Background, the PTD breakdown foun
   KIN / XP reward details). The split of the wallet's 17,687 VP between GHST, gotchis/wearables, parcels and LP is **not** in the repo
   (only the combined figure); not computed here.
 
-### 12b. P4.1 rule 7: gotchi pocket inflows (architect ruling (a), 20:21 PT). MBP non-canonical; canonical _TBD_
+### 12b. P4.1 rule 7: gotchi pocket inflows (architect ruling (a), 20:21 PT). Canonical done (22:20–23:05 PT); MBP kept for comparison
 Rule: DESIGN §8 P4.1 rule 7. Facts: `docs/evidence/p4_1_pockets.json` (`scripts/p4_1_pockets.py`; **4 HyperSync + 2 RPC** requests,
 docs/P4_1_PLAN.md "Rule 7 round"), loaded with `cryptopnl pockets` (no network). Then classify, `price --seed-only` (0 RPC), `marks`
 (12 RPC: GHST is now held at as_of 52112861), and P4 rebuild + reconcile.
@@ -248,13 +263,13 @@ true, failures []. Evidence: `docs/evidence/p4_1_rule7_reconcile_8453_MBP_NONCAN
 
 | | canonical | MBP before rule 7 | MBP after rule 7 |
 |---|---|---|---|
-| ledger_rows | _TBD_ | 1207 | 1639 |
-| ledger_md5_v1 | _TBD_ | `799e27209042e75206757ca6b4119744` | `e528566f6d242a3a0d83f27b052ef8ed` |
-| ledger_md5_v1_pre_p4_1 (rows) | _TBD_ | `e7e254065b990e90a1550d545b8ca951` (1192) | `41eb153178e68405e77e220072d546c9` (1624) |
-| ledger_md5_v1_untouched_txs (rows) | _TBD_ | `ccea8cbf4d81d8af2114ccc3ceab3695` (1161) | `bd9c11169d6f27a95165825b6a64fed9` (1593) |
-| **ledger_md5_v2** | **_TBD_** | `1646af93a2f1d766f9efb1c192450d4a` | `1dd87eeb33d8027c4dcb85ef004356b6` |
-| ledger_md5_report | _TBD_ | `62458dbbddb2e5701e7054f7c348a55a` | `81a00041258c51d5db953943ab40c8c9` |
-| review rows | _TBD_ | 4 (the 4 pocket txs: escrow not cached) | 10 (all `pocket_owner_mismatch`, 0 real review) |
+| ledger_rows | **1647** | 1207 | 1639 |
+| ledger_md5_v1 | `e2d0888c046bcbc473f5d2e94fc33ee9` | `799e27209042e75206757ca6b4119744` | `e528566f6d242a3a0d83f27b052ef8ed` |
+| ledger_md5_v1_pre_p4_1 (rows) | `9a6b57dc1eea30463b07a36ca7d2f632` (1632) | `e7e254065b990e90a1550d545b8ca951` (1192) | `41eb153178e68405e77e220072d546c9` (1624) |
+| ledger_md5_v1_untouched_txs (rows) | `71713c64f7c22985801b421308861b78` (1601) | `ccea8cbf4d81d8af2114ccc3ceab3695` (1161) | `bd9c11169d6f27a95165825b6a64fed9` (1593) |
+| **ledger_md5_v2** | **`eaead37d4a6b3e7e678f5b375cc8b6fd`** | `1646af93a2f1d766f9efb1c192450d4a` | `1dd87eeb33d8027c4dcb85ef004356b6` |
+| ledger_md5_report | `bb50f055eafb1c836fb2972c0e6585cc` | `62458dbbddb2e5701e7054f7c348a55a` | `81a00041258c51d5db953943ab40c8c9` |
+| review rows | 10 (all `pocket_owner_mismatch`, `not_owned`; review_md5 = MBP) | 4 (the 4 pocket txs: escrow not cached) | 10 (all `pocket_owner_mismatch`, 0 real review) |
 
 The +432 rows: 156 income at `pocket:<id>`, 154 spam at `pocket:<id>`, and 61 + 61 custody legs (60 `batchTransferEscrow` GHST
 withdrawals and the wallet's 1 FUD `depositERC20`). The untouched-txs hash covers the internal-ETH definition only, so it now also
@@ -284,3 +299,31 @@ unsolicited-token spam rule. They are not booked as pending income lots (DESIGN 
 **Canonical caveats:** pricing the 104 RF payout blocks on canonical goes through the P3 price order. Stored points or pool-swap
 scans may cover them; if not, they need RPC, and that must be counted against the canonical RPC cap (250) before the run.
 
+
+### 12c. Canonical P4.1 run: gates, requests, RF pricing (2026-10-28 22:20–23:05 PT)
+**Gates (canonical `cryptopnl_p41_base`):** classify 985/985 txs (100%), real review 0, plus 10 `pocket_owner_mismatch` rows (gotchi 10774,
+`not_owned`; rented 0). Pockets load: 320 raw rows, 24 escrows, owner cross-check diff 0. Reconcile (`docs/evidence/p4_reconcile_8453.json`):
+acceptance **PASS**, identity_pass true, total residual 0, exits 48, failures [], unexplained_gap `{}` (ETH 0, GHST 0).
+**GHST pocket gate: in = out = 652629999999999997500 wei.** `scripts/p4_test.sh 8453 cryptopnl_p41_base cryptopnl_p4_1_run` with
+`EXP_LEDGER_MD5_V2=eaead37d4a6b3e7e678f5b375cc8b6fd EXP_LEDGER_ROWS=1647`: **P4 PASS** (rebuild = incremental from block 38945509, engine
+`80de05e2dd5b5a7842a118e55ae21c9c`, 356 lots, 770 disposals; snapshot ×2 byte-identical `5f1f11eb85bd1f3fe919b9d4bd459800`, pnl_snapshot
+md5 `391a3630dcdfacc2228536bc6bcd1a54`, 190 rows; unit suites OK). Log: `docs/evidence/p4_1_canon_p4_test.log`.
+
+**Requests (cap 250 RPC; HyperSync 0):** I1 internal ETH **19** new (152 cached, 0 errors); pockets 0; price **211** (the cap
+250 − 19 − 20; all status 200; nothing sent beyond it); marks **12**. **Total 242 RPC, 0 HyperSync** (`p4_1_canon_reqlogs.txt`: 242 attempts).
+
+**RF payout pricing: 0 priced / 156 pending** (104 txs, 104 blocks; lots pending `no_price`, never 0). The seed-only count (0 RPC) found
+116 (asset, block) misses: the 104 RF GHST blocks plus 12 swap asset-blocks. **The live pass was run without `--reuse-stored`** (operator
+error). It did not seed from the stored price_point, spent the 211 calls re-fetching early blocks that were already stored, and stopped at
+the cap (851 further calls not sent). The ledger prices were then restored from all stored points with `price --seed-only --reuse-stored`
+(0 RPC). The result is byte-identical to the scratch seed-only pass (prices md5 `7f335083eee4956f33c4e42a0a226724` on both), so no ledger
+price comes from the aborted pass. Pricing the RF blocks needs a new budget (≈ 208 RPC, 2 per block). v2 does not include prices, so the
+v2 baseline stays valid.
+
+**Two code fixes during the run (both tested, both on this branch):**
+- `p4.income_lines` compared the per-line sum with the engine total by strict equality. At Decimal prec 50 the grouping order differs in
+  the last digit (1E-46 USDC on canonical), so reconcile crashed. It now uses a tolerance of 1e-30 USDC (`INCOME_LINES_TOL`), with a
+  synthetic regression test.
+- `scripts/p4_test.sh` printed the pre-rulings-4 key `as_of.set_by_assets`; it now prints `as_of.set_by`.
+
+**Migration 015 is frozen** (applied canonically; header updated).
