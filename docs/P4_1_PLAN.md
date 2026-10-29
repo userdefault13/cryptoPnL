@@ -143,3 +143,15 @@ docs/evidence/p4_1_pockets.json (chain data only). Canonical later reuses the ca
 - **Rule 7.4 check (20:45 PT, local evidence, 0 requests):** none of the 12 third-party ERC-20 contracts is canonical Base USDC or any
   other allowlisted token, so no leg moves from spam to pocket_deposit. **Key re-check (20:46 PT, yes/no only):**
   `cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD` **no** (abra ls rc 0). Stopped after pushing.
+
+## Canonical run (10:18 PM PT, key present): request budget (written before running)
+Work DB `cryptopnl_p41_base` = `createdb -T cryptopnl_p3_base` (1321 rows, last ledger block 52911467, 24 gotchis, 24 cached escrows;
+p3_base itself is never written). Worktree `~/dev/cryptoPnL-p41` at origin p4.1-inflows. The MBP RPC cache is copied in (188 files; public chain
+responses keyed by request body), so ranges already traced repeat no request. Hard caps, all on NEW requests; total RPC cap **250**:
+- **I1** internal ETH (`cryptopnl.internal_eth --end-block 52911467 --cap 120`): new range 52112862–52911467 (balance probes and bisection
+  over the new wallet txs, plus traces). **Expected 20–80, cap 120.**
+- **Pockets:** `cryptopnl pockets` from the committed evidence: **0** (no network). HyperSync: **0** (the evidence covers 0–52911467).
+- **P1 price**, counted first: a `--seed-only` pass on a scratch copy (0 RPC) gives the (asset, block) seed misses. The live pass then
+  runs with `CRYPTOPNL_PRICE_RPC_CAP` = 250 − I1 actual − 20 (marks reserve). Per GHST block: 2 calls (v3 slot0 + USDC balanceOf) when
+  the first pool is above the floor, up to ~9 when it falls through. Legs beyond the cap are never sent; they stay pending, never 0.
+- **M1** marks at as_of = 52911467: **expected 12–16, cap 20.**
