@@ -308,6 +308,41 @@ The ledger PG password comes from abra only (`cryptoPnL/CRYPTOPNL_LEDGER_PG_PASS
 Schema: `migrations/014_p4_rulings3.sql` (fifo_lot.basis_origin, the new view) with `migrations/rollback/014_down.sql` (run before 013_down).
 7. Status: the engine is proven on synthetic golden books and on the Base ledger (rebuild == incremental, identity within tolerance);
    **real-ledger acceptance is deferred to P4.1** (resolve the unexplained gaps: missing ETH / GHST inflows).
+- *P4 rulings 4 (PR #8 at 938fe75, 2026-10-28; revises the as_of rule from Q-F and ruling 3).*
+  - **Problem:** taking the minimum over tracked tokens of each token's latest priced block put as_of at block 49,402,932. That is about 81 days before the last ledger block, because the alchemica pools are stale (reported by my review; I haven't checked it on the omarchywin run).
+  - **New rule:** as_of_block is the last ledger block by default, or a block user_default chooses. The pricing step (P3 path, outside the engine) writes a mark for each held asset at that block, using the normal price order. A held asset with no valid mark is excluded from unrealized PnL and counted, the same as unpriced NFTs. The engine stays offline.
+  - **Gate:** every ledger row is at or before as_of and is reconciled. This moves to P4.1 along with the inflow fix.
+  - **PR #8:** approved for merge as the engine once the .env fallback is removed and migration 014 is wrapped in BEGIN/COMMIT.
+
+### P4.1 rulings (2026-10-28, architect)
+Inflow fix for the ETH unexplained gap found in P4 (sources: docs/P4_1_SOURCES.md). GHST escrow outflows are **not** classified yet; they
+wait on the HyperSync trace of how GHST entered the pockets.
+1. **Ingest**: contract-internal ETH to/from the wallet is recorded from traces (`cryptopnl/internal_eth.py`: eth_getBalance probes +
+   bisection, then debug_traceTransaction callTracer; CALL/CREATE/CREATE2/SELFDESTRUCT frames with value, below the top level, not in a
+   reverted subtree; DELEGATECALL/STATICCALL never move value), inside the RPC limit (30/min). Each frame is its own ledger leg
+   (`raw_event kind='internal_eth'`, `log_index = n − 100000`, DFS order), tied to its tx and `ledger_entry.trace_address` for ordering. The run
+   re-checks balance − expected = 0 at every probe. The ledger md5 is re-checked after ingest and the new baseline recorded.
+2. **Swap outputs** (Uniswap router, MetaMask Swaps via 7702 execute): the internal ETH is the swap's ETH in-leg, priced by the trade.
+   It must pair with a token out-leg already in the ledger for that tx; none → review.
+3. **Router refunds** of excess ETH and the 2 LayerZero refunds: netted against the ETH sent in the same tx (lowers that disposal's
+   qty; ref `eth_refund`), never a new lot. No ETH sent in the tx, or a refund larger than the ETH sent → review.
+4. **Bridges in** (Hop, Mayan Swift, Across): `bridge_in` custody move. Opens a pending lot with `basis_origin = bridge_in` (plus source
+   chain / tx when the bridge event gives them; ref `bridge_in:<bridge>[:chain[:tx]]`). Not income. Resolves only if the source chain is
+   tracked (P6) or via manual_basis.
+5. **1.0141 ETH claim from 0xf50326e1**: identified from free sources as the Aavegotchi Partial Treasury Distribution: a basescan-verified
+   `MerkleDistributor` (`claim(uint256,bytes32[])`, `Claimed` event) funded by the Aavegotchi "DAO Liquidity" Gnosis Safe 0x62DE…682E
+   (1,036.92 ETH at block 40400409, after 1,111 ETH arrived from the Base L2 Standard Bridge), announced by Aavegotchi on 2026-01-07,
+   amounts by voting power (pgendreau/aavegotchi-ptd, 1111 ETH total). A DAO reward/distribution → **income at FMV**. Note for the
+   architect: as a DAO treasury distribution it could be argued to be return of capital; it is not a refund of the wallet's own deposits.
+   An unidentified distributor would be income at FMV flagged `source_unidentified` and listed for user_default (never pending).
+6. **1-wei Rubic dust**: if the wallet sent ETH in the same tx it is a refund under rule 3; otherwise income at FMV (≈ 0). Never spam for
+   native ETH.
+Payers are listed per chain in `config.INTERNAL_ETH` (bridge_in / distribution / swap / refund / dust); an unknown payer → review.
+**as_of (rulings 4)**: `--as-of` override, else the last ledger block. `cryptopnl marks` (P3 path) writes `p3_mark` for each held tracked
+fungible asset (positive balance at any location) at as_of: `priced` (normal price order) or `no_valid_mark` + reason. P4 reads
+`p3_mark` only; a missing or `no_valid_mark` asset is excluded from unrealized and counted (`marks` in the snapshot). Gate:
+`gate_all_rows_at_or_before_as_of`. Schema: `migrations/015_p4_1_inflows.sql` (ledger_entry.trace_address, basis_origin `bridge_in`,
+p3_mark) with `migrations/rollback/015_down.sql`.
 
 ## 9. Gotchiverse coverage (v1.3, 2026-10-17)
 Source: read-only audit of main at bed74e9, aavegotchi-realm-diamond at b152ce2, aavegotchi-contracts at 301d04f, plus Base RPC and receipts. [F] = fact, [I] = inference. Full findings are in the review notes. **Covered today:** Baazaar listings (ERC721/1155), ERC1155 buy orders, GBM buyer side, instant paid crafts, normal alchemica claims and channeling (income), and REALM parcel migration.
