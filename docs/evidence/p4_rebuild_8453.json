@@ -1,11 +1,11 @@
 {
  "chain": 8453,
  "disposals": 770,
- "engine_md5": "80de05e2dd5b5a7842a118e55ae21c9c",
- "fifo_lot_md5": "d71dd3fc8487c9db071e186d0693ab8c",
- "fifo_run": 2,
+ "engine_md5": "7a6a6b3ed4bd60ca44bbd6b49ac7c695",
+ "fifo_lot_md5": "be396f7af8e9311100195ef90d537e7f",
+ "fifo_run": 3,
  "ledger_rows": 1647,
- "lot_disposal_md5": "7a509c9b36c5d48d001a8914cb70df4d",
+ "lot_disposal_md5": "da188e201aa1a33e72ec3070ca85cb1e",
  "lots": 356,
  "policy": {
   "deposit": "pending",
