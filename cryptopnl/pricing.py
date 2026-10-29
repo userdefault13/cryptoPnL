@@ -59,7 +59,7 @@ class Pricer:
         except RuntimeError as e:
             if "execution reverted" in str(e).lower(): self.status[k] = "revert"; return None
             self.status[k] = "error"; self.err_blocks.add(block)
-            self.rpc_errors.append({"to": to, "selector": data[:10], "block": block, "error": str(e)[:200]}); return None
+            self.rpc_errors.append({"to": to, "selector": data[:10], "block": block, "error": str(e)[:200]}); return None   # status + code only (net/sources)
         if r and r != "0x" and len(r) >= 66: self.status[k] = "ok"; return r
         self.status[k] = "empty"; return None
     def _absent(self, to, data, block):
@@ -363,6 +363,7 @@ def coverage(conn, chain):
     fail = []
     if r[3]: fail.append(f"{r[3]} entries have neither a price nor a flag")
     if r[0] == 0: fail.append("no ledger entries")
+    if not pr: fail.append("no price_run row for this chain (migration 011 applied): RPC errors of the pricing run unknown; run `price` first")   # P3 follow-up (b)
     if pr and pr["rpc_errors"]: fail.append(f"price run {pr['id']} hit {pr['rpc_errors']} RPC errors: unpriced entries may be RPC failures, not real no_price")
     return {"entries": r[0], "priced": r[1], "flagged": r[2], "neither": r[3], "pass": not fail, "failures": fail, "price_run": pr,
             "by_source": dict(conn.execute("SELECT price_source, count(*) FROM ledger_entry WHERE chain_id=%s AND price_source IS NOT NULL GROUP BY 1", (chain,)).fetchall()),

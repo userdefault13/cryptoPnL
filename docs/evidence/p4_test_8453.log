@@ -1,0 +1,21 @@
+ledger PG password: fallback /home/user_default/dev/cryptopnl-ledger-pg/.env (abra cryptoPnL/CRYPTOPNL_LEDGER_PG_PASSWORD unavailable: locked or not set)
+== 1 source ledger md5 (cryptopnl_p3_base)
+{"chain_id": 8453, "ledger_rows": 1321, "ledger_min_block": 4328142, "ledger_max_block": 52911467, "ledger_md5_narrow": "210a71d811fd872a970b1d11770ced05", "ledger_md5_report": "58cc79730edcf6b11a1e8ee39ea3ab97", "review_rows": 1, "review_md5": "e7de420e6883071793eb2790cd85b3af"}
+== 2 copy cryptopnl_p3_base -> cryptopnl_p4_base, migrate the copy
+{"applied": ["013_p4_fifo.sql", "014_p4_rulings3.sql"]}
+== 3 full rebuild
+rebuild ('1a0367245a6c6a5915727746fc542699', '46ad52a42db6cc6161e917cb57b19076', 'b9c2d064d8b791653a9bad39c8d98031', 755, 680)
+== 4 incremental from block 40422429
+incremental == rebuild: OK
+== 5 reconciliation
+as_of_block=49402932 set_by=['28', '39', '96', '97'] acceptance=FLAGGED: UNEXPLAINED GAP identity_pass=True total_residual=0 exits=7 failures=[]
+UNEXPLAINED GAP asset 19: qty 652.6299999999999975 in 60 events, blocks 38141654..40216494
+UNEXPLAINED GAP asset 2: qty 1.095603323941304014 in 455 events, blocks 12795076..49402932
+== 6 snapshot x2
+{"as_of": {"as_of_block": 49402932, "latest_priced_block_per_asset": {"19": 51283821, "2": 52911410, "20": 51481437, "28": 49402932, "39": 49402932, "96": 49402932, "97": 49402932}, "set_by_assets": ["28", "39", "96", "97"]}, "as_of_block": 49402932, "chain": 8453, "ledger_rows": 1321, "pnl_snapshot_md5": "4b17f839e5459a60ca6ffb9b6b504f07", "pnl_snapshot_rows": 186, "policy": {"deposit": "pending", "fee": "capitalize", "fee_split": "basis_else_equal", "fee_without_trade": "expense", "internal_transfer": "carry", "mark": "p3_stored_at_as_of", "nft_mark": "p3_price_else_exclude", "queue_split": "recipe_else_equal", "recipe": "stored_craft_recipe_cost", "shortfall": "pending", "withdrawal": "exit"}, "rows_after_as_of": 162, "state_at_as_of": "replay of ledger rows <= as_of_block (offline)", "tx_index_null_rows": 1319}
+{"as_of": {"as_of_block": 49402932, "latest_priced_block_per_asset": {"19": 51283821, "2": 52911410, "20": 51481437, "28": 49402932, "39": 49402932, "96": 49402932, "97": 49402932}, "set_by_assets": ["28", "39", "96", "97"]}, "as_of_block": 49402932, "chain": 8453, "ledger_rows": 1321, "pnl_snapshot_md5": "4b17f839e5459a60ca6ffb9b6b504f07", "pnl_snapshot_rows": 186, "policy": {"deposit": "pending", "fee": "capitalize", "fee_split": "basis_else_equal", "fee_without_trade": "expense", "internal_transfer": "carry", "mark": "p3_stored_at_as_of", "nft_mark": "p3_price_else_exclude", "queue_split": "recipe_else_equal", "recipe": "stored_craft_recipe_cost", "shortfall": "pending", "withdrawal": "exit"}, "rows_after_as_of": 162, "state_at_as_of": "replay of ledger rows <= as_of_block (offline)", "tx_index_null_rows": 1319}
+snapshot byte-identical: OK (4fc87550f661d46e9ad6643a7734ae0a)
+== 7 unit suites (pure engine)
+OK
+P4 FLAGGED chain 8453: identity within 0.01 USDC, md5s equal; UNEXPLAINED GAP reported above (real-ledger acceptance deferred to P4.1) (10 s)
+rc=3

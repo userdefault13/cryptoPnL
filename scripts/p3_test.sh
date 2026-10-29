@@ -12,6 +12,7 @@ $PY -m cryptopnl migrate
 $PY -m cryptopnl tx-index --chain "$C"                     # RPC: tx position where a block holds >= 2 wallet txs
 A=$($PY -m cryptopnl classify --chain "$C" 2>/dev/null | tail -1); B=$($PY -m cryptopnl classify --chain "$C" 2>/dev/null | tail -1)
 echo "classify#1 $A"; echo "classify#2 $B"; [ "$A" = "$B" ] || { echo "FAIL: classify not idempotent"; exit 1; }
+$PY -m cryptopnl ledger-md5 --chain "$C" --out "$E/p3_ledger_md5_$C.txt" 2>/dev/null | tail -1   # follow-up (c): ledger md5 evidence
 $PY -m cryptopnl classify-report --chain "$C" 2>/dev/null > "$E/p3_classify_$C.json" || true
 $PY -m cryptopnl pool-swaps --chain "$C" 2>&1 | tee "$E/p3_pool_swaps_$C.log"
 $PY -m cryptopnl price --chain "$C" 2>&1 | tee "$E/p3_price_$C.log"

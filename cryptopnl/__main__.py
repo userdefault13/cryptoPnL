@@ -1,12 +1,12 @@
 import argparse, json, sys
-from . import db, ingest, verify, classify, pricing
+from . import db, ingest, verify, classify, pricing, evidence
 from .net import STATS
 p = argparse.ArgumentParser(prog="cryptopnl")
-p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report", "lots", "set-basis", "tx-index", "pool-swaps", "price", "price-report", "price-sample"])
+p.add_argument("cmd", choices=["migrate", "ingest", "counts", "verify", "verify-wearables", "simulate-reorg", "classify", "classify-report", "lots", "set-basis", "tx-index", "pool-swaps", "price", "price-report", "price-sample", "ledger-md5"])
 p.add_argument("--chain", type=int, default=84532)
 p.add_argument("--wallet", action="append", default=[])
 p.add_argument("--samples", type=int, default=20); p.add_argument("--seed", type=int, default=3)
-p.add_argument("--lot", type=int); p.add_argument("--basis-usdc"); p.add_argument("--acquired-at")
+p.add_argument("--out"); p.add_argument("--lot", type=int); p.add_argument("--basis-usdc"); p.add_argument("--acquired-at")
 a = p.parse_args(); conn = db.connect(); rc = 0
 if a.cmd == "migrate": print(json.dumps({"applied": db.migrate(conn)}))
 elif a.cmd == "ingest":
@@ -50,4 +50,6 @@ elif a.cmd in ("price", "price-sample"):
 elif a.cmd == "price-report":
     r = pricing.coverage(conn, a.chain); print(json.dumps(r, default=str)); rc = 0 if r["pass"] else 1
     if not r["pass"]: print("PRICE-REPORT FAIL: " + "; ".join(r["failures"]), file=sys.stderr); print(json.dumps({"price_report_fail": r["failures"]}))
+elif a.cmd == "ledger-md5":   # P3 follow-up (c): ledger md5 evidence file (default docs/evidence/p4_ledger_md5_<chain>.txt)
+    print(json.dumps(evidence.write_ledger_md5(conn, a.chain, a.out or f"docs/evidence/p4_ledger_md5_{a.chain}.txt")))
 print("STATS " + json.dumps(STATS), file=sys.stderr); sys.exit(rc)
