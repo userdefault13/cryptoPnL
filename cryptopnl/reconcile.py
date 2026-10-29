@@ -45,7 +45,8 @@ class Ledger:
         self.a: Dict[str, dict] = {}; self.gaps: List[dict] = []; self.ge_total = D0; self.ge_res = D0
         self.gas_txs = {"nft_sale": 0, "into_basis": 0, "off_proceeds": 0, "expense": 0}; self.gas_on_pending = D0
     def A(self, asset):
-        return self.a.setdefault(asset, {"R": D0, "S": D0, "X": D0, "C": D0, "A": D0, "exits": 0, "unpriced": 0, "pending_disposals": 0})
+        return self.a.setdefault(asset, {"R": D0, "S": D0, "X": D0, "C": D0, "A": D0, "exits": 0, "unpriced": 0, "pending_disposals": 0,
+                                              "bridge_in_pending": 0, "bridge_in_manual": 0})
     def chunk(self, e, asset, loc, qty, basis):
         self.seq += 1; c = _Chunk(qty, basis, e.key(), self.seq, e.nft); self.pools.setdefault((asset, loc), []).append(c)
         if basis is not None: self.A(asset)["A"] += basis
@@ -112,7 +113,28 @@ def ledger_side(rows: List, mark: Callable, nft_mark: Callable, as_of_block: int
             "gas_share_on_pending_acquisitions": L.gas_on_pending, "unexplained_gap": gap, "open_qty": open_qty,
             "ledger_net_qty": {a: q for a, q in net.items() if q != 0}, "rows": len(live)}
 
+def _refund_net(es: list) -> list:
+    """P4.1 rulings 3, written independently of the engine: per (asset, category), the tx's refund in-legs (ref 'eth_refund') are
+    summed and taken off the out-legs of that asset and category, oldest leg first; the refund rows themselves leave."""
+    from dataclasses import replace
+    ref = {}
+    for e in es:
+        if e.ref == "eth_refund" and e.qty > 0: ref[(e.asset, e.category)] = ref.get((e.asset, e.category), D0) + e.qty
+    if not ref: return es
+    keep = []
+    for e in es:
+        if e.ref == "eth_refund" and e.qty > 0: continue
+        k = (e.asset, e.category); r = ref.get(k, D0)
+        if r and e.qty < 0:
+            t = min(r, -e.qty); ref[k] = r - t; e = replace(e, qty=e.qty + t)
+            if e.qty == 0: continue
+        keep.append(e)
+    left = {k: v for k, v in ref.items() if v}
+    if left: raise ValueError(f"ETH refund with no ETH sent left to net in its tx: {left}")
+    return keep
+
 def _tx(L: Ledger, es: list):
+    es = _refund_net(es)
     # 1 custody legs: pair out/in (asset, category, |qty|, ref); the balance moves location, nothing is realized
     cus = [e for e in es if e.category in CUSTODY]; ins = [e for e in cus if e.qty > 0]
     for n in [e for e in cus if e.qty < 0]:
@@ -172,6 +194,9 @@ def _tx(L: Ledger, es: list):
             if e.category in TRADE:
                 if v is None and sum(1 for x in ins_ if _v(x) is None) == 1: v = other(outs)
                 acq.append((e, L.chunk(e, e.asset, e.location, e.qty, v)))
+            elif e.category == "bridge_in" and (e.ref or "").split(";")[0].startswith("bridge_in:"):
+                L.chunk(e, e.asset, e.location, e.qty, e.manual_basis)   # P4.1 rulings 4: pending (unknown) unless manual_basis
+                L.A(e.asset)["bridge_in_pending" if e.manual_basis is None else "bridge_in_manual"] += 1
             elif e.category in ("income", "bridge_in"): L.chunk(e, e.asset, e.location, e.qty, v)
             elif e.category == "deposit": L.chunk(e, e.asset, e.location, e.qty, None)          # Q-B: unknown basis
             elif e.category == "gift_in": L.chunk(e, e.asset, e.location, e.qty, D0)

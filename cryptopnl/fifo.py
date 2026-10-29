@@ -24,7 +24,7 @@ Decided rules (not hooks): custody moves (escrow_out/return, equip parcel:, pock
 at FMV (§3); free craft = basis 0, not income (§9 r3); migration_in keeps the carried/manual basis, else pending with a NULL
 source (§8); gift_in = basis 0, flagged (§9 r1); spend = disposal at market value plus an expense (§9 r9)."""
 from __future__ import annotations
-import copy, hashlib, json
+import copy, dataclasses, hashlib, json
 from dataclasses import dataclass, field, asdict
 from decimal import Decimal
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -352,7 +352,16 @@ def _generic(st: State, p: Policy, legs: List[Entry]):
                 if p.need("deposit", f"entry {e.id}: {e.asset} deposited from an outside address") == "acquire_fmv":
                     opened.append(_open(st, e, e.qty, v, src, lab, "deposit"))
                 else: opened.append(_open(st, e, e.qty, None, None, None, "deposit", status="pending", pending_reason="deposit"))
-            elif e.category == "bridge_in": opened.append(_open(st, e, e.qty, v, src, lab, "bridge_in"))
+            elif e.category == "bridge_in" and _refs(e.ref) and _refs(e.ref)[0].startswith("bridge_in:"):
+                # P4.1 rulings 4: an ETH bridge-in (Hop / Mayan / Across fill) is custody from another chain, never income: a pending
+                # lot (basis_origin bridge_in, source chain when the bridge event gives it) until the source is tracked (P6) or manual_basis
+                co = _bridge_chain(e.ref)
+                if e.manual_basis is not None:
+                    opened.append(_open(st, e, e.qty, e.manual_basis, "manual", LOW, "bridge_in", status="manual", chain_origin=co,
+                                        manual_basis_id=e.manual_basis_id, basis_origin="bridge_in"))
+                else: opened.append(_open(st, e, e.qty, None, None, None, "bridge_in", status="pending", pending_reason="bridge_in",
+                                          chain_origin=co, basis_origin="bridge_in"))
+            elif e.category == "bridge_in": opened.append(_open(st, e, e.qty, v, src, lab, "bridge_in"))   # CCTP USDC at par (§8)
             elif e.category == "gift_in": opened.append(_open(st, e, e.qty, Decimal(0), "gift", LOW, "gift"))   # §9 r1: basis 0, flagged
             elif e.category == "migration_in":   # §8: custody, never income; carried basis, else manual (low), else pending
                 if e.carry_basis is not None:
@@ -398,7 +407,28 @@ def _fees(st: State, p: Policy, fees: List[Entry], opened: List[Lot], sales: Lis
             for d, sh in zip(sal, _split(v, [d.proceeds for d in sal])):
                 d.proceeds = None if sh is None else d.proceeds - sh
 
+def _bridge_chain(ref: Optional[str]) -> Optional[int]:
+    """'bridge_in:<bridge>[:<source chain id>[:<source tx>]]' -> source chain id or None."""
+    parts = (_refs(ref) or [""])[0].split(":")
+    return int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
+
+REFUND = "eth_refund"
+def _net_refunds(legs: List[Entry]) -> List[Entry]:
+    """P4.1 rulings 3: a refund in-leg (ref 'eth_refund': excess ETH a router / LayerZero / Rubic returned in the same tx) lowers the
+    quantity of the ETH sent in that tx (the first out-leg of the same asset and category, ledger order). It is not a new lot.
+    No such out-leg, or a refund larger than it -> FifoError (classification sends those txs to review)."""
+    rs = [e for e in legs if e.ref == REFUND and e.qty > 0]
+    if not rs: return legs
+    ids = {e.id for e in rs}; out = [e for e in legs if e.id not in ids]
+    for r in rs:
+        k = next((j for j, e in enumerate(out) if e.asset == r.asset and e.category == r.category and e.qty < 0 and e.ref != REFUND), None)
+        if k is None: raise FifoError(f"entry {r.id}: ETH refund without ETH sent in the same tx ({r.category})")
+        if -out[k].qty < r.qty: raise FifoError(f"entry {r.id}: refund {r.qty} larger than the {-out[k].qty} sent (entry {out[k].id})")
+        out[k] = dataclasses.replace(out[k], qty=out[k].qty + r.qty)
+    return [e for e in out if e.qty != 0]
+
 def _tx(st: State, p: Policy, legs: List[Entry]):
+    legs = _net_refunds(legs)
     live = []
     for e in legs:
         if e.excluded or e.category in EXCLUDED_FLAGS or e.flag in EXCLUDED_FLAGS:
