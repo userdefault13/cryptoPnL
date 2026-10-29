@@ -19,8 +19,7 @@ REORG_CHECK_BLOCKS = 64                                     # max stored blocks 
 REORG_WINDOW = int(os.environ.get("REORG_WINDOW", "10000"))  # only blocks within cursor-WINDOW can still reorg (Base finalizes << 10k blocks)
 
 def _topics():
-    import os as _o
-    f = _o.path.join(_o.path.dirname(__file__), "..", "verify", "marketplace_topics.txt")
+    f = os.path.join(os.path.dirname(__file__), "..", "verify", "marketplace_topics.txt")
     return {l.split()[0]: l.split()[1].split("(")[0] for l in open(f) if l.strip()}
 MARKET_TOPICS = _topics()
 # S1b replacement (DESIGN v1.0): Baazaar (Aavegotchi Diamond) + GBM diamond logs via HyperSync
@@ -30,10 +29,9 @@ MARKETPLACE = {8453: {"source": "hypersync_market", "start_block": 33315000,
 # Gated assets live in config/allowlist.txt (architect review on PR #1).
 
 def _allow():
-    import os as _o
-    f = _o.path.join(_o.path.dirname(__file__), "..", "config", "allowlist.txt")
+    f = os.path.join(os.path.dirname(__file__), "..", "config", "allowlist.txt")
     out = {}
-    if _o.path.exists(f):
+    if os.path.exists(f):
         for l in open(f):
             l = l.split("#")[0].split()
             if len(l) >= 2: out.setdefault(int(l[0]), set()).add(l[1].lower())

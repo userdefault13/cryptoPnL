@@ -129,7 +129,7 @@ def pocket_report(conn, chain, path=None):
         else: x["out"] -= qty
     flags = [l for (d,) in conn.execute("SELECT detail FROM review_queue WHERE chain_id=%s AND reason='pocket_owner_mismatch'", (chain,)) for l in d["legs"]]
     out = {"assets": {k: {kk: str(vv) for kk, vv in v.items()} for k, v in sorted(q.items())},
-           "pocket_owner_mismatch": {"legs": len(flags), "by_why": dict(sorted(defaultdict(int, {}).items()))}}
+           "pocket_owner_mismatch": {"legs": len(flags)}}
     bw = defaultdict(int)
     for f in flags: bw[f["why"]] += 1
     out["pocket_owner_mismatch"]["by_why"] = dict(bw)
