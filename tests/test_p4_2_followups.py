@@ -59,4 +59,30 @@ class EvidenceHasNoHomePaths(unittest.TestCase):   # P4.2: evidence paths carry 
             with open(os.path.join(d, n), "rb") as f: b = f.read().lower()
             self.assertNotIn(b"julius", b, n)
 
+class SeedRankCheckScript(unittest.TestCase):   # scripts/p4_2_seed_rank_check.py on SYNTHETIC rows of a synthetic chain (unit DB)
+    CH = 999002
+    def setUp(self):
+        from cryptopnl import db
+        self.c = db.connect(); db.migrate(self.c); self.tearDown()
+        self.a = self.c.execute("INSERT INTO asset(chain_id, contract, standard, symbol, decimals) VALUES (%s,'\\x0a','erc20','SYN',18) RETURNING id", (self.CH,)).fetchone()[0]
+    def tearDown(self):
+        self.c.rollback()
+        for t in ("ledger_entry", "price_point", "asset"): self.c.execute(f"DELETE FROM {t} WHERE chain_id=%s", (self.CH,))
+        self.c.commit()
+    def pp(self, block, src, px):
+        return self.c.execute("""INSERT INTO price_point(asset_id,chain_id,block_number,ts,price_usdc,source,confidence_label,detail)
+            VALUES (%s,%s,%s,now(),%s,%s,'high','{}') RETURNING id""", (self.a, self.CH, block, px, src)).fetchone()[0]
+    def run_check(self):
+        import importlib.util
+        f = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "p4_2_seed_rank_check.py")
+        sp = importlib.util.spec_from_file_location("seed_rank_check", f); m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
+        return m.check(self.c, self.CH)
+    def test_no_change_when_the_later_point_ranks_first(self):
+        self.pp(10, "dex_reserves_thin", "0.4"); self.pp(10, "dex_slot0", "0.5"); self.pp(11, "dex_slot0", "0.6")
+        r = self.run_check(); self.assertEqual((r["asset_blocks"], r["asset_blocks_with_several_points"], r["choice_changed"], r["verdict"]), (2, 1, 0, "no change"))
+    def test_change_reported_when_a_later_point_ranks_lower(self):
+        d = self.pp(10, "dex_slot0", "0.5"); t = self.pp(10, "dex_reserves_thin", "0.4")
+        r = self.run_check(); self.assertEqual((r["choice_changed"], r["verdict"]), (1, "CHANGE"))
+        self.assertEqual((r["changes"][0]["old"]["id"], r["changes"][0]["new"]["id"]), (t, d))
+
 if __name__ == "__main__": unittest.main()
