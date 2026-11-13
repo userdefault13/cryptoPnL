@@ -413,7 +413,7 @@ the ledger PG (5442) in P4.2; no RPC, no HyperSync.
   order (`tx_hash, log_index, asset_id, location, qty, trace_address`). Excluded: `price_confidence` (float; its label carries it) and
   `price_id` (surrogate key); there is no `value_usdc` column. **Baseline `7caed4d25458c2659ac8b18df9f4b862` over 1647 rows** on
   `cryptopnl_p41_base` after the RF pass (computed read-only on 2026-10-28 with the same expression; the pre-pass state hashes to
-  `c30df359f24cea803939bfb95c320b7e`). To be re-confirmed by the first p4_test run with this code.
+  `c30df359f24cea803939bfb95c320b7e`). **Re-confirmed** on 2026-11-13 (canonical p4_test, see §13b).
 - **p4_test gates:** v2 stays the STRUCTURAL gate (`EXP_LEDGER_MD5_V2`, `EXP_LEDGER_ROWS`); new VALUED gate `EXP_LEDGER_MD5_V2_VALUED`
   (required, no default). GHST pocket gate: a missing gate now FAILS, and in == out is pinned to `EXP_GHST_POCKET_WEI`
   (default 652629999999999997500) via `pockets.ghst_gate_error`.
@@ -423,10 +423,8 @@ the ledger PG (5442) in P4.2; no RPC, no HyperSync.
   tier 2; within a step, the PRICE_POOLS position; ties keep price_point.id order. It used to keep the highest id. Sources outside
   the price order (e.g. defillama) are dropped, not ranked last. **Fallthrough points** (`skipped_pools[*].why == "error"`) are
   skipped and counted as seed misses (priced live or left unpriced, never 0); `scripts/p4_2_seed_rank_check.py` reports
-  `fallthrough_points`. Known P3 GHST candidates: blocks 42297928 and 43748241 (not yet counted on canon).
-  Whether rank or the fallthrough skip picks a different stored point anywhere on the canonical ledger is **not yet known** (needs the DB):
-  `scripts/with_ledger_pg.sh env CRYPTOPNL_DSN="dbname=cryptopnl_p41_base" .venv/bin/python scripts/p4_2_seed_rank_check.py 8453
-  --out docs/evidence/p4_2_seed_rank_check_8453.json` (read-only, 0 RPC). Any `choice_changed` > 0 is a CHANGE, not a pass.
+  `fallthrough_points`. Known P3 GHST candidates: blocks 42297928 and 43748241.
+  Canonical check 2026-11-13: **CHANGE** (`docs/evidence/p4_2_seed_rank_check_8453.json`). See §13b.
 - Nits: stale return-of-capital line removed (DESIGN §8 PTD ruling); `unpriced_reason` docstring is live again; second `os` import
   (config) and the dead `defaultdict` (pockets.pocket_report) removed; migration 015 up/down/up test (`scripts/p4_migration_test.sh`,
   scratch DBs `cryptopnl_p4_migtest*` only; `docs/evidence/p4_2_migration_test.txt`: PASS); unit-test NET_REQLOG lines kept out
@@ -434,3 +432,28 @@ the ledger PG (5442) in P4.2; no RPC, no HyperSync.
   test_retry_after_full removed); personal home path scrubbed from two old evidence files. Not done (P6): per-block gotchi owners (pockets.py).
 - **Unit suite:** 331 tests OK, 18 skipped (the scratch-only migration tests; they pass in p4_migration_test.sh), on a scratch unit DB
   on the MBP local Postgres (`cryptopnl_unit_p42`; not the ledger PG).
+
+### 13b. Canonical P4.2 run (omarchywin, 2026-11-13 ~10:15–10:18 PT)
+abra was unlocked at 10:13 AM PT (`unlock: abra-agent holds the key`, rc 0). Worktree `~/dev/cryptoPnL-p41` at **ae601fa**,
+read-only on chain, ledger PG 5442 only. Evidence under `docs/evidence/`. This is **not** a pass of the seed-rank check.
+
+- **Seed-rank check** (read-only, 0 RPC) on `cryptopnl_p41_base`: `verdict=CHANGE`, `choice_changed=1`,
+  `fallthrough_points=1`, `seed_misses=1` (from a follow-up `Pricer.seed(stored_points)` on the same DB; the JSON has no
+  `seed_misses` key). `stored_points=692`, `asset_blocks=691`, `ledger_rows_on_a_changed_choice=1`.
+  The one change is GHST (`0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb`) at **block 42297928**:
+  old (highest id) price_point **1303** `dex_reserves` 0.10310369434393438633… (this is the fallthrough point:
+  `skipped_pools` why=error on both configured GHST pools); new (skip fallthrough) price_point **512** `dex_slot0`
+  0.10337491617138329985…. The ledger row still priced from 1303 is **entry 40626** (withdrawal, −30 GHST).
+  **Block 43748241 is not a fallthrough** (one `dex_slot0` point, id 590; `skipped_pools` why=`empty`, not `error`) and
+  does not appear in `changes`. p4_test did not re-price, so the valued md5 still matches the stored (old) prices;
+  applying the new seed to entry 40626 would be a price CHANGE. Baselines were not adjusted.
+- **p4_test** `scripts/p4_test.sh 8453 cryptopnl_p41_base cryptopnl_p4_2_run`
+  (`docs/evidence/p4_2_canon_p4_test.log`): **P4 PASS chain 8453 (25 s)**.
+  v2 `eaead37d4a6b3e7e678f5b375cc8b6fd` and v2_valued `7caed4d25458c2659ac8b18df9f4b862` over 1647 rows: OK.
+  Rebuild = incremental from block 38945509, engine `7a6a6b3ed4bd60ca44bbd6b49ac7c695`, 356 lots, 770 disposals.
+  Reconcile: acceptance PASS, identity_pass true, **total_residual=0**, failures [], exits 50, **no unexplained gap**
+  (ETH 0, GHST 0). GHST pocket in = out = 652629999999999997500 wei. Snapshots byte-identical
+  `f8034ab700c7e1567141f8c2bf0b5855`. The script is offline (no HyperSync, no RPC); this run did not attach a NET_REQLOG.
+- **Unit suite** on 5442 scratch DB `cryptopnl_unit_p41c` (created for the run; not a ledger copy):
+  **328 tests OK, 11 skipped** in 81.070 s (`docs/evidence/p4_2_unit_suite_5442.log`). The skipped tests are the
+  scratch-only migration tests (they pass in `scripts/p4_migration_test.sh` on a local PG).
