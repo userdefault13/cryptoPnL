@@ -114,10 +114,10 @@ class SeedRankCheckScript(unittest.TestCase):   # scripts/p4_2_seed_rank_check.p
         return m.check(self.c, self.CH)
     def test_no_change_when_the_later_point_ranks_first(self):
         self.pp(10, "dex_reserves_thin", "0.4"); self.pp(10, "dex_slot0", "0.5"); self.pp(11, "dex_slot0", "0.6")
-        r = self.run_check(); self.assertEqual((r["asset_blocks"], r["asset_blocks_with_several_points"], r["choice_changed"], r["verdict"], r["fallthrough_points"]), (2, 1, 0, "no change", 0))
+        r = self.run_check(); self.assertEqual((r["asset_blocks"], r["asset_blocks_with_several_points"], r["choice_changed"], r["verdict"], r["fallthrough_points"], r["seed_misses"]), (2, 1, 0, "no change", 0, 0))
     def test_change_reported_when_a_later_point_ranks_lower(self):
         d = self.pp(10, "dex_slot0", "0.5"); t = self.pp(10, "dex_reserves_thin", "0.4")
-        r = self.run_check(); self.assertEqual((r["choice_changed"], r["verdict"], r["fallthrough_points"]), (1, "CHANGE", 0))
+        r = self.run_check(); self.assertEqual((r["choice_changed"], r["verdict"], r["fallthrough_points"], r["seed_misses"]), (1, "CHANGE", 0, 0))
         self.assertEqual((r["changes"][0]["old"]["id"], r["changes"][0]["new"]["id"]), (t, d))
 
     def test_fallthrough_points_counted_and_not_chosen(self):
@@ -126,7 +126,7 @@ class SeedRankCheckScript(unittest.TestCase):   # scripts/p4_2_seed_rank_check.p
         ft = self.pp(10, "dex_slot0", "0.6", {"pool": "0x" + "bb" * 20, "skipped_pools": [{"pool": "0x" + "aa" * 20, "why": "error"}]})
         only = self.pp(11, "dex_slot0", "0.7", {"pool": "0x" + "bb" * 20, "skipped_pools": [{"pool": "0x" + "aa" * 20, "why": "error"}]})
         r = self.run_check()
-        self.assertEqual((r["fallthrough_points"], r["choice_changed"], r["verdict"]), (2, 2, "CHANGE"))
+        self.assertEqual((r["fallthrough_points"], r["seed_misses"], r["choice_changed"], r["verdict"]), (2, 2, 2, "CHANGE"))
         blocks = {c["block"]: c for c in r["changes"]}
         self.assertEqual((blocks[10]["old"]["id"], blocks[10]["new"]["id"]), (ft, thin))  # old: highest id; new: skips fallthrough
         self.assertIsNone(blocks[11]["new"]); self.assertEqual(blocks[11]["old"]["id"], only)  # new leaves the block unseeded
