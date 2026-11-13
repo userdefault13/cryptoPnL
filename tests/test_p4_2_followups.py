@@ -72,17 +72,26 @@ class NoTestLinesInReqlog(unittest.TestCase):   # P4.2: fake requests in the uni
         self.assertEqual(r.returncode, 0, r.stderr[-2000:]); self.assertEqual(open(f).read(), "")
     def test_committed_reqlogs_hold_real_sources_only(self):
         d = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "evidence")
-        for n in ("p4_1_reqlog.txt", "p4_1_rf_price_reqlog.txt"):
-            for l in open(os.path.join(d, n)):
+        names = sorted(n for n in os.listdir(d) if "req" in n.lower())
+        self.assertTrue(names, "no *req* evidence files")
+        seen = 0
+        for n in names:
+            for i, l in enumerate(open(os.path.join(d, n)), 1):
+                if not l.strip() or l.startswith("=="): continue   # section headers in p4_1_canon_reqlogs.txt
                 ts, src = l.split()[:2]
-                self.assertIn(src, ("rpc", "hypersync", "blockscout", "defillama"), (n, l)); self.assertGreater(float(ts), 1.7e9, (n, l))
+                self.assertIn(src, ("rpc", "hypersync", "blockscout", "defillama"), (n, i, l)); self.assertGreater(float(ts), 1.7e9, (n, i, l))
+                seen += 1
+        self.assertGreater(seen, 0)
 
-class EvidenceHasNoHomePaths(unittest.TestCase):   # P4.2: evidence paths carry no personal name (paths use ~ or user_default)
-    def test_no_name_in_evidence(self):
-        d = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "evidence")
-        for n in sorted(os.listdir(d)):
-            with open(os.path.join(d, n), "rb") as f: b = f.read().lower()
-            self.assertNotIn(b"julius", b, n)
+class DocsHaveNoPersonalName(unittest.TestCase):   # P4.2: repo docs and evidence carry no personal name (paths use ~ or user_default)
+    def test_no_name_in_docs_or_evidence(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        import subprocess
+        files = subprocess.check_output(["git", "ls-files", "*.md", "docs/evidence"], cwd=root).decode().split()
+        self.assertTrue(any(f.endswith("P0_REPORT.md") for f in files) and any(f.startswith("docs/evidence/") for f in files))
+        for rel in files:
+            with open(os.path.join(root, rel), "rb") as f: b = f.read().lower()
+            self.assertNotIn(b"julius", b, rel)
 
 class SeedRankCheckScript(unittest.TestCase):   # scripts/p4_2_seed_rank_check.py on SYNTHETIC rows of a synthetic chain (unit DB)
     CH = 999002
