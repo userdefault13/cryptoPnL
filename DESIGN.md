@@ -335,8 +335,7 @@ Inflow fix for the ETH unexplained gap found in P4 (sources: docs/P4_1_SOURCES.m
    amounts by voting power (pgendreau/aavegotchi-ptd, 1111 ETH total). A DAO reward/distribution → **income at FMV**.
    **Ruling (architect, 2026-10-28 18:18 PT):** kept as income at FMV, tagged `income_subtype = dao_distribution` and
    `source_ref = 0xf50326e1a6c6949cc390c4efe8ea538e29a4fa11` (the PTD MerkleDistributor; `config.INTERNAL_ETH[...]["distribution_subtype"]`,
-   ledger_entry columns in migration 015). The report shows it as its own income line (`income_lines` in the P4 output; lines sum to
-   income_usdc). No return-of-capital path is built: that treatment is user_default's decision.
+   ledger_entry columns in migration 015). The report shows it as its own income line (`income_lines` in the P4 output; lines sum to income_usdc).
    **FINAL (option a, user_default 2026-10-28 19:54 PT, via the architect): the whole 1.0141283024 ETH claim is income.** One ETH lot
    at FMV (the P3 price at the claim block; pending `no_price` if unpriced, never 0) and income at FMV in the income total, tagged
    `income_subtype = dao_distribution`, `source_ref = 0xf50326e1…`, its own income line. No return-of-capital, RF split or

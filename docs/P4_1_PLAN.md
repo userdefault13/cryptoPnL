@@ -77,7 +77,7 @@ never unlocked here), so the canonical run waits and everything below runs on th
 (= `cryptopnl_p22_base` + migrations 009–015 + the 553 stored P3 price points of `cryptopnl_p3_base`).
 - **I1 internal ETH ingest** (`python -m cryptopnl.internal_eth`, RPC 30/min, cap 40). *Not counted in this file before it ran* (cap set in
   the command only; noted here afterwards): expected 0–16 new (balances and step-1 traces are cached; the 16 wallet-sent 7702 self-calls are
-  traced always). **Used: 14 new requests**, 160 cached, 0 errors.
+  traced always). **Used: 14 new requests (18 attempts: 4 HTTP 408, each retried OK)**, 160 cached, 0 errors.
 - **P1 re-price after re-classify** (`cryptopnl price --seed-only`): stored points answer 507 of 542 (asset, block) pairs; the 35 others
   (alchemica / GHST blocks with no stored point) stay unpriced on this copy. **Expected RPC: 0.**
 - **M1 marks at as_of** (`cryptopnl marks`, as_of = the copy's last ledger block 52112861): ETH (2–3 calls), GHST (routed, ≤ 6), each
@@ -86,9 +86,9 @@ never unlocked here), so the canonical run waits and everything below runs on th
   **H3** GHST Transfer logs into / out of the 20 pockets (HyperSync, 2–6 requests, cap 8); I1 on the canonical DB over the cache
   (new range 52112862–52911467: ≤ 120 RPC); P1 seeded from the canonical price_point (≤ 20); M1 at the canonical last block (≤ 60).
   Total canonical RPC cap 250.
-- **Actuals (MBP, non-canonical, 18:00–18:08 PT):** P1 0 RPC (613 seed hits). M1 **12 + 12 = 24 RPC** (the second run re-checked the
+- **Actuals (MBP, non-canonical, 17:52–18:01 PT):** P1 0 RPC (613 seed hits). M1 **12 + 12 = 24 RPC** (the second run re-checked the
   held rule after the any-location fix; marks are not cached), 0 errors, under the cap of 80. I1 re-run after the log_index fix: 0 new
-  (174 cached). HyperSync this round: **0**. RPC this round total: **38** (14 + 24).
+  (174 cached). HyperSync this round: **0**. RPC this round total: **38 requests (42 attempts)**.
 
 ## Canonical round (abra unlocked, 20:03 PT): request budget (written before running)
 - Name check (`XDG_RUNTIME_DIR` set, `abra ls cryptoPnL`, names only): **CRYPTOPNL_LEDGER_PG_PASSWORD is missing**; the project holds

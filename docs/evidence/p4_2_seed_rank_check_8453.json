@@ -1,0 +1,28 @@
+{
+ "asset_blocks": 691,
+ "asset_blocks_with_several_points": 1,
+ "chain_id": 8453,
+ "changes": [
+  {
+   "asset": "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb",
+   "block": 42297928,
+   "new": {
+    "id": 512,
+    "price": "0.10337491617138329985282818537904815240952026719083",
+    "source": "dex_slot0"
+   },
+   "old": {
+    "id": 1303,
+    "price": "0.10310369434393438633020614768090950431959232983462",
+    "source": "dex_reserves"
+   }
+  }
+ ],
+ "choice_changed": 1,
+ "choice_changed_same_price": 0,
+ "fallthrough_points": 1,
+ "ledger_rows_on_a_changed_choice": 0,
+ "seed_misses": 1,
+ "stored_points": 692,
+ "verdict": "CHANGE"
+}

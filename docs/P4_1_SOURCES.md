@@ -272,11 +272,13 @@ with the same selector `0x729ad39e` (a batch "airdrop" entry point), from an EOA
 3. **The name of the ETH distributor 0xf50326e1….** Public explorer pages show `Claimed(address,uint256)` and many claimants; the program behind it is not established.
 4. **ETH after block 52112861.** Not probed (outside as_of).
 
-## 4. Requests used (all attempts, from `logs/p4_1_reqlog.txt`)
+## 4. Requests used in step 1 (17:29–17:40 PT, 2026-10-28; first 378 lines of docs/evidence/p4_1_reqlog.txt)
 | source | planned cap | used |
 |---|---|---|
 | HyperSync | 28 | **1** (HTTP 403; not retried) |
 | RPC base.drpc.org (30/min, 1.5 s gap, host lock) | 370 | **187** attempts: 167 OK, 16 HTTP 400 (wide `eth_getLogs`, abandoned), 4 HTTP 408 retried |
 | Blockscout | 30 | **2** (both 403 Cloudflare: 1 urllib, 1 curl) |
+
+The committed docs/evidence/p4_1_reqlog.txt holds 229 RPC attempts: these 187 plus 42 from the P4.1 implementation round on the MBP copy (17:52–18:01 PT; I1 14 OK + 4 HTTP 408 each retried OK, M1 12 + 12). No 429s.
 
 The request log records outcomes only, not methods. By design the RPC calls were `eth_getBalance` probes, tx/receipt/block reads, and `debug_traceTransaction` on candidate txs only. None used a key.

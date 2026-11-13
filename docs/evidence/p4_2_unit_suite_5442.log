@@ -1,0 +1,123 @@
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/001_init.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/002_global_cursor.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/003_parent_scan.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/004_ledger.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/005_p2_review.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/006_p2_decisions.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/008_p2_2_gotchiverse.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/009_p3_pricing.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/010_p3_low_confidence.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/011_p3_price_run.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/012_p3_price_run_retries.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/013_p4_fifo.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/014_p4_rulings3.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/db.py:12: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../migrations/015_p4_1_inflows.sql' mode='r' encoding='UTF-8'>
+  conn.execute(open(f).read()); conn.execute("INSERT INTO schema_migrations(name) VALUES (%s)", (n,)); applied.append(n)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...../home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a2967e10> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+..................................................................................................................s.../usr/lib/python3.14/tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 429: 'x'>
+  _warnings.warn(self.warn_message, ResourceWarning)
+...../usr/lib/python3.14/tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 429: 'Too Many'>
+  _warnings.warn(self.warn_message, ResourceWarning)
+......./home/user_default/dev/cryptoPnL-p41/tests/test_ledger_md5.py:98: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmplybi5il7/docs/evidence/p4_ledger_md5_999001.txt' mode='r' encoding='UTF-8'>
+  evidence.write_ledger_md5(self.c, C, p); first = open(p).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/tests/test_ledger_md5.py:99: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmplybi5il7/docs/evidence/p4_ledger_md5_999001.txt' mode='r' encoding='UTF-8'>
+  evidence.write_ledger_md5(self.c, C, p); self.assertEqual(open(p).read(), first)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......./home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e3f20> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+............../home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a314f200> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+/home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e2f30> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+/home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e2b70> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+/home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e2a80> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+/home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e35c0> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+/home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e3890> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+/home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e3b60> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+................./usr/lib/python3.14/tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 408: 'x'>
+  _warnings.warn(self.warn_message, ResourceWarning)
+................................./usr/lib/python3.14/tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 400: 'x'>
+  _warnings.warn(self.warn_message, ResourceWarning)
+/usr/lib/python3.14/tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 403: 'x'>
+  _warnings.warn(self.warn_message, ResourceWarning)
+................................................../home/user_default/dev/cryptoPnL-p41/tests/test_p4_2_followups.py:79: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/docs/evidence/p3_net_requests_8453.log' mode='r' encoding='UTF-8'>
+  for i, l in enumerate(open(os.path.join(d, n)), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/tests/test_p4_2_followups.py:79: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/docs/evidence/p3_rerun_408_net_requests_8453.log' mode='r' encoding='UTF-8'>
+  for i, l in enumerate(open(os.path.join(d, n)), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/tests/test_p4_2_followups.py:79: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/docs/evidence/p3_rerun_c1_net_requests_8453.log' mode='r' encoding='UTF-8'>
+  for i, l in enumerate(open(os.path.join(d, n)), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/tests/test_p4_2_followups.py:79: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/docs/evidence/p4_1_canon_reqlogs.txt' mode='r' encoding='UTF-8'>
+  for i, l in enumerate(open(os.path.join(d, n)), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/tests/test_p4_2_followups.py:79: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/docs/evidence/p4_1_reqlog.txt' mode='r' encoding='UTF-8'>
+  for i, l in enumerate(open(os.path.join(d, n)), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/tests/test_p4_2_followups.py:79: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/docs/evidence/p4_1_rf_price_reqlog.txt' mode='r' encoding='UTF-8'>
+  for i, l in enumerate(open(os.path.join(d, n)), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/user_default/dev/cryptoPnL-p41/tests/test_p4_2_followups.py:72: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmpz529vedo/reqlog.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual(r.returncode, 0, r.stderr[-2000:]); self.assertEqual(open(f).read(), "")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+........./home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e3980> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+......../home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e3890> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+.....ssssssssss......./usr/lib/python3.14/unittest/case.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/dev/null' mode='w' encoding='UTF-8'>
+  result = method()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......./home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e35c0> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+....................../home/user_default/dev/cryptoPnL-p41/cryptopnl/config.py:23: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../verify/marketplace_topics.txt' mode='r' encoding='UTF-8'>
+  return {l.split()[0]: l.split()[1].split("(")[0] for l in open(f) if l.strip()}
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user_default/dev/cryptoPnL-p41/cryptopnl/config.py:35: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/user_default/dev/cryptoPnL-p41/cryptopnl/../config/allowlist.txt' mode='r' encoding='UTF-8'>
+  for l in open(f):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a2d247d0> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+/home/user_default/dev/cryptoPnL-p3/.venv/lib/python3.14/site-packages/psycopg/_connection_base.py:153: ResourceWarning: <psycopg.Connection object at 0x7f30a29e3c50> was deleted while still open. Please use 'with' or '.close()' to close the connection properly
+  __warn(
+.
+----------------------------------------------------------------------
+Ran 328 tests in 81.070s
+
+OK (skipped=11)
+
+  two procs: 16 starts in 9.1s, max per 2s window = 5

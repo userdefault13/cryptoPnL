@@ -1,4 +1,4 @@
-# P0 Introspection Report (rerun 2026-10-15 ~15:30 PT, Julius's MBP, branch p0-introspection, read-only)
+# P0 Introspection Report (rerun 2026-10-15 ~15:30 PT, user_default's MBP, branch p0-introspection, read-only)
 Docs: DESIGN.md **v0.6**, ENVIO_TOKEN_INDEXER.md **v0.5** (copied from the box; repo was empty, so nothing was overwritten). §4 = DESIGN.md "P0 Spike" done-when.
 
 ## Keys (MBP env + ~/.zshrc, presence only)
@@ -33,7 +33,7 @@ abra project `cryptoPnL` holds BASE_RPC_URL (from AarcadeGh-t JUICEBOX_RPC_BASE)
 - **HyperSync (token): PASS.** 5 real queries (GHST Transfer logs, last 200k blocks): all 200, ~1.0–1.4 s each, 5,060 logs over ~40k blocks scanned. Headers: `x-ratelimit-limit: 15000;w=60`, `x-ratelimit-cost: 1000` per query → **≈15 queries/min budget per token** (shared with the existing stacks: remaining was 7000 after our 5, so about 3000 was used elsewhere in the window). This is below the 29 req/min cap. The ENVIO doc's 18 RPM throttle assumption should be revised to ≤15.
 - **HyperSync traces:** a query returned 200 with 0 rows for the last 10 blocks → probably not served on Base (inconclusive).
 
-## Free-RPC decision (2026-10-15 ~21:40 PT; Julius: no paid RPC/Etherscan) — verify/rpcs.py
+## Free-RPC decision (2026-10-15 ~21:40 PT; user_default: no paid RPC/Etherscan) — verify/rpcs.py
 | RPC | archive eth_call (blk 3M, 10M) | eth_getLogs (GHST Transfer) |
 |---|---|---|
 | mainnet.base.org | OK (~0.3–0.4 s) | 429 -32011 at every range (1k–100k) |

@@ -1,6 +1,10 @@
 """post_json retries dropped connections with exponential backoff (offline; urlopen stubbed)."""
-import http.client, io, json, ssl, unittest, urllib.error, urllib.request
+import http.client, io, json, os, ssl, unittest, urllib.error, urllib.request
+from unittest import mock
 from cryptopnl import net
+
+def no_reqlog(tc):   # P4.2: these calls are fake; never append them to an inherited NET_REQLOG (it feeds evidence files)
+    p = mock.patch.dict(os.environ); p.start(); tc.addCleanup(p.stop); os.environ.pop("NET_REQLOG", None)
 
 class Lim:
     def wait(self): pass
@@ -10,7 +14,7 @@ class Resp(io.BytesIO):
     def __exit__(self, *a): return False
 
 class TestConnRetry(unittest.TestCase):
-    def setUp(self): self._u = urllib.request.urlopen
+    def setUp(self): self._u = urllib.request.urlopen; no_reqlog(self)
     def tearDown(self): urllib.request.urlopen = self._u
     def _run(self, errors):
         seq = list(errors); sleeps = []
@@ -34,7 +38,7 @@ class TestConnRetry(unittest.TestCase):
 
 class TestPermanent(unittest.TestCase):
     """DESIGN v1.2 §8: permanent errors (SSL certificate failures) are not retried."""
-    def setUp(self): self._u = urllib.request.urlopen
+    def setUp(self): self._u = urllib.request.urlopen; no_reqlog(self)
     def tearDown(self): urllib.request.urlopen = self._u
     def _calls(self, exc):
         n = []; sleeps = []

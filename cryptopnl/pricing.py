@@ -40,6 +40,10 @@ class DefiLlama:
             self.cache[key] = out
         return self.cache[key]
 
+def is_fallthrough(p):
+    """Stored DEX point taken after an earlier pool in the order errored (detail.skipped_pools[*].why == "error")."""
+    return any((x or {}).get("why") == "error" for x in (p.detail or {}).get("skipped_pools") or [])
+
 class Pricer:
     def __init__(self, chain, rpc, api=None, swaps=None):
         self.chain, self.rpc, self.api = chain, rpc, api
@@ -53,8 +57,31 @@ class Pricer:
     def seed(self, points):
         """P4.1 (re-pricing after a re-classify without repeating RPC): stored P3 points [(contract | None for native, block, Price)]
         answer price() before any RPC. The price order is deterministic, so a stored point IS that order's result at the block;
-        only (asset, block) pairs with no stored point are priced live. Counted in seed_hits."""
-        self.seeded = {(self.weth if c is None else c.lower(), b): p for c, b, p in points}; self.seed_hits = 0; self.seed_misses = 0
+        only (asset, block) pairs with no stored point are priced live. Counted in seed_hits.
+        Fallthrough points (detail.skipped_pools[*].why == "error": an earlier pool errored and a later pool was used) are skipped
+        and each counts as a seed miss: that (asset, block) is priced live or left unpriced, never 0. A fallthrough point is not a
+        deterministic result of the price order (a retry might use the earlier pool).
+        When an (asset, block) has several eligible stored points (e.g. a dex point and a later thin point), the one the price order
+        would return wins: lowest seed_rank, then input order (stored_points: price_point.id). It used to be the highest id.
+        Sources outside the price order (e.g. defillama) are dropped, not ranked last."""
+        self.seeded = {}; best = {}; self.fallthrough_points = 0; self.seed_hits = 0; self.seed_misses = 0
+        for i, (c, b, p) in enumerate(points):
+            k = (self.weth if c is None else c.lower(), b)
+            if is_fallthrough(p):
+                self.fallthrough_points += 1; self.seed_misses += 1; continue
+            rank = self.seed_rank(k[0], p)
+            if rank is None: continue   # source is not in the price order (e.g. defillama)
+            r = (rank, i)
+            if k not in best or r < best[k]: best[k] = r; self.seeded[k] = p
+    def seed_rank(self, asset, p):
+        """Position of a stored point's source in the price order (P4.2 nit): numeraire 0; DEX at the block >= floor (dex_slot0 /
+        dex_reserves) 1; thin tier (dex_reserves_thin) 2. Within a step, the configured pool position (PRICE_POOLS order; a pool
+        not configured sorts after the configured ones). Sources outside the price order (e.g. defillama) are dropped (None),
+        not ranked last: seed() does not reuse them."""
+        step = {"numeraire": 0, "dex_slot0": 1, "dex_reserves": 1, "dex_reserves_thin": 2}.get(p.source)
+        if step is None: return None
+        pools = [x[1] for x in self.pools.get(asset, [])]; pool = (p.detail or {}).get("pool")
+        return (step, pools.index(pool) if pool in pools else len(pools))
     def _call(self, to, data, block):
         """eth_call or None. Only a JSON-RPC 'execution reverted' is a revert (pool not usable at the block). Any other error (JSON-RPC
         errors arrive as HTTP 200 and raise RuntimeError in sources.RPC.call, e.g. rate/limit/upstream errors) is recorded in
@@ -165,13 +192,13 @@ class Pricer:
                      route=[dd["pool"]] + qp.detail.get("route", []), quote_detail=qp.detail, quote_price=str(qp.price)))
 
     def unpriced_reason(self, asset, block):
-        if getattr(self, "seed_only", False) and not getattr(self, "_marking", False): return {"reason": "not_seeded"}
         """C1 ruling (PR #7, 2026-10-23): why (asset, block) is unpriced, after price() returned None (uses the dex() memo / thin
         candidates of that call). Accepted (machine-checkable) codes: stale_pool (thin pool, both reserves > 0, last Swap >= 7 d before
         the block per the cached scan; last_swap_block + age), no_pool (no configured pool, or the pool has no code / reverts at the block),
         zero_reserves (a reserve or a token balance is 0). no_pool needs 'execution reverted' or eth_getCode = 0x (see _absent).
         Anything else (rpc_error, bad_response, swap_scan_gap, quote_unpriced, below_floor_not_thin_tier, unexplained) is NOT
         accepted and fails C1. Any RPC error at the block while pricing -> rpc_error (conservative)."""
+        if getattr(self, "seed_only", False) and not getattr(self, "_marking", False): return {"reason": "not_seeded"}
         a = self.weth if asset in (None, "native") else asset.lower()
         pools = self.pools.get(a, [])
         if not pools: return {"reason": "no_pool"}

@@ -1,10 +1,10 @@
-"""Migrations 013 + 014 on a LOCAL scratch DB (scripts/p4_migration_test.sh sets P4_MIGTEST_DSN; skipped otherwise). SYNTHETIC rows only.
+"""Migrations 013 + 014 + 015 on a LOCAL scratch DB (scripts/p4_migration_test.sh sets P4_MIGTEST_DSN; skipped otherwise). SYNTHETIC rows only.
 §8: manual_basis is never under ON DELETE CASCADE from ledger_entry; pending lots carry a NULL basis and price source."""
 import os, unittest
 DSN = os.environ.get("P4_MIGTEST_DSN")
 
-@unittest.skipUnless(DSN, "P4_MIGTEST_DSN not set (run scripts/p4_migration_test.sh)")
-class Migration013(unittest.TestCase):
+class _P4MigFixture:
+    """Shared scratch-DB fixture for 013 and 015. Not a TestCase, so 015 does not re-run the 013 tests."""
     def setUp(self):
         import psycopg
         self.pg = psycopg; self.c = psycopg.connect(DSN, autocommit=False); x = self.c.execute
@@ -18,6 +18,13 @@ class Migration013(unittest.TestCase):
     def lot(self, **kw):
         cols = {**dict(wallet_group="fixture", asset_id=self.a, open_entry_id=self.e, open_block=1, qty_open=1, qty_remaining=1, basis_status="pending"), **kw}
         return self.c.execute(f"INSERT INTO fifo_lot({','.join(cols)}) VALUES ({','.join(['%s'] * len(cols))}) RETURNING id", list(cols.values())).fetchone()[0]
+    def entry(self, **kw):
+        cols = {**dict(wallet_id=self.w, asset_id=self.a, chain_id=8453, tx_hash=b"\x04", log_index=1, block_number=2, qty=1, category="income"), **kw}
+        return self.c.execute(f"INSERT INTO ledger_entry(ts,{','.join(cols)}) VALUES (now(),{','.join(['%s'] * len(cols))}) RETURNING id",
+                              list(cols.values())).fetchone()[0]
+
+@unittest.skipUnless(DSN, "P4_MIGTEST_DSN not set (run scripts/p4_migration_test.sh)")
+class Migration013(_P4MigFixture, unittest.TestCase):
     def test_pending_lot_needs_null_source(self):
         self.lot()
         self.c.execute("SAVEPOINT s")
@@ -60,3 +67,23 @@ class Migration013(unittest.TestCase):
     def test_basis_origin_check(self):
         self.lot(basis_origin="unrecorded_inflow")
         with self.assertRaises(self.pg.errors.CheckViolation): self.lot(basis_origin="made_up")
+
+
+@unittest.skipUnless(DSN, "P4_MIGTEST_DSN not set (run scripts/p4_migration_test.sh)")
+class Migration015(_P4MigFixture, unittest.TestCase):   # P4.2: 015 checks only (not a subclass of Migration013)
+    def test_income_subtype_check(self):
+        self.entry(income_subtype="dao_distribution", source_ref="0x" + "f5" * 20, trace_address="0.1")
+        self.entry(log_index=2, income_subtype="pocket_deposit", source_ref="0x" + "aa" * 20 + ":0x" + "bb" * 32)
+        for kw in (dict(income_subtype="dao_distribution", source_ref="0xnot"), dict(income_subtype="made_up", source_ref="0x" + "f5" * 20),
+                   dict(category="swap", income_subtype="dao_distribution", source_ref="0x" + "f5" * 20)):
+            self.c.execute("SAVEPOINT s")
+            with self.assertRaises(self.pg.errors.CheckViolation): self.entry(log_index=3, **kw)
+            self.c.execute("ROLLBACK TO SAVEPOINT s")
+    def test_bridge_in_origin_and_p3_mark(self):
+        self.lot(basis_origin="bridge_in")
+        self.c.execute("INSERT INTO p3_mark(chain_id,asset_id,as_of_block,status,held_qty,reason) VALUES (8453,%s,1,'no_valid_mark',1,'no_pool')", (self.a,))
+        with self.assertRaises(self.pg.errors.CheckViolation):
+            self.c.execute("INSERT INTO p3_mark(chain_id,asset_id,as_of_block,status,held_qty) VALUES (8453,%s,2,'priced',1)", (self.a,))
+    def test_gotchi_lending_table(self):
+        self.c.execute("""INSERT INTO gotchi_lending(chain_id,listing_id,gotchi_id,lender,added_block,source) VALUES (8453,1,7001,'\\x01',1,'fixture')""")
+        self.assertEqual(self.c.execute("SELECT count(*) FROM gotchi_lending WHERE chain_id=8453").fetchone()[0], 1)
