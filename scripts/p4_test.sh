@@ -13,7 +13,7 @@ set -euo pipefail
 C=$1; SRC=$2; DST=$3; PY=${PY:-.venv/bin/python}; cd "$(dirname "$0")/.."
 # v2 baseline: the canonical value is recorded in docs/P4_RESULTS.md §12 after the canonical P4.1 run (no default until then).
 EXP_MD5=${EXP_LEDGER_MD5_V2:?set EXP_LEDGER_MD5_V2 (canonical ledger_md5_v2 baseline, docs/P4_RESULTS.md §12)}
-# v2_valued (P4.2): v2 + the four price fields; the VALUED gate (canonical 7caed4d25458c2659ac8b18df9f4b862 over 1647 rows, P4_RESULTS §13).
+# v2_valued (P4.2): v2 + the four price fields; the VALUED gate (canonical 9fb7f563a36e861f1246873abd5e4d7e over 1647 rows, P4_RESULTS §13 / §13c).
 EXP_VAL=${EXP_LEDGER_MD5_V2_VALUED:?set EXP_LEDGER_MD5_V2_VALUED (canonical ledger_md5_v2_valued baseline, docs/P4_RESULTS.md §13)}
 EXP_ROWS=${EXP_LEDGER_ROWS:?set EXP_LEDGER_ROWS (canonical ledger row count, docs/P4_RESULTS.md §12)}
 PRE_V1=210a71d811fd872a970b1d11770ced05   # canonical pre-P4.1 v1 (1321 rows): informational only

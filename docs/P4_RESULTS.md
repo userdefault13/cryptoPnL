@@ -404,21 +404,21 @@ GHST/WETH v2), so the ETH leg takes the trade-implied price (label medium) inste
   other DB touched.
 
 ## 13. P4.2 follow-ups (architect review of PR #9), branch p4.2-followups (2026-10-29)
-**Status: code + unit tests done; the canonical p4_test run and the seed-rank check are BLOCKED on the abra unlock on omarchywin**
-(checked 10:45 and 11:00 PT, names and exit codes only: `abra unlock-status` rc 1 "locked", `abra ls cryptoPnL` rc 1). Nothing ran on
-the ledger PG (5442) in P4.2; no RPC, no HyperSync.
+**Status: landed.** Canonical p4_test and seed-rank check ran on 2026-11-13 after the 10:13 AM PT unlock (§13b). Entry 40626 was
+then repriced onto seed point 512 (§13c); the valued baseline is now `9fb7f563a36e861f1246873abd5e4d7e`.
 
 - **`ledger_md5_v2_valued`** (`cryptopnl/evidence.py`, key next to `ledger_md5_v2` in `p4_ledger_md5_<chain>.txt`): v2's fields +
   `coalesce(price_usdc::text,'')`, `coalesce(price_source,'')`, `coalesce(price_confidence_label,'')`, `coalesce(price_flag,'')`, in v2's
   order (`tx_hash, log_index, asset_id, location, qty, trace_address`). Excluded: `price_confidence` (float; its label carries it) and
-  `price_id` (surrogate key); there is no `value_usdc` column. **Baseline `7caed4d25458c2659ac8b18df9f4b862` over 1647 rows** on
-  `cryptopnl_p41_base` after the RF pass (computed read-only on 2026-10-28 with the same expression; the pre-pass state hashes to
-  `c30df359f24cea803939bfb95c320b7e`). **Re-confirmed** on 2026-11-13 (canonical p4_test, see §13b).
+  `price_id` (surrogate key); there is no `value_usdc` column. **Canonical baseline `9fb7f563a36e861f1246873abd5e4d7e` over 1647 rows**
+  on `cryptopnl_p41_base` after the 2026-11-13 reprice of entry 40626 onto seed point 512 (see §13c). The post-RF / pre-reprice
+  hash was `7caed4d25458c2659ac8b18df9f4b862` (computed read-only on 2026-10-28, re-confirmed in the first 2026-11-13 p4_test, §13b);
+  the pre-RF state hashed to `c30df359f24cea803939bfb95c320b7e`.
 - **p4_test gates:** v2 stays the STRUCTURAL gate (`EXP_LEDGER_MD5_V2`, `EXP_LEDGER_ROWS`); new VALUED gate `EXP_LEDGER_MD5_V2_VALUED`
   (required, no default). GHST pocket gate: a missing gate now FAILS, and in == out is pinned to `EXP_GHST_POCKET_WEI`
   (default 652629999999999997500) via `pockets.ghst_gate_error`.
   Run (once unlocked): `EXP_LEDGER_MD5_V2=eaead37d4a6b3e7e678f5b375cc8b6fd EXP_LEDGER_ROWS=1647
-  EXP_LEDGER_MD5_V2_VALUED=7caed4d25458c2659ac8b18df9f4b862 scripts/with_ledger_pg.sh scripts/p4_test.sh 8453 cryptopnl_p41_base cryptopnl_p4_2_run`.
+  EXP_LEDGER_MD5_V2_VALUED=9fb7f563a36e861f1246873abd5e4d7e scripts/with_ledger_pg.sh scripts/p4_test.sh 8453 cryptopnl_p41_base cryptopnl_p4_2_run`.
 - **Seeding by price-order rank** (`Pricer.seed` / `seed_rank`): numeraire 0, DEX at the block (dex_slot0 / dex_reserves) 1, thin
   tier 2; within a step, the PRICE_POOLS position; ties keep price_point.id order. It used to keep the highest id. Sources outside
   the price order (e.g. defillama) are dropped, not ranked last. **Fallthrough points** (`skipped_pools[*].why == "error"`) are
@@ -458,3 +458,37 @@ read-only on chain, ledger PG 5442 only. Evidence under `docs/evidence/`. This i
 - **Unit suite** on 5442 scratch DB `cryptopnl_unit_p41c` (created for the run; not a ledger copy):
   **328 tests OK, 11 skipped** in 81.070 s (`docs/evidence/p4_2_unit_suite_5442.log`). The skipped tests are the
   scratch-only migration tests (they pass in `scripts/p4_migration_test.sh` on a local PG).
+
+### 13c. Reprice of ledger entry 40626 (omarchywin, 2026-11-13 ~10:25–10:27 AM PT)
+user_default approved (relayed 10:21 AM PT). Targeted `UPDATE` of entry **40626** only on `cryptopnl_p41_base` (the normal
+`price_ledger` path NULLs every price first, so it was not used). 0 RPC: `Pricer.seed` of stored points with fallthrough skip,
+`--reuse-stored` / seed-only, no live fetch; columns set as `price_ledger` would for a seeded Price from point 512. Evidence:
+`docs/evidence/p4_2_reprice_40626.json`.
+
+- **Before:** `price_id` 1303, `dex_reserves`, label medium, confidence 0.6, `price_usdc` 0.10310369434393438633…, `price_flag` null.
+- **After:** `price_id` 512, `dex_slot0`, label high, confidence 1.0, `price_usdc` 0.10337491617138329985…, `price_flag` null.
+- **v2 unchanged:** `eaead37d4a6b3e7e678f5b375cc8b6fd` over 1647 rows.
+- **v2_valued:** `7caed4d25458c2659ac8b18df9f4b862` → **`9fb7f563a36e861f1246873abd5e4d7e`** (new canonical baseline; written to the
+  ledger md5 evidence files and used as `EXP_LEDGER_MD5_V2_VALUED`).
+- In-memory FIFO PnL (no fifo / p3_mark writes on `p41_base`): **Δ realized = 0 USDC, Δ unrealized = 0 USDC** (withdrawal policy is
+  `exit`; inside the architect bound |realized| ≤ 0.0081 USDC, unrealized 0).
+- `rpc_calls` 0, `pricer_calls` 0, `seed_hits` 1, `seed_misses` 1 (point 1303 is still a fallthrough in stored points).
+
+**p4_test** rerun with `EXP_LEDGER_MD5_V2_VALUED=9fb7f563a36e861f1246873abd5e4d7e` and
+`NET_REQLOG=docs/evidence/p4_2_canon_p4_test_reqlog.txt`: **P4 PASS chain 8453 (7 s)**
+(`docs/evidence/p4_2_canon_p4_test.log`).
+- v2 `eaead37d4a6b3e7e678f5b375cc8b6fd` and v2_valued `9fb7f563a36e861f1246873abd5e4d7e` over 1647 rows: OK.
+- Rebuild = incremental from block 38945509, engine `a029e30979832d6024ee06824f2af5b9`, fifo_lot `be396f7af8e9311100195ef90d537e7f`,
+  lot_disposal `d680e028de8dab1fb70b6a3cb9b47123`, 356 lots, 770 disposals.
+- Reconcile: acceptance PASS, identity_pass true, **total_residual=0**, failures [], exits 50, **no unexplained gap (ETH 0, GHST 0)**.
+  GHST pocket in = out = 652629999999999997500 wei.
+- Snapshots byte-identical `073c7309092403d31f6887d2bd2d3e2f`.
+- Reqlog is header-only (1 line, 0 request lines): **0 RPC, 0 HyperSync**.
+
+**Seed-rank check** rerun (`docs/evidence/p4_2_seed_rank_check_8453.json`): `fallthrough_points=1`, `seed_misses=1`,
+`choice_changed=1`, `choice_changed_same_price=0`, **`ledger_rows_on_a_changed_choice=0`**, `verdict=CHANGE`
+(the stored-point choice for GHST at 42297928 still prefers 512 over 1303, but no ledger row remains on the old point),
+`stored_points=692`, `asset_blocks=691`.
+
+Scratch DBs `cryptopnl_p4_2_run` and `cryptopnl_unit_p41c` were dropped on 5442 after this rerun (listed before and after; each
+dropped by exact quoted name). `cryptopnl_p41_base` and `cryptopnl_p3_base` were not touched; 5439/5440 were not touched.

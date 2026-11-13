@@ -1,0 +1,108 @@
+{
+ "after": {
+  "entry": {
+   "block_number": 42297928,
+   "category": "withdrawal",
+   "id": 40626,
+   "price_confidence": "1.0",
+   "price_confidence_label": "high",
+   "price_flag": null,
+   "price_id": 512,
+   "price_source": "dex_slot0",
+   "price_usdc": "0.10337491617138329985282818537904815240952026719083",
+   "qty": "-30000000000000000000"
+  },
+  "md5": {
+   "ledger_md5_v2": "eaead37d4a6b3e7e678f5b375cc8b6fd",
+   "ledger_md5_v2_valued": "9fb7f563a36e861f1246873abd5e4d7e",
+   "ledger_rows": 1647
+  },
+  "pnl": {
+   "as_of_block": 52911467,
+   "market_value_usdc": "53.389985413541197248955005503439496711014096700205",
+   "open_basis_usdc": "54.789362887246543050726107196523762935504519419326",
+   "realized_usdc": "-117.37205741281516665015670034965490755157795511267",
+   "set_by": "last ledger block",
+   "unrealized_usdc": "-1.3993774737053458017711016930842662244904227191214"
+  }
+ },
+ "applied": {
+  "price_confidence": "1.0",
+  "price_confidence_label": "high",
+  "price_flag": null,
+  "price_id": 512,
+  "price_source": "dex_slot0",
+  "price_usdc": "0.10337491617138329985282818537904815240952026719083",
+  "pricer_calls": 0,
+  "seed_hits": 1,
+  "seed_misses": 1
+ },
+ "before": {
+  "entry": {
+   "block_number": 42297928,
+   "category": "withdrawal",
+   "id": 40626,
+   "price_confidence": "0.6",
+   "price_confidence_label": "medium",
+   "price_flag": null,
+   "price_id": 1303,
+   "price_source": "dex_reserves",
+   "price_usdc": "0.10310369434393438633020614768090950431959232983462",
+   "qty": "-30000000000000000000"
+  },
+  "md5": {
+   "ledger_md5_v2": "eaead37d4a6b3e7e678f5b375cc8b6fd",
+   "ledger_md5_v2_valued": "7caed4d25458c2659ac8b18df9f4b862",
+   "ledger_rows": 1647
+  },
+  "pnl": {
+   "as_of_block": 52911467,
+   "market_value_usdc": "53.389985413541197248955005503439496711014096700205",
+   "open_basis_usdc": "54.789362887246543050726107196523762935504519419326",
+   "realized_usdc": "-117.37205741281516665015670034965490755157795511267",
+   "set_by": "last ledger block",
+   "unrealized_usdc": "-1.3993774737053458017711016930842662244904227191214"
+  },
+  "price_point_512": {
+   "asset": "0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb",
+   "block": 42297928,
+   "confidence": "1.0",
+   "confidence_label": "high",
+   "detail": {
+    "block": 42297928,
+    "depth_method": "quote_balance",
+    "direct": true,
+    "floor_usd": 1000.0,
+    "kind": "v3",
+    "pool": "0x56c11053159a24c0731b4b12356bc1f0578fb474",
+    "pool_depth_usd": "443465.23",
+    "quote": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "quote_detail": null,
+    "quote_reserve_usd": "443465.23",
+    "route": [
+     "0x56c11053159a24c0731b4b12356bc1f0578fb474"
+    ],
+    "skipped_pools": [
+     {
+      "pool": "0x41d4934322f2bd6fe1dbe4124070fe61651a2067",
+      "why": "empty"
+     }
+    ]
+   },
+   "id": 512,
+   "price_usdc": "0.10337491617138329985282818537904815240952026719083",
+   "source": "dex_slot0"
+  }
+ },
+ "db": "cryptopnl_p41_base",
+ "delta": {
+  "realized_usdc": "0E-47",
+  "unrealized_usdc": "0E-49"
+ },
+ "entry_id": 40626,
+ "from_price_id": 1303,
+ "rows": 1647,
+ "rpc_calls": 0,
+ "to_price_id": 512,
+ "v2_unchanged": true
+}
