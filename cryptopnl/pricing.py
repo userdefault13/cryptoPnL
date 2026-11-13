@@ -40,6 +40,10 @@ class DefiLlama:
             self.cache[key] = out
         return self.cache[key]
 
+def is_fallthrough(p):
+    """Stored DEX point taken after an earlier pool in the order errored (detail.skipped_pools[*].why == "error")."""
+    return any((x or {}).get("why") == "error" for x in (p.detail or {}).get("skipped_pools") or [])
+
 class Pricer:
     def __init__(self, chain, rpc, api=None, swaps=None):
         self.chain, self.rpc, self.api = chain, rpc, api
@@ -54,13 +58,18 @@ class Pricer:
         """P4.1 (re-pricing after a re-classify without repeating RPC): stored P3 points [(contract | None for native, block, Price)]
         answer price() before any RPC. The price order is deterministic, so a stored point IS that order's result at the block;
         only (asset, block) pairs with no stored point are priced live. Counted in seed_hits.
-        When an (asset, block) has several stored points (e.g. a dex point and a later thin point), the one the price order would
-        return wins: lowest seed_rank, then input order (stored_points: price_point.id). It used to be the highest id."""
-        self.seeded = {}; best = {}
+        Fallthrough points (detail.skipped_pools[*].why == "error": an earlier pool errored and a later pool was used) are skipped
+        and each counts as a seed miss: that (asset, block) is priced live or left unpriced, never 0. A fallthrough point is not a
+        deterministic result of the price order (a retry might use the earlier pool).
+        When an (asset, block) has several eligible stored points (e.g. a dex point and a later thin point), the one the price order
+        would return wins: lowest seed_rank, then input order (stored_points: price_point.id). It used to be the highest id."""
+        self.seeded = {}; best = {}; self.fallthrough_points = 0; self.seed_hits = 0; self.seed_misses = 0
         for i, (c, b, p) in enumerate(points):
-            k = (self.weth if c is None else c.lower(), b); r = (self.seed_rank(k[0], p), i)
+            k = (self.weth if c is None else c.lower(), b)
+            if is_fallthrough(p):
+                self.fallthrough_points += 1; self.seed_misses += 1; continue
+            r = (self.seed_rank(k[0], p), i)
             if k not in best or r < best[k]: best[k] = r; self.seeded[k] = p
-        self.seed_hits = 0; self.seed_misses = 0
     def seed_rank(self, asset, p):
         """Position of a stored point's source in the price order (P4.2 nit): numeraire 0; DEX at the block >= floor (dex_slot0 /
         dex_reserves) 1; thin tier (dex_reserves_thin) 2; anything else (not in the price order, e.g. defillama) 3. Within a step,
