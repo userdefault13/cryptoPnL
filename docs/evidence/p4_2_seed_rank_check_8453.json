@@ -22,6 +22,7 @@
  "choice_changed_same_price": 0,
  "fallthrough_points": 1,
  "ledger_rows_on_a_changed_choice": 1,
+ "seed_misses": 1,
  "stored_points": 692,
  "verdict": "CHANGE"
 }
