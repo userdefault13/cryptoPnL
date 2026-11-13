@@ -438,8 +438,7 @@ abra was unlocked at 10:13 AM PT (`unlock: abra-agent holds the key`, rc 0). Wor
 read-only on chain, ledger PG 5442 only. Evidence under `docs/evidence/`. This is **not** a pass of the seed-rank check.
 
 - **Seed-rank check** (read-only, 0 RPC) on `cryptopnl_p41_base`: `verdict=CHANGE`, `choice_changed=1`,
-  `fallthrough_points=1`, `seed_misses=1` (from a follow-up `Pricer.seed(stored_points)` on the same DB; the JSON has no
-  `seed_misses` key). `stored_points=692`, `asset_blocks=691`, `ledger_rows_on_a_changed_choice=1`.
+  `fallthrough_points=1`, `seed_misses=1` (now a field in `docs/evidence/p4_2_seed_rank_check_8453.json`, from `Pricer.seed(stored_points)`). `stored_points=692`, `asset_blocks=691`, `ledger_rows_on_a_changed_choice=1`.
   The one change is GHST (`0xcd2f22236dd9dfe2356d7c543161d4d260fd9bcb`) at **block 42297928**:
   old (highest id) price_point **1303** `dex_reserves` 0.10310369434393438633… (this is the fallthrough point:
   `skipped_pools` why=error on both configured GHST pools); new (skip fallthrough) price_point **512** `dex_slot0`
@@ -453,7 +452,9 @@ read-only on chain, ledger PG 5442 only. Evidence under `docs/evidence/`. This i
   Rebuild = incremental from block 38945509, engine `7a6a6b3ed4bd60ca44bbd6b49ac7c695`, 356 lots, 770 disposals.
   Reconcile: acceptance PASS, identity_pass true, **total_residual=0**, failures [], exits 50, **no unexplained gap**
   (ETH 0, GHST 0). GHST pocket in = out = 652629999999999997500 wei. Snapshots byte-identical
-  `f8034ab700c7e1567141f8c2bf0b5855`. The script is offline (no HyperSync, no RPC); this run did not attach a NET_REQLOG.
+  `f8034ab700c7e1567141f8c2bf0b5855`.
+  Rerun with `NET_REQLOG=docs/evidence/p4_2_canon_p4_test_reqlog.txt` (same gates): **P4 PASS chain 8453 (18 s)**
+  (`docs/evidence/p4_2_canon_p4_test_netreq.log`). The reqlog is header-only (1 line, 0 request lines): **0 RPC, 0 HyperSync**.
 - **Unit suite** on 5442 scratch DB `cryptopnl_unit_p41c` (created for the run; not a ledger copy):
   **328 tests OK, 11 skipped** in 81.070 s (`docs/evidence/p4_2_unit_suite_5442.log`). The skipped tests are the
   scratch-only migration tests (they pass in `scripts/p4_migration_test.sh` on a local PG).
