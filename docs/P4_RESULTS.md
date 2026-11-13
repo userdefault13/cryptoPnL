@@ -420,8 +420,11 @@ the ledger PG (5442) in P4.2; no RPC, no HyperSync.
   Run (once unlocked): `EXP_LEDGER_MD5_V2=eaead37d4a6b3e7e678f5b375cc8b6fd EXP_LEDGER_ROWS=1647
   EXP_LEDGER_MD5_V2_VALUED=7caed4d25458c2659ac8b18df9f4b862 scripts/with_ledger_pg.sh scripts/p4_test.sh 8453 cryptopnl_p41_base cryptopnl_p4_2_run`.
 - **Seeding by price-order rank** (`Pricer.seed` / `seed_rank`): numeraire 0, DEX at the block (dex_slot0 / dex_reserves) 1, thin
-  tier 2, any other source 3; within a step, the PRICE_POOLS position; ties keep price_point.id order. It used to keep the highest id.
-  Whether this picks a different stored point anywhere on the canonical ledger is **not yet known** (needs the DB):
+  tier 2; within a step, the PRICE_POOLS position; ties keep price_point.id order. It used to keep the highest id. Sources outside
+  the price order (e.g. defillama) are dropped, not ranked last. **Fallthrough points** (`skipped_pools[*].why == "error"`) are
+  skipped and counted as seed misses (priced live or left unpriced, never 0); `scripts/p4_2_seed_rank_check.py` reports
+  `fallthrough_points`. Known P3 GHST candidates: blocks 42297928 and 43748241 (not yet counted on canon).
+  Whether rank or the fallthrough skip picks a different stored point anywhere on the canonical ledger is **not yet known** (needs the DB):
   `scripts/with_ledger_pg.sh env CRYPTOPNL_DSN="dbname=cryptopnl_p41_base" .venv/bin/python scripts/p4_2_seed_rank_check.py 8453
   --out docs/evidence/p4_2_seed_rank_check_8453.json` (read-only, 0 RPC). Any `choice_changed` > 0 is a CHANGE, not a pass.
 - Nits: stale return-of-capital line removed (DESIGN §8 PTD ruling); `unpriced_reason` docstring is live again; second `os` import

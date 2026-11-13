@@ -62,19 +62,24 @@ class Pricer:
         and each counts as a seed miss: that (asset, block) is priced live or left unpriced, never 0. A fallthrough point is not a
         deterministic result of the price order (a retry might use the earlier pool).
         When an (asset, block) has several eligible stored points (e.g. a dex point and a later thin point), the one the price order
-        would return wins: lowest seed_rank, then input order (stored_points: price_point.id). It used to be the highest id."""
+        would return wins: lowest seed_rank, then input order (stored_points: price_point.id). It used to be the highest id.
+        Sources outside the price order (e.g. defillama) are dropped, not ranked last."""
         self.seeded = {}; best = {}; self.fallthrough_points = 0; self.seed_hits = 0; self.seed_misses = 0
         for i, (c, b, p) in enumerate(points):
             k = (self.weth if c is None else c.lower(), b)
             if is_fallthrough(p):
                 self.fallthrough_points += 1; self.seed_misses += 1; continue
-            r = (self.seed_rank(k[0], p), i)
+            rank = self.seed_rank(k[0], p)
+            if rank is None: continue   # source is not in the price order (e.g. defillama)
+            r = (rank, i)
             if k not in best or r < best[k]: best[k] = r; self.seeded[k] = p
     def seed_rank(self, asset, p):
         """Position of a stored point's source in the price order (P4.2 nit): numeraire 0; DEX at the block >= floor (dex_slot0 /
-        dex_reserves) 1; thin tier (dex_reserves_thin) 2; anything else (not in the price order, e.g. defillama) 3. Within a step,
-        the configured pool position (PRICE_POOLS order; a pool not configured sorts after the configured ones)."""
-        step = {"numeraire": 0, "dex_slot0": 1, "dex_reserves": 1, "dex_reserves_thin": 2}.get(p.source, 3)
+        dex_reserves) 1; thin tier (dex_reserves_thin) 2. Within a step, the configured pool position (PRICE_POOLS order; a pool
+        not configured sorts after the configured ones). Sources outside the price order (e.g. defillama) are dropped (None),
+        not ranked last: seed() does not reuse them."""
+        step = {"numeraire": 0, "dex_slot0": 1, "dex_reserves": 1, "dex_reserves_thin": 2}.get(p.source)
+        if step is None: return None
         pools = [x[1] for x in self.pools.get(asset, [])]; pool = (p.detail or {}).get("pool")
         return (step, pools.index(pool) if pool in pools else len(pools))
     def _call(self, to, data, block):

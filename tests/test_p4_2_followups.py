@@ -19,17 +19,19 @@ class SeedByRank(unittest.TestCase):
     def test_first_configured_pool_wins_within_the_dex_step(self):
         self.assertEqual(self.seeded(pt("0.6", "dex_slot0", P1), pt("0.5", "dex_slot0", P0)).detail["pool"], P0)
         self.assertEqual(self.seeded(pt("0.5", "dex_slot0", P0), pt("0.6", "dex_slot0", P1)).detail["pool"], P0)
-    def test_unordered_source_ranks_last(self):
+    def test_unordered_source_is_dropped(self):
         self.assertEqual(self.seeded(pt("0.7", "defillama"), pt("0.4", "dex_reserves_thin", P0, "low")).source, "dex_reserves_thin")
-    def test_equal_rank_keeps_input_order(self):   # stored_points is ORDER BY price_point.id -> lowest id among equals
-        self.assertEqual(self.seeded(pt("0.7", "defillama"), pt("0.8", "other")).price, Price("0.7", "x", "high").price)
+        p = Pricer(8453, None); p.seed([pt("0.7", "defillama"), pt("0.8", "other")]); p.seed_only = True
+        self.assertEqual(p.seeded, {}); self.assertIsNone(p.price(GHST, B, None))   # dropped, not ranked last; never 0
     def test_single_point_and_hits(self):
         p = Pricer(8453, None); p.seed([pt("0.5", "dex_slot0", P0)])
         self.assertEqual(p.price(GHST.upper().replace("0X", "0x", 1), B, None).price, Price("0.5", "x", "high").price); self.assertEqual(p.seed_hits, 1)
     def test_rank_values(self):
         p = Pricer(8453, None)
-        self.assertEqual([p.seed_rank(GHST, x[2]) for x in (pt(1, "numeraire"), pt(1, "dex_slot0", P1), pt(1, "dex_reserves_thin", P0), pt(1, "defillama"))],
-                         [(0, len(PRICE_POOLS[8453][GHST])), (1, 1), (2, 0), (3, len(PRICE_POOLS[8453][GHST]))])
+        self.assertEqual([p.seed_rank(GHST, x[2]) for x in (pt(1, "numeraire"), pt(1, "dex_slot0", P1), pt(1, "dex_reserves_thin", P0))],
+                         [(0, len(PRICE_POOLS[8453][GHST])), (1, 1), (2, 0)])
+        self.assertIsNone(p.seed_rank(GHST, pt(1, "defillama")[2]))
+        self.assertIsNone(p.seed_rank(GHST, pt(1, "other")[2]))
 
 
 class SeedSkipsFallthrough(unittest.TestCase):   # P4.2 nit 3: fallthrough points (earlier pool errored) are seed misses, never reused
