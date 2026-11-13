@@ -1,0 +1,1 @@
+# NET_REQLOG: canonical p4_test 8453 cryptopnl_p41_base -> cryptopnl_p4_2_run (2026-11-13). One line per HTTP attempt/outcome from cryptopnl.net; no lines means 0 RPC and 0 HyperSync.
